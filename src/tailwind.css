@@ -247,6 +247,27 @@
   box-shadow: var(--ssp-elev-2);
 }
 
+/* ---------- §5.8 NavBar: the app mark (16px squircle, centered accent dot) ---------- */
+@layer components {
+  .app-mark {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    background: var(--ssp-accent-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .app-mark::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--ssp-accent);
+  }
+}
+
 /* Base: app defaults from tokens */
 @layer base {
   html,
@@ -256,5 +277,14 @@
   }
   body {
     @apply bg-canvas font-sans text-ink antialiased;
+  }
+
+  /* DESIGN §7.2 universal focus ring: 2px ground + 4px accent,
+     never suppressed — geometry+color redundancy is handled per control */
+  :where(button, input, select, [tabindex]):focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--ssp-bg-canvas),
+      0 0 0 4px var(--ssp-accent);
   }
 }

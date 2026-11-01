@@ -13,6 +13,7 @@ export default defineConfig(() => ({
   test: {
     environment: "jsdom",
     globals: true,
+    setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     // Scaffold ships no tests yet (first land with task 0.6); keep CI honest-green until then
     passWithNoTests: true,
