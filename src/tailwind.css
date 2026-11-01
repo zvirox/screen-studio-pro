@@ -1,0 +1,260 @@
+/* src/tailwind.css — ScreenStudio Pro design tokens + fonts
+   Provenance: DESIGN.md v1.0 (§2 colors, §3 type, §4 foundations, §5 components).
+   Tailwind v4 @theme mapped onto a runtime variable layer so dark (default) and
+   light swap without re-generating utilities: @theme inline points at --ssp-*
+   vars that :root (dark) and .light override.
+
+   GOVERNANCE (DESIGN §8): the closed set lives here and only here. Components
+   reference tokens by name — a hex/px literal in a component is a review failure.
+   Nothing "missing" gets invented; extensions require a DESIGN.md entry first. */
+
+/* ---------- Fonts (self-hosted, DESIGN §3 — never a CDN) ---------- */
+@font-face {
+  font-family: "Familjen Grotesk";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/FamiljenGrotesk-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Familjen Grotesk";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/FamiljenGrotesk-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("./fonts/JetBrainsMono-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("./fonts/JetBrainsMono-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@import "tailwindcss";
+
+/* ---------- Runtime palette layer (values from DESIGN.md §2, verbatim) ---------- */
+:root {
+  /* dark is default (§2.2) */
+  --ssp-bg-canvas: #0b0e13;
+  --ssp-bg-raised: #10151d;
+  --ssp-surface-glass: rgba(255, 255, 255, 0.065);
+  --ssp-surface-glass-strong: rgba(18, 24, 33, 0.72);
+  --ssp-surface-solid: #151b26;
+  --ssp-border-subtle: rgba(255, 255, 255, 0.08);
+  --ssp-border-glass: rgba(255, 255, 255, 0.14);
+  --ssp-text-primary: #ecf1f6;
+  --ssp-text-secondary: rgba(236, 241, 246, 0.66);
+  --ssp-text-disabled: rgba(236, 241, 246, 0.38);
+  --ssp-accent: #4fe3c6;
+  --ssp-accent-hover: #6eebd5;
+  --ssp-accent-active: #2ecba9;
+  --ssp-accent-text: #07271f;
+  --ssp-accent-muted: rgba(79, 227, 198, 0.14);
+  --ssp-signal: #ff5a66;
+  --ssp-signal-muted: rgba(255, 90, 102, 0.16);
+  --ssp-success: #5ee58a;
+  --ssp-warning: #ffc24b;
+  --ssp-error: #ff7a85;
+  --ssp-error-muted: rgba(255, 122, 133, 0.14);
+  /* §4.3 dark shadow recipes */
+  --ssp-elev-1: 0 1px 2px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.18);
+  --ssp-elev-2: 0 2px 6px rgba(0, 0, 0, 0.32), 0 12px 32px rgba(0, 0, 0, 0.28);
+  --ssp-elev-float: 0 2px 8px rgba(0, 0, 0, 0.35),
+    0 24px 64px -12px rgba(0, 0, 0, 0.5);
+  /* §4.4 recipe inputs (fill composed at use, see glass recipes below) */
+  --ssp-scrim-floor: 55%;
+  --ssp-modal-scrim: rgba(0, 0, 0, 0.4);
+  --ssp-input-hover-border: rgba(255, 255, 255, 0.16);
+}
+
+/* §2.3 Light mode — both faces are law (§8): complete, never afterthought */
+:root.light {
+  --ssp-bg-canvas: #e9edf2;
+  --ssp-bg-raised: #f7f9fb;
+  --ssp-surface-glass: rgba(255, 255, 255, 0.62);
+  --ssp-surface-glass-strong: rgba(255, 255, 255, 0.86);
+  --ssp-surface-solid: #ffffff;
+  --ssp-border-subtle: rgba(13, 20, 29, 0.08);
+  --ssp-border-glass: rgba(255, 255, 255, 0.9);
+  --ssp-text-primary: #0f151d;
+  --ssp-text-secondary: rgba(15, 21, 29, 0.64);
+  --ssp-text-disabled: rgba(15, 21, 29, 0.36);
+  --ssp-accent: #0b8a72;
+  --ssp-accent-hover: #089a7e;
+  --ssp-accent-active: #076f5b;
+  --ssp-accent-text: #ffffff;
+  --ssp-accent-muted: rgba(11, 138, 114, 0.12);
+  --ssp-signal: #e5484d;
+  --ssp-signal-muted: rgba(229, 72, 77, 0.12);
+  --ssp-success: #1c8a44;
+  --ssp-warning: #9a6700;
+  --ssp-error: #d13438;
+  --ssp-error-muted: rgba(209, 52, 56, 0.12);
+  /* §4.3 light shadow recipes */
+  --ssp-elev-1: 0 1px 2px rgba(13, 20, 29, 0.12), 0 4px 12px rgba(13, 20, 29, 0.1);
+  --ssp-elev-2: 0 2px 6px rgba(13, 20, 29, 0.16), 0 12px 32px rgba(13, 20, 29, 0.18);
+  --ssp-elev-float: 0 2px 8px rgba(13, 20, 29, 0.16),
+    0 24px 64px -12px rgba(13, 20, 29, 0.28);
+  --ssp-modal-scrim: rgba(0, 0, 0, 0.24);
+  --ssp-input-hover-border: rgba(13, 20, 29, 0.16);
+}
+
+/* ---------- Tailwind theme bridge ---------- */
+@theme inline {
+  /* DESIGN.md v1.0 §2 — colors (semantic names mirror the contract tokens) */
+  --color-canvas: var(--ssp-bg-canvas);
+  --color-raised: var(--ssp-bg-raised);
+  --color-glass: var(--ssp-surface-glass);
+  --color-glass-strong: var(--ssp-surface-glass-strong);
+  --color-solid: var(--ssp-surface-solid);
+  --color-subtle: var(--ssp-border-subtle);
+  --color-line-glass: var(--ssp-border-glass);
+  --color-ink: var(--ssp-text-primary);
+  --color-ink-secondary: var(--ssp-text-secondary);
+  --color-ink-disabled: var(--ssp-text-disabled);
+  --color-accent: var(--ssp-accent);
+  --color-accent-hover: var(--ssp-accent-hover);
+  --color-accent-active: var(--ssp-accent-active);
+  --color-accent-text: var(--ssp-accent-text);
+  --color-accent-muted: var(--ssp-accent-muted);
+  --color-signal: var(--ssp-signal);
+  --color-signal-muted: var(--ssp-signal-muted);
+  --color-success: var(--ssp-success);
+  --color-warning: var(--ssp-warning);
+  --color-error: var(--ssp-error);
+  --color-error-muted: var(--ssp-error-muted);
+
+  /* DESIGN.md v1.0 §3 — type scale (fixed rem) + §3 faces */
+  --font-sans: "Familjen Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+  --text-display-lg: 1.75rem;
+  --text-display-lg--line-height: 1.15;
+  --text-display-lg--font-weight: 700;
+  --text-display-md: 1.375rem;
+  --text-display-md--line-height: 1.2;
+  --text-display-md--font-weight: 700;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.35;
+  --text-heading--font-weight: 600;
+  --text-body-md: 0.9375rem;
+  --text-body-md--line-height: 1.5;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.45;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.3;
+  --text-label--font-weight: 500;
+  --text-mono-md: 0.9375rem;
+  --text-mono-md--line-height: 1.2;
+  --text-mono-md--font-weight: 500;
+  --text-mono-sm: 0.8125rem;
+  --text-mono-sm--line-height: 1.3;
+
+  /* DESIGN.md v1.0 §4.2 — radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  /* DESIGN.md v1.0 §4.3 — elevation (shadow recipes live on the palette layer) */
+  --shadow-elev-1: var(--ssp-elev-1);
+  --shadow-elev-2: var(--ssp-elev-2);
+  --shadow-float: var(--ssp-elev-float);
+
+  /* DESIGN.md v1.0 §4.6 — motion */
+  --ease-fast: cubic-bezier(0.25, 1, 0.5, 1); /* 140ms */
+  --ease-base: cubic-bezier(0.34, 1.56, 0.64, 1); /* ≈spring(300, 24) */
+  --ease-slow: cubic-bezier(0.34, 1.32, 0.64, 1); /* ≈spring(260, 20) */
+  --ease-settle: ease-in; /* 90ms */
+  --animate-pulse-rec: hud-pulse-rec 1.4s ease-in-out infinite;
+
+  /* DESIGN.md v1.0 §4.1 — 4px base; named steps for the closed set */
+  --spacing: 4px;
+}
+
+@keyframes hud-pulse-rec {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* DESIGN.md v1.0 §4.6 — reduced motion: transforms removed, opacity-only (§7.5) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- §4.4 Glass recipes (the only sanctioned blur treatments) ---------- */
+@utility pane {
+  /* fill = surface.glass over the 55% bg.canvas scrim floor */
+  background-color: color-mix(
+    in srgb,
+    var(--ssp-bg-canvas) var(--ssp-scrim-floor),
+    var(--ssp-surface-glass)
+  );
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-1);
+}
+
+@utility float {
+  background-color: color-mix(
+    in srgb,
+    var(--ssp-bg-canvas) var(--ssp-scrim-floor),
+    var(--ssp-surface-glass-strong)
+  );
+  backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-float);
+}
+
+@utility modal {
+  background-color: color-mix(
+    in srgb,
+    var(--ssp-bg-canvas) var(--ssp-scrim-floor),
+    var(--ssp-surface-glass-strong)
+  );
+  backdrop-filter: blur(32px);
+  border: 1px solid var(--ssp-border-subtle);
+  box-shadow: var(--ssp-elev-2);
+}
+
+/* Base: app defaults from tokens */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+}
