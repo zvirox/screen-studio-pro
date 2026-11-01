@@ -1,9 +1,15 @@
 use serde::Serialize;
+use serde_json::Value;
+use std::sync::Mutex;
+use tauri::State;
+
+use crate::settings::SettingsStore;
+use crate::util::error::{CoreError, IpcError};
 
 /* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
-0.6 scope is the handshake + capability probe; everything else joins with
-its feature module. Command names are the `cmd://` verbs of API.md §2
-minus the prefix. */
+0.6 brought the handshake + capability probe; 0.7 adds `settings_get/set`
+(API §2.6) over the TOML store. Command names are the `cmd://` verbs of
+API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
@@ -112,6 +118,49 @@ fn probe_capabilities() -> Capabilities {
 #[tauri::command]
 pub fn system_capabilities() -> Capabilities {
     probe_capabilities()
+}
+
+/// `cmd://settings_get` — returns one TOML section as JSON (API §2.6).
+#[tauri::command]
+pub fn settings_get(
+    section: String,
+    store: State<'_, Mutex<SettingsStore>>,
+) -> Result<Value, IpcError> {
+    // Lock poisoning means a thread panicked holding the store — recover the
+    // inner value; the cache is plain data and still consistent.
+    let store = store
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let settings = store.get();
+    match section.as_str() {
+        "capture" => {
+            Ok(serde_json::to_value(&settings.capture).expect("Settings is plain JSON data"))
+        }
+        "audio" => Ok(serde_json::to_value(&settings.audio).expect("Settings is plain JSON data")),
+        "files" => Ok(serde_json::to_value(&settings.files).expect("Settings is plain JSON data")),
+        "shortcuts" => {
+            Ok(serde_json::to_value(&settings.shortcuts).expect("Settings is plain JSON data"))
+        }
+        _ => Err(CoreError::settings(
+            "settings.schema_mismatch",
+            false,
+            "Unknown settings section.",
+        )
+        .into()),
+    }
+}
+
+/// `cmd://settings_set` — section-scoped partial merge (API §2.6); returns
+/// the full merged settings.
+#[tauri::command]
+pub fn settings_set(
+    patch: Value,
+    store: State<'_, Mutex<SettingsStore>>,
+) -> Result<Value, IpcError> {
+    let mut store = store
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    store.apply_patch(&patch).map_err(|err| err.to_ipc())
 }
 
 #[cfg(test)]

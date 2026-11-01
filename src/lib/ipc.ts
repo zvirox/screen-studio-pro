@@ -4,6 +4,9 @@ import {
   type Capabilities,
   type Hello,
   type IpcError,
+  type Settings,
+  type SettingsPatch,
+  type SettingsSection,
 } from "../types/ipc";
 
 /* Typed wrappers over invoke() — mirrors src-tauri/ipc (ARCHITECTURE §2).
@@ -51,6 +54,17 @@ export function ipcHello(): Promise<Hello> {
 /** `cmd://system_capabilities` — cold-start probe (API §2.5). */
 export function systemCapabilities(): Promise<Capabilities> {
   return call<Capabilities>("system_capabilities");
+}
+
+/** `cmd://settings_get` — one TOML section as JSON (API §2.6). */
+export function settingsGet<S extends SettingsSection>(section: S): Promise<Settings[S]> {
+  return call<Settings[S]>("settings_get", { section });
+}
+
+/** `cmd://settings_set` — section-scoped partial merge; resolves with the
+    full merged settings (API §2.6). */
+export function settingsSet(patch: SettingsPatch): Promise<Settings> {
+  return call<Settings>("settings_set", { patch });
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */

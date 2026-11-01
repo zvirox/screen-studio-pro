@@ -34,6 +34,10 @@ tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 tracing-appender = "0.2.5"
 config = { version = "0.15.27", features = ["toml"] }
+# Direct handle on the TOML backend (already resolved via config's toml
+# feature) — settings save needs serialized TOML output, which config
+# (read-oriented) doesn't provide. No new third-party code enters the tree.
+toml = "1.1.8"
 tauri-plugin-notification = "2.8.0"
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-global-shortcut = "2.4.1"

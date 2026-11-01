@@ -61,6 +61,52 @@ export interface Hello {
   ipcContract: string;
 }
 
+/* ---------- §2.6 Settings (TOML sections; PRD §7.5 groups) ---------- */
+
+export type SettingsSection = "capture" | "audio" | "files" | "shortcuts";
+
+export interface CaptureSettings {
+  /** M10: 30 or 60 only. */
+  frameRate: number;
+  /** "auto" | "vaapi" | "nvenc" | "x264". */
+  encoder: string;
+  /** M11 preset id (API §2.5). */
+  qualityPreset: string;
+}
+
+export interface AudioSettings {
+  /** null = system default source (M4 lists devices). */
+  micDeviceId: string | null;
+  desktopAudio: boolean;
+  echoCancel: boolean;
+}
+
+export interface FilesSettings {
+  dir: string;
+  /** strftime-style, expanded by the muxer (task 1.3). */
+  namingPattern: string;
+  /** "mkv" | "mp4" | "webm" (DATABASE §2.1 CHECK). */
+  container: string;
+}
+
+export interface ShortcutsSettings {
+  quickRecord: string;
+  pause: string;
+  stop: string;
+}
+
+export interface Settings {
+  capture: CaptureSettings;
+  audio: AudioSettings;
+  files: FilesSettings;
+  shortcuts: ShortcutsSettings;
+}
+
+/** Partial-merge payload for settings_set — any subset of sections. */
+export type SettingsPatch = {
+  [S in SettingsSection]?: Partial<Settings[S]>;
+};
+
 /* ---------- §3 Events (payload shapes only — lib/events.ts subscribes) ---------- */
 
 export type RecordingPhase = "recording" | "paused";
