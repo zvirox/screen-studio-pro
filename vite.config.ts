@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
@@ -7,6 +7,15 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react()],
+
+  // Vitest harness — TESTING.md §1 (frontend unit + component layers)
+  test: {
+    environment: "jsdom",
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
+    // Scaffold ships no tests yet (first land with task 0.6); keep CI honest-green until then
+    passWithNoTests: true,
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

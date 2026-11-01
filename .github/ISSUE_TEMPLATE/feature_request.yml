@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an enhancement — check the PRD first (streaming, scenes and the editor are planned V2, not MVP)
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What can't you do today, or what hurts?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: checkboxes
+    id: prd-check
+    attributes:
+      label: Scope check
+      description: The MVP scope is recording only. Requests inside V2 scope will be deferred, not closed.
+      options:
+        - label: I checked PRD.md and this is not already planned for MVP or V2
+          required: true
