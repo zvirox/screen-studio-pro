@@ -1,6 +1,7 @@
 mod capture;
 mod ipc;
 mod library;
+mod pipeline;
 mod settings;
 mod util;
 
