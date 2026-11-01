@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mockup 2 — HUD · ScreenStudio Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* §5.9 HUD — Float recipe, 46px, r.full, min-width 220px */
+    .hud {
+      position: fixed; right: 24px; bottom: 24px;
+      height: 46px; min-width: 220px;
+      display: inline-flex; align-items: center;
+      padding-inline: var(--sp-3);
+      gap: var(--sp-3);
+      cursor: grab;
+    }
+    .hud .timer { color: var(--text-primary); }
+    .hud .divider { width: 1px; height: 20px; background: var(--border-subtle); }
+    .hud .icon-btn { width: 44px; height: 40px; } /* §7.6: ≥44px effective target over content */
+    .hud .icon-btn.stop { color: var(--signal); }
+    .hud .icon-btn.stop:hover { background: var(--signal-muted); color: var(--signal); transform: scale(1.06); }
+
+    /* paused variant (§5.9): 22px square, PAUSED label chip */
+    .hud.paused { right: auto; bottom: auto; position: absolute; left: 50%; top: 46%; transform: translateX(-50%); }
+
+    /* tooltip demo anchored to the stop button (static demo of stop-hover) */
+    .hud .stop-wrap { position: relative; display: inline-flex; }
+    .hud .stop-wrap .tooltip {
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      padding: var(--sp-1) var(--sp-2);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-xs);
+      color: var(--text-primary); font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    /* pointer hint on drag region */
+    .hud .drag-zone { display: inline-flex; align-items: center; gap: var(--sp-3); }
+
+    /* §6.6 Camera PiP — Float, circle variant, 2px signal ring while live */
+    .pip {
+      position: fixed; left: 24px; bottom: 24px;
+      width: 200px; height: 200px; border-radius: 50%;
+      border: 2px solid var(--signal);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: var(--sp-2);
+      color: var(--text-secondary);
+    }
+    .pip .lucide { width: 40px; height: 40px; color: var(--text-disabled); }
+
+    /* scenery content behind the overlays (placeholder — real app shows actual video) */
+    .scenery {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .video-frame {
+      width: 62vw; aspect-ratio: 16/9;
+      border-radius: var(--r-md);
+      background:
+        radial-gradient(700px 420px at 30% 30%, rgba(122, 90, 248, 0.25), transparent 60%),
+        radial-gradient(500px 400px at 75% 60%, rgba(79, 227, 198, 0.14), transparent 55%),
+        linear-gradient(150deg, #171d2b, #10141d);
+      border: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-disabled);
+      position: relative;
+    }
+    .video-frame .lucide { width: 56px; height: 56px; }
+    .video-frame .bar {
+      position: absolute; bottom: var(--sp-3); left: var(--sp-4); right: var(--sp-4);
+      height: 3px; border-radius: var(--r-full);
+      background: rgba(255,255,255,0.12);
+    }
+    .video-frame .bar::before {
+      content: ""; position: absolute; inset: 0; width: 38%;
+      border-radius: inherit; background: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="page-note"><b>Mockup 2 / 3 — HUD</b> · Float recipe over playing content · 3 states shown</div>
+
+  <div class="stage" style="align-items: center;">
+    <!-- scenery: what the user is actually recording over -->
+    <div class="scenery">
+      <div class="video-frame">
+        <i data-lucide="play"></i>
+        <span class="bar"></span>
+      </div>
+    </div>
+
+    <!-- §5.9 default: recording live -->
+    <div class="hud float spec" role="toolbar" aria-label="Recording HUD">
+      <span class="drag-zone">
+        <span class="rec-dot pulse" aria-label="Recording live"></span>
+        <span class="timer mono-md">00:12:34</span>
+      </span>
+      <span class="divider"></span>
+      <button class="icon-btn" aria-label="Pause"><i data-lucide="pause"></i></button>
+      <span class="stop-wrap">
+        <span class="tooltip">Stop &amp; save</span>
+        <button class="icon-btn stop" aria-label="Stop and save"><i data-lucide="square" style="fill:currentColor; width:14px; height:14px; transform: scale(1.06);"></i></button>
+      </span>
+      <button class="icon-btn" aria-label="Drop chapter marker"><i data-lucide="flag"></i></button>
+    </div>
+
+    <!-- §5.9 paused state -->
+    <div class="hud paused float spec" role="toolbar" aria-label="Recording HUD — paused">
+      <span class="paused-square" aria-hidden="true"></span>
+      <span class="timer mono-md" style="color: var(--text-secondary);">00:12:34</span>
+      <span class="paused-chip label">Paused</span>
+      <span class="divider"></span>
+      <button class="icon-btn" aria-label="Resume"><i data-lucide="play"></i></button>
+      <button class="icon-btn stop" aria-label="Stop and save"><i data-lucide="square" style="fill:currentColor; width:14px; height:14px;"></i></button>
+      <button class="icon-btn" aria-label="Drop chapter marker"><i data-lucide="flag"></i></button>
+    </div>
+
+    <!-- tooltip demo removed — anchored to the live HUD's stop button -->
+
+    <!-- §6.6 Camera PiP, circle variant, live ring -->
+    <div class="pip float">
+      <i data-lucide="user"></i>
+      <span class="body-sm" style="color: var(--text-secondary);">Facecam 200px</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

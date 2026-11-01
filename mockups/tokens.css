@@ -1,0 +1,285 @@
+/* mockups/tokens.css — ScreenStudio Pro mockup token sheet
+   Source of truth: DESIGN.md v1.0 §2–§5 (values copied verbatim).
+   Throwaway artifact for visual review — the app builds its Tailwind @theme
+   from DESIGN.md directly; hard-coded values HERE are mockup-only. */
+
+/* Fonts: loaded via Google Fonts CDN for the browser mockups only.
+   The real app self-hosts .woff2 (DESIGN §3) — CDN here is presentation. */
+
+:root {
+  /* §2.2 Dark mode (default) — 22 tokens */
+  --bg-canvas: #0B0E13;
+  --bg-raised: #10151D;
+  --surface-glass: rgba(255, 255, 255, 0.065);
+  --surface-glass-strong: rgba(18, 24, 33, 0.72);
+  --surface-solid: #151B26;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.14);
+  --text-primary: #ECF1F6;
+  --text-secondary: rgba(236, 241, 246, 0.66);
+  --text-disabled: rgba(236, 241, 246, 0.38);
+  --accent: #4FE3C6;
+  --accent-hover: #6EEBD5;
+  --accent-active: #2ECBA9;
+  --accent-text: #07271F;
+  --accent-muted: rgba(79, 227, 198, 0.14);
+  --signal: #FF5A66;
+  --signal-muted: rgba(255, 90, 102, 0.16);
+  --success: #5EE58A;
+  --warning: #FFC24B;
+  --error: #FF7A85;
+  --error-muted: rgba(255, 122, 133, 0.14);
+
+  /* §4.1 Spacing (4px base) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px;
+  --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+
+  /* §4.2 Radius */
+  --r-xs: 6px; --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-full: 999px;
+
+  /* §4.3 Shadows (dark recipes) */
+  --elev-1: 0 1px 2px rgba(0,0,0,0.28), 0 4px 12px rgba(0,0,0,0.18);
+  --elev-2: 0 2px 6px rgba(0,0,0,0.32), 0 12px 32px rgba(0,0,0,0.28);
+  --elev-float: 0 2px 8px rgba(0,0,0,0.35), 0 24px 64px -12px rgba(0,0,0,0.50);
+
+  /* §4.6 Motion */
+  --m-fast: 140ms cubic-bezier(0.25, 1, 0.5, 1);
+  --m-base: 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --m-slow: 240ms cubic-bezier(0.34, 1.32, 0.64, 1);
+  --m-settle: 90ms ease-in;
+
+  font-family: "Familjen Grotesk", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- §3 Typography scale (fixed rem) ---------- */
+.display-lg { font-size: 1.75rem; line-height: 1.15; font-weight: 700; }
+.display-md { font-size: 1.375rem; line-height: 1.2; font-weight: 700; }
+.heading    { font-size: 1.125rem; line-height: 1.35; font-weight: 600; }
+.body-md    { font-size: 0.9375rem; line-height: 1.5; }
+.body-sm    { font-size: 0.8125rem; line-height: 1.45; }
+.label      { font-size: 0.75rem; line-height: 1.3; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-secondary); }
+.mono-md    { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.9375rem; line-height: 1.2; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mono-sm    { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.8125rem; line-height: 1.3; font-weight: 400; font-variant-numeric: tabular-nums; }
+
+/* ---------- §4.4 Glass recipes (fill mixes in the 55% bg.canvas scrim floor) ---------- */
+.pane,
+.float,
+.modal {
+  position: relative;
+  color: var(--text-primary);
+}
+.pane {
+  /* surface.glass over the 55% scrim floor */
+  background-color: color-mix(in srgb, var(--bg-canvas) 55%, var(--surface-glass));
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--elev-1);
+  border-radius: var(--r-md);
+}
+.float {
+  /* surface.glass-strong over the 55% scrim floor */
+  background-color: color-mix(in srgb, var(--bg-canvas) 55%, var(--surface-glass-strong));
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--elev-float);
+  border-radius: var(--r-lg);
+}
+/* specular highlight — Float layers only (§4.4 sanctioned extra) */
+.float.spec::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(255,255,255,0.10), transparent 40%);
+  pointer-events: none;
+}
+
+/* ---------- §4.5 Icons ---------- */
+.lucide { width: 20px; height: 20px; stroke-width: 1.5; }
+
+/* ---------- §5.1 Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--sp-2);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-family: inherit; font-weight: 500;
+  font-size: 0.8125rem; line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--m-fast), border-color var(--m-fast),
+              transform var(--m-settle);
+  -webkit-user-select: none; user-select: none;
+}
+.btn:active { transform: scale(0.985); }
+.btn.md { height: 40px; padding-inline: var(--sp-4); }
+.btn.lg { height: 48px; padding-inline: var(--sp-6); font-size: 0.9375rem; }
+.btn.primary { background: var(--accent); color: var(--accent-text); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.primary:active { background: var(--accent-active); }
+.btn.secondary { background: var(--surface-solid); border-color: var(--border-subtle); color: var(--text-primary); }
+.btn.secondary:hover { background: var(--accent-muted); }
+.btn.ghost { background: transparent; color: var(--text-secondary); }
+.btn.ghost:hover { color: var(--text-primary); background: var(--accent-muted); }
+.btn.disabled, .btn[disabled] {
+  background: var(--border-subtle); color: var(--text-disabled);
+  cursor: default; pointer-events: none;
+}
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  background: transparent; border: none; color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--m-fast), color var(--m-fast), transform var(--m-settle);
+}
+.icon-btn:hover { color: var(--text-primary); background: var(--accent-muted); }
+.icon-btn:active { transform: scale(0.985); }
+
+/* universal focus ring (§5 preamble): 2px ground + accent */
+:where(button, input, select, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--accent);
+}
+
+/* ---------- §5.8 NavBar ---------- */
+.navbar {
+  height: 52px;
+  display: flex; align-items: center;
+  padding-inline: var(--sp-4);
+  gap: var(--sp-4);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.app-mark {
+  width: 16px; height: 16px; border-radius: 5px;
+  background: var(--accent-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.app-mark::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+.seg {
+  display: inline-flex; align-items: center;
+  background: var(--surface-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  padding: 3px; height: 32px;
+}
+.seg button {
+  height: 26px; padding-inline: var(--sp-4);
+  border: none; background: transparent;
+  color: var(--text-secondary);
+  font: 500 0.8125rem/1 "Familjen Grotesk", sans-serif;
+  border-radius: var(--r-full); cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  transition: background-color var(--m-fast), color var(--m-fast);
+}
+.seg button:hover { color: var(--text-primary); }
+.seg button.active { background: var(--surface-solid); color: var(--text-primary); box-shadow: var(--elev-1); }
+.seg button[disabled] { color: var(--text-disabled); cursor: not-allowed; }
+.seg .v2-badge {
+  font: 500 10px/1 "JetBrains Mono", monospace;
+  color: var(--text-disabled);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-xs);
+  padding: 2px 4px;
+}
+
+/* ---------- §5.2 Inputs & selects (mock: select styled as trigger) ---------- */
+.input {
+  display: flex; align-items: center; gap: var(--sp-2);
+  min-height: 44px; padding-inline: var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-xs);
+  color: var(--text-primary); font-size: 0.8125rem;
+}
+.input .lucide { width: 16px; height: 16px; color: var(--text-secondary); }
+.select {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  min-height: 40px; padding-inline: var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  color: var(--text-primary); font-size: 0.8125rem; cursor: pointer;
+}
+.select .lucide { width: 16px; height: 16px; color: var(--text-secondary); }
+
+/* ---------- §5.4 Switch ---------- */
+.switch { width: 40px; height: 24px; border-radius: var(--r-full); background: var(--accent); position: relative; border: none; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+.switch.off { background: var(--bg-raised); border: 1px solid var(--border-subtle); }
+.switch.off::after { right: auto; left: 3px; }
+.switch.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- §5.9 HUD bits ---------- */
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--signal); }
+.paused-square { width: 22px; height: 22px; border-radius: 4px; background: var(--signal); }
+.pulse { animation: hud-pulse 1.4s ease-in-out infinite; }
+@keyframes hud-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+.paused-chip {
+  display: inline-flex; align-items: center;
+  padding: 2px var(--sp-2); border-radius: var(--r-xs);
+  background: var(--signal-muted); color: var(--signal);
+  border: 1px solid rgba(255, 90, 102, 0.3);
+}
+
+/* level meter: 4px bar, accent fill, signal peaks above −6dB (§6.1 audio strip) */
+.meter { display: flex; gap: 2px; height: 4px; width: 100%; }
+.meter i { flex: 1; border-radius: 1px; background: var(--accent); }
+.meter i.peak { background: var(--signal); }
+.meter i.idle { background: var(--border-subtle); }
+
+/* ---------- mockup scaffolding (not part of the design system) ---------- */
+.stage {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-10);
+  /* scenery so the glass blur has something to bite — placeholder backdrop,
+     NOT a fake in-app preview (DESIGN §4.5 law applies to the app, not mockups) */
+  background:
+    radial-gradient(1200px 700px at 20% 15%, rgba(79, 227, 198, 0.10), transparent 55%),
+    radial-gradient(1000px 800px at 85% 80%, rgba(122, 90, 248, 0.12), transparent 55%),
+    radial-gradient(900px 600px at 70% 20%, rgba(255, 90, 102, 0.06), transparent 50%),
+    linear-gradient(160deg, #0d1017 0%, #0B0E13 45%, #0e1420 100%);
+}
+.window {
+  width: 1040px; max-width: calc(100vw - 48px);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--r-lg);
+  box-shadow: var(--elev-float);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.page-note {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: var(--sp-3); align-items: center;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  color: var(--text-secondary); font-size: 0.75rem;
+  z-index: 50; white-space: nowrap;
+}
+.page-note b { color: var(--text-primary); font-weight: 600; }
+.panel-label { padding-bottom: var(--sp-2); }
+.caption {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: -34px; white-space: nowrap;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--bg-raised); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  color: var(--text-secondary); font-size: 0.75rem;
+}

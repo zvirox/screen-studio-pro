@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mockup 3 — Library · ScreenStudio Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    .win-body { position: relative; padding: var(--sp-6); }
+
+    /* header row (§6.2): title · search 320px · sort select */
+    .lib-head { display: flex; align-items: center; gap: var(--sp-4); }
+    .lib-head .display-md { flex: 1; }
+    .lib-head .input { width: 320px; min-height: 40px; height: 40px; }
+
+    /* §5.5 grid: 4 columns wide */
+    .grid {
+      margin-top: var(--sp-5);
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4);
+    }
+    .card {
+      background: var(--surface-solid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-md);
+      box-shadow: var(--elev-1);
+      padding: var(--sp-4);
+      cursor: pointer;
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      transition: border-color var(--m-fast), transform var(--m-fast);
+    }
+    .card:hover { border-color: rgba(79, 227, 198, 0.4); transform: translateY(-1px); }
+    .thumb {
+      position: relative;
+      aspect-ratio: 16/9;
+      border-radius: var(--r-sm);
+      background: linear-gradient(135deg, #1a2233 0%, #121826 60%, #0f1520 100%);
+      border: 1px solid var(--border-subtle);
+      overflow: hidden;
+    }
+    .thumb.v2 { background: linear-gradient(135deg, #20262e, #141a22 65%, #101520); }
+    .thumb.v3 { background: linear-gradient(160deg, #16211f 0%, #111821 70%); }
+    .thumb .dur {
+      position: absolute; right: var(--sp-2); bottom: var(--sp-2);
+      padding: 2px 6px; border-radius: var(--r-xs);
+      background: rgba(0,0,0,0.5);
+      color: #ECF1F6;
+    }
+    .thumb .missing-chip {
+      position: absolute; inset: auto var(--sp-2) var(--sp-2) var(--sp-2);
+      padding: var(--sp-1) var(--sp-2);
+      border-radius: var(--r-xs);
+      background: var(--signal-muted);
+      color: var(--signal);
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+    }
+    .thumb.wave::after {
+      /* generated placeholder art — real app shows real video frames */
+      content: "";
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(180px 90px at 25% 70%, rgba(122, 90, 248, 0.28), transparent 65%),
+        radial-gradient(200px 100px at 70% 30%, rgba(79, 227, 198, 0.20), transparent 60%);
+      opacity: 0.7;
+    }
+    .card .meta { display: flex; gap: var(--sp-2); align-items: center; color: var(--text-secondary); }
+    .card .meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-disabled); }
+    /* hover icon-action row (§5.5) */
+    .actions {
+      position: absolute; top: var(--sp-2); right: var(--sp-2);
+      display: flex; gap: 2px;
+    }
+    .actions .icon-btn {
+      width: 32px; height: 32px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+ subjective   }
+    .actions .icon-btn .lucide { width: 15px; height: 15px; }
+    .actions .icon-btn.danger:hover { background: var(--error-muted); color: var(--error); }
+    .show-more { margin-top: var(--sp-6); display: flex; justify-content: center; }
+
+    /* §5.7 detail drawer — Modal recipe, right 420px, over scrim */
+    .scrim-layer {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+    }
+    .drawer {
+      position: fixed; top: var(--sp-5); right: var(--sp-5); bottom: var(--sp-5);
+      width: 420px;
+      border-radius: var(--r-lg);
+      padding: var(--sp-5);
+      display: flex; flex-direction: column; gap: var(--sp-4);
+      z-index: 60;
+      overflow-y: auto;
+    }
+    .drawer .big-thumb {
+      aspect-ratio: 16/9; border-radius: var(--r-sm);
+      background:
+        radial-gradient(300px 160px at 30% 65%, rgba(122, 90, 248, 0.30), transparent 60%),
+        radial-gradient(320px 180px at 72% 30%, rgba(79, 227, 198, 0.22), transparent 55%),
+        linear-gradient(150deg, #171d2b, #0f1520);
+      border: 1px solid var(--border-subtle);
+      position: relative;
+    }
+    .drawer .big-thumb .dur {
+      position: absolute; right: var(--sp-2); bottom: var(--sp-2);
+      padding: 2px 6px; border-radius: var(--r-xs);
+      background: rgba(0,0,0,0.5); color: #ECF1F6;
+    }
+    .meta-table { display: flex; flex-direction: column; }
+    .meta-table .mrow {
+      display: flex; justify-content: space-between; align-items: center;
+      min-height: 44px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .meta-table .mrow:last-child { border-bottom: none; }
+    .meta-table .k { color: var(--text-secondary); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+    .drawer .foot { margin-top: auto; display: flex; gap: var(--sp-2); }
+    .tip {
+      padding: var(--sp-1) var(--sp-2);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-xs);
+      color: var(--text-secondary); font-size: 0.75rem;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-note"><b>Mockup 3 / 3 — Library</b> · grid + hover actions + detail drawer + file-missing state</div>
+
+  <div class="stage">
+    <div class="window">
+      <!-- §5.8 NavBar — Library active -->
+      <header class="navbar pane">
+        <div style="display:flex; align-items:center; gap: var(--sp-2);">
+          <span class="app-mark" aria-hidden="true"></span>
+          <span class="body-sm" style="font-weight:500;">ScreenStudio Pro</span>
+        </div>
+        <nav class="seg" style="margin-inline:auto;" aria-label="Primary">
+          <button>Record</button>
+          <button class="active">Library</button>
+          <button disabled>Stream <span class="v2-badge">V2</span></button>
+          <button>Settings</button>
+        </nav>
+        <div style="display:flex; gap: var(--sp-1);">
+          <button class="icon-btn" aria-label="Settings tray"><i data-lucide="sliders-horizontal"></i></button>
+          <button class="icon-btn" aria-label="Minimize to tray"><i data-lucide="x"></i></button>
+        </div>
+      </header>
+
+      <main class="win-body">
+        <!-- §6.2 header -->
+        <div class="lib-head">
+          <span class="display-md">Recordings</span>
+          <div class="input"><i data-lucide="search"></i><span style="color: var(--text-secondary);">Search recordings…</span></div>
+          <button class="select">Newest first <i data-lucide="chevron-down"></i></button>
+        </div>
+
+        <!-- §5.5 cards -->
+        <div class="grid">
+          <div class="card">
+            <div class="thumb wave">
+              <span class="dur mono-sm">12:34</span>
+              <div class="actions">
+                <button class="icon-btn" aria-label="Open"><i data-lucide="external-link"></i></button>
+                <button class="icon-btn" aria-label="Copy path"><i data-lucide="copy"></i></button>
+                <button class="icon-btn danger" aria-label="Delete"><i data-lucide="trash-2"></i></button>
+              </div>
+            </div>
+            <span class="body-sm" style="font-weight:500;">Hyprland config walkthrough.mp4</span>
+            <div class="meta">
+              <span class="mono-sm">Mar 14</span><span class="dot"></span>
+              <span class="mono-sm">412 MB</span><span class="dot"></span>
+              <span class="label" style="letter-spacing:0; text-transform:none;">60fps · VAAPI</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="thumb v2 wave">
+              <span class="dur mono-sm">02:07</span>
+            </div>
+            <span class="body-sm" style="font-weight:500;">Rust async bug hunt.mp4</span>
+            <div class="meta">
+              <span class="mono-sm">Mar 13</span><span class="dot"></span>
+              <span class="mono-sm">71 MB</span><span class="dot"></span>
+              <span class="label" style="letter-spacing:0; text-transform:none;">60fps · NVENC</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="thumb v3 wave">
+              <span class="dur mono-sm">48:12</span>
+            </div>
+            <span class="body-sm" style="font-weight:500;">Community sync — March.mkv</span>
+            <div class="meta">
+              <span class="mono-sm">Mar 11</span><span class="dot"></span>
+              <span class="mono-sm">1.8 GB</span><span class="dot"></span>
+              <span class="label" style="letter-spacing:0; text-transform:none;">30fps · x264</span>
+            </div>
+          </div>
+
+          <!-- §5.5 error state: file missing -->
+          <div class="card">
+            <div class="thumb">
+              <span class="missing-chip"><i data-lucide="file-x-2" style="width:14px;height:14px;"></i> File missing</span>
+            </div>
+            <span class="body-sm" style="font-weight:500; color: var(--text-secondary);">Quick region test.mp4</span>
+            <div class="meta">
+              <span class="mono-sm">Mar 10</span><span class="dot"></span>
+              <span class="mono-sm">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="show-more">
+          <button class="btn secondary md">Show more</button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- §5.7 detail drawer (Modal recipe over scrim) -->
+  <div class="scrim-layer" aria-hidden="true"></div>
+  <aside class="drawer float spec" aria-label="Recording details">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <span class="heading">Hyprland config walkthrough</span>
+      <button class="icon-btn" aria-label="Close drawer" style="margin-right: -8px;"><i data-lucide="x"></i></button>
+    </div>
+    <div class="big-thumb"><span class="dur mono-sm">12:34</span></div>
+    <div class="meta-table">
+      <div class="mrow"><span class="k">Recorded</span><span class="mono-sm">2026-03-14 19:02</span></div>
+      <div class="mrow"><span class="k">Duration</span><span class="mono-md">12:34</span></div>
+      <div class="mrow"><span class="k">Size</span><span class="mono-sm">412.6 MB</span></div>
+      <div class="mrow"><span class="k">Resolution</span><span class="mono-sm">2560×1440 · 60fps</span></div>
+      <div class="mrow"><span class="k">Encoder</span><span class="mono-sm">VAAPI (H.264)</span></div>
+      <div class="mrow"><span class="k">Path</span><span class="mono-sm">~/Videos/ScreenStudio/</span></div>
+    </div>
+    <div class="foot">
+      <button class="btn secondary md" style="flex:1;"><i data-lucide="folder-open" style="width:16px;height:16px;"></i> Reveal in file manager</button>
+      <button class="btn disabled md" disabled title="Planned for V2">Trim later</button>
+    </div>
+  </aside>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
