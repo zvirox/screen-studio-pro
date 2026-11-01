@@ -25,3 +25,9 @@ src-tauri/target
 *.njsproj
 *.sln
 *.sw?
+
+# Task-runner planning docs — local only, not part of the public repo
+PLAN.md
+FEATURES.md
+PRODUCT.md
+MCP.md
