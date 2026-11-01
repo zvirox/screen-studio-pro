@@ -1,0 +1,143 @@
+use serde::Serialize;
+
+/* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
+0.6 scope is the handshake + capability probe; everything else joins with
+its feature module. Command names are the `cmd://` verbs of API.md §2
+minus the prefix. */
+
+/// The pinned IPC contract version — API §5.1: versioned as a whole; the
+/// webview carries the same constant in `types/ipc.ts` and gates boot on it.
+pub const IPC_CONTRACT_VERSION: &str = "1.0.0";
+
+/// `cmd://ipc_hello` — minimal handshake returning the contract version.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hello {
+    pub ipc_contract: &'static str,
+}
+
+#[tauri::command]
+pub fn ipc_hello() -> Hello {
+    Hello {
+        ipc_contract: IPC_CONTRACT_VERSION,
+    }
+}
+
+/* ---------- system_capabilities (API §2.5) ---------- */
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EncoderBackend {
+    Vaapi,
+    Nvenc,
+    X264,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EncoderCapability {
+    pub backend: EncoderBackend,
+    pub is_hardware: bool,
+    pub available: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortalStatus {
+    pub screencast: bool,
+    pub global_shortcuts: &'static str,
+    pub compositor: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionInfo {
+    pub app: &'static str,
+    pub ipc_contract: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Capabilities {
+    pub encoders: Vec<EncoderCapability>,
+    pub portal: PortalStatus,
+    pub version: VersionInfo,
+}
+
+// Cold-start probe (API §2.5). Honest cheap checks only in 0.6: the live
+// encoder probe lands with the Encoder trait (M8), the portal/GlobalShortcuts
+// matrix with their modules (M1/M12). Statics below are flagged accordingly.
+fn probe_capabilities() -> Capabilities {
+    // VAAPI needs a DRM render node on Wayland/Linux.
+    let vaapi = std::path::Path::new("/dev/dri/renderD128").exists();
+    let compositor = std::env::var("XDG_CURRENT_DESKTOP")
+        .unwrap_or_default()
+        .to_lowercase();
+
+    Capabilities {
+        encoders: vec![
+            EncoderCapability {
+                backend: EncoderBackend::Vaapi,
+                is_hardware: true,
+                available: vaapi,
+            },
+            // NVENC detection requires an encoder-capable probe — M8, not statable yet.
+            EncoderCapability {
+                backend: EncoderBackend::Nvenc,
+                is_hardware: true,
+                available: false,
+            },
+            EncoderCapability {
+                backend: EncoderBackend::X264,
+                is_hardware: false,
+                available: true,
+            },
+        ],
+        portal: PortalStatus {
+            // Wayland-first platform baseline; M1 replaces this with a live ashpd probe.
+            screencast: true,
+            // M12 probes the GlobalShortcuts portal; "partial" is the conservative default.
+            global_shortcuts: "partial",
+            compositor,
+        },
+        version: VersionInfo {
+            app: env!("CARGO_PKG_VERSION"),
+            ipc_contract: IPC_CONTRACT_VERSION,
+        },
+    }
+}
+
+/// `cmd://system_capabilities` — drives the encoder chip (§6.1) and the
+/// frontend's boot gate (API §5.1).
+#[tauri::command]
+pub fn system_capabilities() -> Capabilities {
+    probe_capabilities()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Parity seed (TESTING §1 P1): the wire names must match API.md §2.5.
+    #[test]
+    fn hello_carries_the_pinned_contract() {
+        let v = serde_json::to_value(ipc_hello()).unwrap();
+        assert_eq!(v["ipcContract"], "1.0.0");
+    }
+
+    #[test]
+    fn capabilities_list_all_three_backends_with_version() {
+        let v = serde_json::to_value(probe_capabilities()).unwrap();
+        let backends: Vec<&str> = v["encoders"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["backend"].as_str().unwrap())
+            .collect();
+        assert_eq!(backends, ["vaapi", "nvenc", "x264"]);
+        assert_eq!(v["version"]["ipcContract"], "1.0.0");
+        assert_eq!(v["version"]["app"], "0.1.0");
+        assert!(v["portal"]["compositor"].is_string());
+        assert!(v["encoders"][0]["isHardware"].is_boolean());
+    }
+}
