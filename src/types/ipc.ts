@@ -215,3 +215,30 @@ export interface DeviceChangedEvt {
   audio: boolean;
   camera: boolean;
 }
+
+/* ---------- §2.1 Sources ---------- */
+
+export type SourceKind = "monitor" | "window" | "region";
+
+export interface SourceCapabilities {
+  fps: number;
+  width: number;
+  height: number;
+  cursor: boolean;
+  /** Region overlay is pipeline cropping (M3) — offered atop a session. */
+  region: boolean;
+}
+
+export interface SourcePreview {
+  /** §2.1/§6: previews are stills only, never a frame channel. */
+  mode: string;
+  fps: number;
+}
+
+export interface SourceSelected {
+  sourceId: string;
+  kind: SourceKind;
+  label: string;
+  capabilities: SourceCapabilities;
+  preview: SourcePreview;
+}

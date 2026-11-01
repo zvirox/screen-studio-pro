@@ -5,7 +5,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { asIpcError, ipcHello, isContractMatch, prefsGet, prefsSet, settingsGet, settingsSet, systemCapabilities } from "./ipc";
+import { asIpcError, ipcHello, isContractMatch, prefsGet, prefsSet, settingsGet, settingsSet, sourceRelease, sourceSelect, systemCapabilities } from "./ipc";
 import { IPC_CONTRACT_VERSION } from "../types/ipc";
 
 /* Contract tests against mock IPC (TESTING §1 P1) — the lib/ipc.ts ↔
@@ -61,6 +61,32 @@ describe("lib/ipc", () => {
     invokeMock.mockResolvedValueOnce({ key: "hud.pinned", value: true });
     await expect(prefsSet("hud.pinned", true)).resolves.toEqual({ key: "hud.pinned", value: true });
     expect(invokeMock).toHaveBeenCalledWith("prefs_set", { key: "hud.pinned", value: true });
+  });
+
+  it("sourceSelect sends kind + null target and returns §2.1 reply shape", async () => {
+    const reply = {
+      sourceId: "src_01hv3",
+      kind: "monitor",
+      label: "Monitor (2560×1440)",
+      capabilities: { fps: 60, width: 2560, height: 1440, cursor: true, region: true },
+      preview: { mode: "stills_jpeg", fps: 8 },
+    };
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(sourceSelect("monitor")).resolves.toEqual(reply);
+    // No hint → explicit null so the Rust command gets a defined arg bag.
+    expect(invokeMock).toHaveBeenCalledWith("source_select", { kind: "monitor", target: null });
+  });
+
+  it("sourceSelect forwards a monitor label target as the hint", async () => {
+    invokeMock.mockResolvedValueOnce({ sourceId: "src_x", kind: "monitor", label: "Monitor (1920×1080)", capabilities: { fps: 60, width: 1920, height: 1080, cursor: true, region: true }, preview: { mode: "stills_jpeg", fps: 8 } });
+    await sourceSelect("monitor", "DP-1");
+    expect(invokeMock).toHaveBeenCalledWith("source_select", { kind: "monitor", target: "DP-1" });
+  });
+
+  it("sourceRelease addresses the source id and stays idempotent-shaped", async () => {
+    invokeMock.mockResolvedValueOnce({ ok: true });
+    await expect(sourceRelease("src_01hv3")).resolves.toEqual({ ok: true });
+    expect(invokeMock).toHaveBeenCalledWith("source_release", { sourceId: "src_01hv3" });
   });
 
   it("passes §1-shaped errors through without rewrapping", async () => {

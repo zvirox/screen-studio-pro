@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::sync::Mutex;
 use tauri::State;
 
+use crate::capture::CaptureHandle;
 use crate::library::LibraryHandle;
 use crate::settings::SettingsStore;
 use crate::util::error::{CoreError, IpcError};
@@ -179,6 +180,81 @@ pub fn prefs_set(
     library: State<'_, LibraryHandle>,
 ) -> Result<Value, IpcError> {
     library.prefs_set(&key, &value).map_err(|err| err.to_ipc())
+}
+
+/// `cmd://source_select` (API §2.1) — begin a portal session; monitor
+/// flavour is live in 1.1 (PRD M1), window/region join with M2/M3. The
+/// caller-paced consent dialog means this command legitimately runs for
+/// minutes; concurrent selects return `portal.busy` from the slot.
+#[tauri::command]
+pub async fn source_select(
+    kind: String,
+    target: Option<String>,
+    app: tauri::AppHandle,
+    capture_state: State<'_, CaptureHandle>,
+) -> Result<Value, IpcError> {
+    let parsed = crate::capture::SourceKind::parse(&kind).ok_or_else(capture_invalid_kind)?;
+    // M2/M3: window/region reuse this command with their own portal flavours.
+    if parsed != crate::capture::SourceKind::Monitor {
+        return Err(capture_invalid_kind().into());
+    }
+    if let Some(hint) = &target {
+        // The portal picker owns output choice until the restore-token flow
+        // (M2+); a monitor hint is recorded, not honoured, in 1.1.
+        tracing::debug!(hint = %hint, "monitor target hint deferred to portal picker");
+    }
+
+    let source_id = crate::capture::new_source_id();
+    let lost_id = source_id.clone();
+    let app_for_lost = app.clone();
+    let on_lost = move |reason: &str| {
+        tracing::error!(source = %lost_id, reason, "capture source lost");
+        let _ = super::events::emit(
+            &app_for_lost,
+            super::events::topic::SOURCE_LOST,
+            super::events::SourceLost {
+                source_id: lost_id.clone(),
+                reason: reason.to_string(),
+            },
+        );
+    };
+
+    capture_state.begin().map_err(|err| err.to_ipc())?;
+    match crate::capture::portal::select_monitor(source_id, on_lost).await {
+        Ok((session, reply)) => {
+            let reply = serde_json::to_value(&reply).expect("§2.1 reply is plain JSON");
+            capture_state.commit(Box::new(session));
+            Ok(reply)
+        }
+        Err(err) => {
+            capture_state.abort();
+            Err(err.to_ipc())
+        }
+    }
+}
+
+/// `cmd://source_release` (API §2.1) — end the portal session / free the
+/// PipeWire stream. Idempotent on an unknown/absent id; `portal.busy` only
+/// for a still-starting or different active session (the recording-active
+/// check joins with task 1.4's session guard).
+#[tauri::command]
+pub async fn source_release(
+    source_id: String,
+    capture_state: State<'_, CaptureHandle>,
+) -> Result<Value, IpcError> {
+    if let Some(mut session) = capture_state.take(&source_id).map_err(|err| err.to_ipc())? {
+        session.stop_frames();
+        session.close().await;
+    }
+    Ok(serde_json::json!({ "ok": true }))
+}
+
+fn capture_invalid_kind() -> CoreError {
+    CoreError::capture(
+        "capture.invalid_kind",
+        false,
+        "That source kind isn't available in this build. Monitor capture is ready; window and region capture arrive in a later update.",
+    )
 }
 
 #[cfg(test)]

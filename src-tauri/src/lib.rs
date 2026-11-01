@@ -1,3 +1,4 @@
+mod capture;
 mod ipc;
 mod library;
 mod settings;
@@ -106,6 +107,8 @@ pub fn run() {
             app.manage(std::sync::Mutex::new(store));
             // DATABASE §1: the library index lives beside the app data dir.
             app.manage(library::LibraryHandle::open(&util::paths::data_dir()));
+            // §2.1: the single active portal session lives in managed state.
+            app.manage(capture::CaptureHandle::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -115,6 +118,8 @@ pub fn run() {
             ipc::commands::settings_set,
             ipc::commands::prefs_get,
             ipc::commands::prefs_set,
+            ipc::commands::source_select,
+            ipc::commands::source_release,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

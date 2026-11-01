@@ -11,6 +11,8 @@ import {
   type Settings,
   type SettingsPatch,
   type SettingsSection,
+  type SourceKind,
+  type SourceSelected,
 } from "../types/ipc";
 
 /* Typed wrappers over invoke() — mirrors src-tauri/ipc (ARCHITECTURE §2).
@@ -80,6 +82,20 @@ export function prefsGet(key: string): Promise<PrefsGetReply | PrefsAllReply> {
     Rate law: batch drags to ≤60 Hz before calling. */
 export function prefsSet(key: string, value: PrefValue): Promise<PrefEntry> {
   return call<PrefEntry>("prefs_set", { key, value });
+}
+
+/** `cmd://source_select` — begin a portal capture session for a source
+    kind (API §2.1). Long-running by design: resolves only after the user
+    answers the compositor consent dialog. `target` is a hint only in 1.1
+    (the portal picker owns output choice until M2+ restore tokens). */
+export function sourceSelect(kind: SourceKind, target?: string): Promise<SourceSelected> {
+  return call<SourceSelected>("source_select", { kind, target: target ?? null });
+}
+
+/** `cmd://source_release` — end the active capture session (API §2.1).
+    Idempotent for an unknown or already-released source id. */
+export function sourceRelease(sourceId: string): Promise<{ ok: boolean }> {
+  return call<{ ok: boolean }>("source_release", { sourceId });
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */
