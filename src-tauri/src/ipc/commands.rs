@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::sync::Mutex;
 use tauri::State;
 
+use crate::library::LibraryHandle;
 use crate::settings::SettingsStore;
 use crate::util::error::{CoreError, IpcError};
 
@@ -161,6 +162,23 @@ pub fn settings_set(
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     store.apply_patch(&patch).map_err(|err| err.to_ipc())
+}
+
+/// `cmd://prefs_get` — one key, or all with an empty key (API §2.6).
+#[tauri::command]
+pub fn prefs_get(key: String, library: State<'_, LibraryHandle>) -> Result<Value, IpcError> {
+    library.prefs_get(&key).map_err(|err| err.to_ipc())
+}
+
+/// `cmd://prefs_set` — validated upsert into `ui_prefs` (API §2.6);
+/// rate law (≤60 Hz batching) is the frontend's duty.
+#[tauri::command]
+pub fn prefs_set(
+    key: String,
+    value: Value,
+    library: State<'_, LibraryHandle>,
+) -> Result<Value, IpcError> {
+    library.prefs_set(&key, &value).map_err(|err| err.to_ipc())
 }
 
 #[cfg(test)]

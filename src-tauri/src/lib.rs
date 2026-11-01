@@ -1,6 +1,7 @@
 use tauri::Manager;
 
 mod ipc;
+mod library;
 mod settings;
 mod util;
 
@@ -21,6 +22,8 @@ pub fn run() {
                 }
             };
             app.manage(std::sync::Mutex::new(store));
+            // DATABASE §1: the library index lives beside the app data dir.
+            app.manage(library::LibraryHandle::open(&util::paths::data_dir()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -28,6 +31,8 @@ pub fn run() {
             ipc::commands::system_capabilities,
             ipc::commands::settings_get,
             ipc::commands::settings_set,
+            ipc::commands::prefs_get,
+            ipc::commands::prefs_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

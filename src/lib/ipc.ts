@@ -4,6 +4,10 @@ import {
   type Capabilities,
   type Hello,
   type IpcError,
+  type PrefEntry,
+  type PrefValue,
+  type PrefsGetReply,
+  type PrefsAllReply,
   type Settings,
   type SettingsPatch,
   type SettingsSection,
@@ -65,6 +69,17 @@ export function settingsGet<S extends SettingsSection>(section: S): Promise<Sett
     full merged settings (API §2.6). */
 export function settingsSet(patch: SettingsPatch): Promise<Settings> {
   return call<Settings>("settings_set", { patch });
+}
+
+/** `cmd://prefs_get` — one key, or all keys with an empty key (API §2.6). */
+export function prefsGet(key: string): Promise<PrefsGetReply | PrefsAllReply> {
+  return call<PrefsGetReply | PrefsAllReply>("prefs_get", { key });
+}
+
+/** `cmd://prefs_set` — validated upsert; echoes {key, value} (API §2.6).
+    Rate law: batch drags to ≤60 Hz before calling. */
+export function prefsSet(key: string, value: PrefValue): Promise<PrefEntry> {
+  return call<PrefEntry>("prefs_set", { key, value });
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */

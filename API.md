@@ -216,7 +216,7 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
 
 #### `cmd://prefs_get` / `cmd://prefs_set`
 - **Method:** command · **PRD:** UI-persistence surface of DESIGN §6.5/§6.6 (HUD/pinned state, PiP position/shape/size) · **DB: P (ui_prefs)** · **Flag:** ✓
-- GET body: `{ "key": "pip.position" }` → `{ "key": "…", "value": "corner:bottom-right,margin:24" }` (or all keys with `{}`)
+- GET body: `{ "key": "pip.position" }` → `{ "key": "…", "value": "corner:bottom-right,margin:24" }` (or all keys with `{}`). All-keys reply (clarified at task 0.8): `{ "prefs": [{ "key": "hud.pinned", "value": false }, …] }`; an unknown key reads as `{ "key": "…", "value": null }` — prefs are optional by design.
 - SET body: `{ "key": "hud.pinned", "value": true }` → **200:** `{ "key": "hud.pinned", "value": true }`
 - **Errors:** `settings.invalid_value` (unknown key / non-JSON value) — `pip.*`/`hud.*`/`last.*` namespaces only, per DATABASE §2.2
 - **Rate law:** set at most once per drag-frame batch (~60Hz max), values flushed by the frontend's throttle; no history — `upsert only`

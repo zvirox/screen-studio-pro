@@ -107,6 +107,25 @@ export type SettingsPatch = {
   [S in SettingsSection]?: Partial<Settings[S]>;
 };
 
+/* ---------- §2.6 Preferences (ui_prefs; DATABASE §2.2 namespaces) ---------- */
+
+/** Wire value of a pref — the decoded JSON value (string|number|boolean). */
+export type PrefValue = string | number | boolean;
+
+export interface PrefEntry {
+  key: string;
+  value: PrefValue;
+}
+
+export interface PrefsGetReply {
+  key: string;
+  value: PrefValue | null;
+}
+
+export interface PrefsAllReply {
+  prefs: PrefEntry[];
+}
+
 /* ---------- §3 Events (payload shapes only — lib/events.ts subscribes) ---------- */
 
 export type RecordingPhase = "recording" | "paused";

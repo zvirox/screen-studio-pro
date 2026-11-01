@@ -5,7 +5,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { asIpcError, ipcHello, isContractMatch, settingsGet, settingsSet, systemCapabilities } from "./ipc";
+import { asIpcError, ipcHello, isContractMatch, prefsGet, prefsSet, settingsGet, settingsSet, systemCapabilities } from "./ipc";
 import { IPC_CONTRACT_VERSION } from "../types/ipc";
 
 /* Contract tests against mock IPC (TESTING §1 P1) — the lib/ipc.ts ↔
@@ -44,6 +44,23 @@ describe("lib/ipc", () => {
     expect(invokeMock).toHaveBeenCalledWith("settings_set", {
       patch: { capture: { frameRate: 30 } },
     });
+  });
+
+  it("prefsGet/prefsSet address the ui_prefs verbs (API §2.6)", async () => {
+    invokeMock.mockResolvedValueOnce({ key: "pip.position", value: "corner:bottom-right,margin:24" });
+    await expect(prefsGet("pip.position")).resolves.toEqual({
+      key: "pip.position",
+      value: "corner:bottom-right,margin:24",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("prefs_get", { key: "pip.position" });
+
+    invokeMock.mockResolvedValueOnce({ prefs: [{ key: "hud.pinned", value: false }] });
+    await expect(prefsGet("")).resolves.toEqual({ prefs: [{ key: "hud.pinned", value: false }] });
+    expect(invokeMock).toHaveBeenCalledWith("prefs_get", { key: "" });
+
+    invokeMock.mockResolvedValueOnce({ key: "hud.pinned", value: true });
+    await expect(prefsSet("hud.pinned", true)).resolves.toEqual({ key: "hud.pinned", value: true });
+    expect(invokeMock).toHaveBeenCalledWith("prefs_set", { key: "hud.pinned", value: true });
   });
 
   it("passes §1-shaped errors through without rewrapping", async () => {
