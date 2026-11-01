@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 /* XDG path resolution — ARCHITECTURE §5.3 is the exhaustive env-var list:
-SSP_CONFIG_DIR / SSP_DATA_DIR override the XDG defaults; SSP_LOG_* join
-with the 0.9 tracing task. Linux-only app: $HOME is the documented base. */
+SSP_CONFIG_DIR / SSP_DATA_DIR override the XDG defaults; SSP_LOG_* are
+consumed by the tracing setup in lib.rs. Linux-only app: $HOME is the
+documented base. */
 
 const APP_SUBDIR: &str = "screen-studio-pro";
 
@@ -24,9 +25,7 @@ pub fn config_dir() -> PathBuf {
     base.join(APP_SUBDIR)
 }
 
-/// Data dir for the library database (§5.3: `SSP_DATA_DIR` overrides;
-/// consumed by the 0.8 store).
-#[allow(dead_code)] // wired when library/store.rs lands (task 0.8)
+/// Data dir for the library database (§5.3: `SSP_DATA_DIR` overrides).
 pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("SSP_DATA_DIR") {
         return PathBuf::from(dir);
@@ -34,6 +33,15 @@ pub fn data_dir() -> PathBuf {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| home_dir().join(".local/share"));
+    base.join(APP_SUBDIR)
+}
+
+/// State dir for the rotating log file (XDG state convention; the
+/// `SSP_LOG_FILE` env var overrides the exact file, handled in lib.rs).
+pub fn state_dir() -> PathBuf {
+    let base = std::env::var_os("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home_dir().join(".local/state"));
     base.join(APP_SUBDIR)
 }
 
@@ -73,5 +81,13 @@ mod tests {
         let dir = config_dir();
         assert!(dir.starts_with(home_dir()));
         assert!(dir.ends_with(".config/screen-studio-pro"));
+    }
+
+    #[test]
+    fn state_dir_falls_under_xdg_or_home() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("XDG_STATE_HOME") };
+        let dir = state_dir();
+        assert!(dir.ends_with(".local/state/screen-studio-pro"));
     }
 }
