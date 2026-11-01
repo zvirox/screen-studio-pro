@@ -1,0 +1,63 @@
+[package]
+name = "screen-studio-pro"
+version = "0.1.0"
+description = "A modern open-source screen recording app for Linux"
+authors = ["zvirox"]
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "screen_studio_pro_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.54.1", features = ["full"] }
+async-trait = "0.1.92"
+ashpd = "0.13.13"
+pipewire = "0.10.1"
+cpal = "0.18.2"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+tracing-appender = "0.2.5"
+config = { version = "0.15.27", features = ["toml"] }
+tauri-plugin-notification = "2.8.0"
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-global-shortcut = "2.4.1"
+image = "0.25.10"
+v4l2r = { version = "0.0.8", optional = true }
+ffmpeg-next = { version = "9.0.0", optional = true }
+ffmpeg-sys-next = { version = "9.0.1", optional = true }
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
+
+[dev-dependencies]
+proptest = "1.12.0"
+tempfile = "3.27.0"
+
+[features]
+default = []
+# Media backends behind features until their PLAN tasks land (system ffmpeg headers
+# need `sudo dnf install ffmpeg-devel` — see SETUP.md §3.1).
+encode = ["dep:ffmpeg-next", "dep:ffmpeg-sys-next"]
+camera = ["dep:v4l2r"]
