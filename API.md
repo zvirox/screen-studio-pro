@@ -30,7 +30,7 @@ Every error response — command failure or `error` event payload — is one sha
 | `userMessage` | `string` | Human copy, DESIGN §7.9 vocabulary — UI renders **only** this; raw errors stay in the tracing log |
 | `details` | `object \| null` | Optional structured extras (encoder chain attempted, free bytes, compositor name) |
 
-**Canonical error codes (initial set):** `portal.unavailable`, `portal.denied`, `portal.timeout`, `portal.busy` · `encoder.unavailable`, `encoder.init_failed`, `encoder.encode_failed`, `encoder.fallback_applied` · `pipewire.stream_lost`, `pipewire.audio_device_gone` · `capture.region_invalid`, `capture.camera_unavailable`, `capture.invalid_kind` · `disk.no_space`, `disk.write_failed`, `disk.path_unwritable` · `settings.invalid_value`, `settings.schema_mismatch` · `ipc.contract_mismatch`, `ipc.unknown_command`, `ipc.bad_state`. *(Set is add-only; codes exist before their UI surfaces them.)*
+**Canonical error codes (initial set):** `portal.unavailable`, `portal.denied`, `portal.timeout`, `portal.busy` · `encoder.unavailable`, `encoder.init_failed`, `encoder.encode_failed`, `encoder.fallback_applied` · `pipewire.stream_lost`, `pipewire.audio_device_gone`, `pipewire.audio_enum_failed` · `capture.region_invalid`, `capture.camera_unavailable`, `capture.invalid_kind` · `disk.no_space`, `disk.write_failed`, `disk.path_unwritable` · `settings.invalid_value`, `settings.schema_mismatch` · `ipc.contract_mismatch`, `ipc.unknown_command`, `ipc.bad_state`. *(Set is add-only; codes exist before their UI surfaces them.)*
 
 *(Additions since v1.0.0: `portal.busy` — §2.1 always intended it ("a session is already active — code added to canonical set §1") but the list above missed it; corrected at task 1.1. `capture.invalid_kind` — added at task 1.1 for window/region kinds before their portal flavours land (M2/M3). Codes are add-only (§1 rule). `capture.no_frames` — added at task 1.5: a stop that encoded zero frames fails loudly instead of finalizing an unreadable header-only container; the partial file is removed, retryable=true (§2.4).)*
 
@@ -87,13 +87,13 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 { "mics": [{ "id": "mic_blue-snowball", "label": "Blue Snowball", "isDefault": true }],
   "desktop": [{ "id": "sink_0", "label": "Built-in Output", "isDefault": true }] }
 ```
-**Errors:** `pipewire.audio_device_gone`
+**Errors:** `pipewire.audio_enum_failed` (the device list could not be read — PipeWire down, graph unreachable)
 
 #### `cmd://audio_set_channel`
 - **Method:** command · **PRD:** M4 · **DB:** — · **Flag:** ⚠ (persisted via `settings_set`, not DB row)
 - **Purpose:** enable/mute a channel, pick device, set level (0–100).
 - Body: `{ "channel": "mic", "enabled": true, "muted": false, "deviceId": "mic_blue-snowball", "level": 80 }`
-- **200:** `{ "ok": true }` · **Errors:** `settings.invalid_value`
+- **200:** `{ "ok": true }` · **Errors:** `settings.invalid_value` · `pipewire.audio_device_gone` (a concrete `deviceId` checked against the live system before persisting; `deviceId: null` = clear to the system default, no check) · `pipewire.audio_enum_failed`
 
 #### `cmd://camera_open` / `cmd://camera_close`
 - **Method:** command · **PRD:** M5 · **DB:** — · **Flag:** ⚠
@@ -103,7 +103,7 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 
 ### 2.3 Recording session
 
-*(Task 1.3 scope: video-only monitor recording. `regionRect`, `audio`, `cameraId`, `presetId` are accepted at their §-shapes but not honored until M3/M4/M11; `outputDir` is honored when given, else the default `$XDG_VIDEOS_DIR/SSP`. The stop reply omits the library row `id` and `thumbPath` until the DB upsert (task 1.6); `container` is `"mkv"` — remux to MP4 joins M9. Mid-take faults (mux disk errors, codec failures, a panicked or lost capture stream) surface at `recording_stop` as the §1 error; the event-stream join is task 1.4. `recording_pause`/`recording_resume` are not implemented yet — nothing can pause in 1.3.)*
+*(Task 1.3 scope: video-only monitor recording. `regionRect`, `cameraId`, `presetId` are accepted at their §-shapes but not honored until M3/M5/M11. **2.1 audio:** every enabled channel in the SETTINGS snapshot records into one pre-mixed stereo AAC track; a start-time capture failure rejects the start typed, before any media flows, and a device lost mid-take renders ONE non-fatal `pipewire.audio_device_gone` event while the take continues with that channel silent. The request body's `audio` array stays contract-shaped-but-not-honored — the settings snapshot governs the take (config-snapshot law); mid-take settings changes do not reshape a running take. `outputDir` is honored when given, else the default `$XDG_VIDEOS_DIR/SSP`. The stop reply omits the library row `id` and `thumbPath` until the DB upsert (task 1.6); `container` is `"mkv"` — remux to MP4 joins M9. Mid-take faults (mux disk errors, codec failures, a panicked or lost capture stream) surface at `recording_stop` as the §1 error; the event-stream join is task 1.4. `recording_pause`/`recording_resume` are not implemented yet — nothing can pause in 1.3.)*
 
 #### `cmd://recording_start`
 - **Method:** command · **PRD:** M1–M5, M7–M11 · **DB:** R (INSERT with `status='recording'`, `created_at` set) · **Flag:** ✓
@@ -126,7 +126,7 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
   "encoder": { "backend": "vaapi", "isHardware": true },
   "startedAt": "2026-11-01T14:05:00Z" }
 ```
-- **Errors:** `encoder.unavailable`+`encoder.init_failed` (the x264 **fallback is applied automatically first** and only errors if that also fails — `details.encoderChain` then lists what was tried) · `portal.denied` (session lapsed) · `disk.no_space`, `disk.path_unwritable` · `pipewire.stream_lost` · `409`-class `ipc.bad_state` (a recording is already active, or `sourceId` is not the active source)
+- **Errors:** `encoder.unavailable`+`encoder.init_failed` (the x264 **fallback is applied automatically first** and only errors if that also fails — `details.encoderChain` then lists what was tried) · `portal.denied` (session lapsed) · `disk.no_space`, `disk.path_unwritable` · `pipewire.stream_lost` · `pipewire.audio_device_gone` (an audio channel's device is gone or unusable **at start** — fatal for the take, which never starts) · `409`-class `ipc.bad_state` (a recording is already active, or `sourceId` is not the active source)
 
 #### `cmd://recording_pause` / `cmd://recording_resume`
 - **Method:** command · **PRD:** M7 (segment stitching) · **DB:** R (no row change; session state) · **Flag:** ⚠

@@ -256,6 +256,60 @@ fn capture_invalid_kind() -> CoreError {
     )
 }
 
+/* ---------- audio devices (API §2.2, task 2.1) ---------- */
+
+/// `cmd://audio_list_devices` — cpal mics + PipeWire sink outputs with
+/// defaults marked. Flag ⚠ (API §2.2): devices are system state — the
+/// reply is a snapshot; callers re-list after plugging/unplugging.
+/// Enumeration failures are typed `pipewire.audio_enum_failed` (§1).
+#[tauri::command]
+pub fn audio_list_devices() -> Result<Value, IpcError> {
+    let mics = crate::capture::audio::list_mics().map_err(|err| err.to_ipc())?;
+    let desktop = crate::capture::audio::list_desktop_outputs().map_err(|err| err.to_ipc())?;
+    Ok(serde_json::json!({ "mics": mics, "desktop": desktop }))
+}
+
+/// `cmd://audio_set_channel` (API §2.2) — enable/mute a channel, pick a
+/// device, set level (0–100); persisted through the settings store (⚠:
+/// settings_set path, not a DB row). A concrete `deviceId` is validated
+/// against the LIVE system before persisting: a miss is
+/// `pipewire.audio_device_gone`, an enumeration failure is
+/// `pipewire.audio_enum_failed`. JSON `null` = clear back to the system
+/// default (nothing to validate — the store treats it the same way).
+#[tauri::command]
+pub fn audio_set_channel(
+    channel: String,
+    enabled: Option<bool>,
+    muted: Option<bool>,
+    device_id: Option<Value>,
+    level: Option<u8>,
+    store: State<'_, Mutex<SettingsStore>>,
+) -> Result<Value, IpcError> {
+    if let Some(id) = device_id.as_ref().and_then(Value::as_str) {
+        let exists = match channel.as_str() {
+            "mic" => crate::capture::audio::mic_exists(id).map_err(|err| err.to_ipc())?,
+            "desktop" => crate::capture::audio::sink_exists(id).map_err(|err| err.to_ipc())?,
+            // Unknown channels fail in the store with settings.invalid_value.
+            _ => true,
+        };
+        if !exists {
+            return Err(CoreError::pipewire(
+                "pipewire.audio_device_gone",
+                false,
+                "That audio device is not available. Pick another in Settings.",
+            )
+            .into());
+        }
+    }
+    let mut guard = store
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard
+        .apply_audio_channel(&channel, enabled, muted, device_id, level)
+        .map_err(|err| err.to_ipc())?;
+    Ok(serde_json::json!({ "ok": true }))
+}
+
 /* ---------- recording session (API §2.3, task 1.3) ---------- */
 
 /// The canonical `ipc.bad_state` producer — 409-class conflicts of the
@@ -263,6 +317,93 @@ fn capture_invalid_kind() -> CoreError {
 #[cfg(feature = "encode")]
 fn bad_state(message: &'static str) -> CoreError {
     CoreError::ipc("ipc.bad_state", false, message)
+}
+
+/// The take's audio plan from the SETTINGS SNAPSHOT (2.1): every enabled
+/// channel becomes one capture producer + one mix source, gains snapped
+/// at `recording_start` (the config-snapshot law — a mid-take settings
+/// change cannot reshape a running take; live retune is a deferred PLAN
+/// task). `None` = video-only take. A capture start failure is fatal
+/// for the start (typed, before any media flows).
+///
+/// Zero-gain law: a MUTED channel still captures (and drains) but mixes
+/// at gain 0 — dropping the capture would lose the device handshake and
+/// turn unmute into a mid-take reconnection problem; §6 counts every
+/// dropped sample as data loss.
+#[cfg(feature = "encode")]
+fn build_audio_plan(
+    audio: &crate::settings::Audio,
+) -> Result<Option<crate::pipeline::session::AudioPlan>, CoreError> {
+    use crate::capture::audio::{AudioChannel, ChannelConfig, OnLost, start_desktop, start_mic};
+    use crate::pipeline::audio::{AudioRing, DEFAULT_RING_CAPACITY, MixSource};
+
+    // Device-lost law (API §3): the ring's disable IS the lost signal —
+    // the audio worker's is_disabled() poll renders the ONE non-fatal
+    // event. This callback only logs; the user-facing copy lives in the
+    // worker's typed event. OnLost is FnOnce → a fresh closure per start.
+    let on_lost = || -> OnLost {
+        Box::new(|reason: &str| {
+            tracing::error!(reason, "audio capture source lost");
+        })
+    };
+
+    let mut producers = Vec::new();
+    let mut channels = Vec::new();
+
+    if audio.mic_enabled {
+        let config = ChannelConfig {
+            channel: AudioChannel::Mic,
+            enabled: true,
+            muted: audio.mic_muted,
+            device_id: audio.mic_device_id.clone(),
+            level: audio.mic_level,
+        };
+        let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
+        producers.push(start_mic(&config, ring.clone(), on_lost())?);
+        channels.push(MixSource {
+            ring,
+            gain: if audio.mic_muted {
+                0.0
+            } else {
+                crate::capture::audio::channel_gain(audio.mic_level)
+            },
+        });
+    }
+    if audio.desktop_audio {
+        let config = ChannelConfig {
+            channel: AudioChannel::Desktop,
+            enabled: true,
+            muted: audio.desktop_muted,
+            device_id: audio.desktop_device_id.clone(),
+            level: audio.desktop_level,
+        };
+        let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
+        producers.push(start_desktop(&config, ring.clone(), on_lost())?);
+        channels.push(MixSource {
+            ring,
+            gain: if audio.desktop_muted {
+                0.0
+            } else {
+                crate::capture::audio::channel_gain(audio.desktop_level)
+            },
+        });
+    }
+
+    if channels.is_empty() {
+        return Ok(None);
+    }
+    // DATABASE §2.1 audio_json — the row's audio fact, rendered from the
+    // SAME snapshot that built the plan (used = actually recorded).
+    let row_note = serde_json::json!([
+        { "source": "mic", "device": audio.mic_device_id, "used": audio.mic_enabled },
+        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio },
+    ])
+    .to_string();
+    Ok(Some(crate::pipeline::session::AudioPlan {
+        producers,
+        channels,
+        row_note: Some(row_note),
+    }))
 }
 
 /// `cmd://recording_start` (API §2.3) — wire source→bus→encode→mux for
@@ -286,6 +427,7 @@ pub async fn recording_start(
     app: tauri::AppHandle,
     capture_state: State<'_, CaptureHandle>,
     recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+    store: State<'_, Mutex<SettingsStore>>,
 ) -> Result<Value, IpcError> {
     let _ = (region_rect, audio, camera_id, preset_id); // 1.3 scope note
     let Some(source) = capture_state
@@ -310,8 +452,18 @@ pub async fn recording_start(
     // The session's event stream (API §3): the pipeline stays
     // Tauri-agnostic — the IPC layer injects the Tauri-backed sink.
     let events = std::sync::Arc::new(super::events::TauriEventSink::new(app.clone()));
+    // 2.1: the audio plan comes from the SETTINGS SNAPSHOT (the request
+    // body's `audio` field stays contract-shaped-but-not-honored — API
+    // §2.3 note). A capture start failure is fatal for the take: typed,
+    // before any media flows.
+    let audio_plan = {
+        let guard = store
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        build_audio_plan(&guard.get().audio).map_err(|err| err.to_ipc())?
+    };
     let info = recordings
-        .start(bus, source.geometry, &dir, events)
+        .start(bus, source.geometry, &dir, events, audio_plan)
         .map_err(|err| err.to_ipc())?;
     // ARCHITECTURE §3.2 step 3: the session is live → announce it.
     super::events::recording_started(&app, &info);

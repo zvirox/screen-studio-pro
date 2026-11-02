@@ -98,6 +98,7 @@ impl SwX264 {
                     // The encoder's time base is PACKET_TIME_BASE (µs), so
                     // pts/dts counters go straight into the packet fields.
                     packets.push(EncodedPacket {
+                        stream: 0,
                         pts_us: packet.pts().unwrap_or(0),
                         dts_us: packet.dts(),
                         key: packet.is_key(),

@@ -1,14 +1,19 @@
-use super::FrameBus;
+use super::audio::{MIX_WINDOW_SAMPLES, MixSource};
 use super::stats::{EventSink, SessionEvent, StatsMeter, Throttle};
-use crate::encode::Encoder;
+use crate::capture::audio::AudioProducer;
+use crate::encode::sw_aac::{self, SwAac};
 use crate::encode::sw_x264::{self, SwX264};
-use crate::pipeline::muxer::{Muxer, VideoSpec};
+use crate::encode::{AudioEncoder, EncodedPacket, Encoder};
+use crate::pipeline::muxer::{AudioSpec, Muxer, MuxerBuilder, VideoSpec};
 use crate::util::error::CoreError;
 use ffmpeg_next as ff;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+use super::FrameBus;
 
 /* Recording session (PLAN 1.3) — the consumer half of the 1.2 FrameBus:
 bus → encoder → muxer on one dedicated worker thread. Laws implemented:
@@ -42,6 +47,262 @@ const TICK_PERIOD: Duration = Duration::from_secs(1);
 
 /// `recording/stats` cadence — API §3 rate law: 0.5 Hz (every 2 s).
 const STATS_PERIOD: Duration = Duration::from_secs(2);
+
+/// The audio anchor waits at most this long for the video worker to
+/// publish its first-frame wall stamp (§5b A/V sync law: audio never
+/// leads video). Past the bound (a dead video source under a live audio
+/// one) the take is already failing — continue with anchor 0 rather
+/// than parking the audio worker forever: per-stream monotonic pts is
+/// all matroska requires.
+const AUDIO_ANCHOR_WAIT: Duration = Duration::from_secs(2);
+
+/// The container's AAC stream opens with the composition shape every
+/// capture input is folded into (capture::audio: 48 kHz stereo f32;
+/// PRD M10). One pre-mixed stereo track — plan 2.1, never N tracks.
+fn composition_audio_spec() -> AudioSpec {
+    AudioSpec {
+        codec: ff::codec::Id::AAC,
+        sample_rate: crate::capture::audio::SAMPLE_RATE,
+        channel_layout: ff::ChannelLayout::STEREO,
+        sample_fmt: ff::format::Sample::F32(ff::format::sample::Type::Planar),
+        bit_rate: sw_aac::AAC_BIT_RATE,
+    }
+}
+
+/// Everything the ipc layer assembles at `recording_start` (2.1 Phase F)
+/// and hands to the session: the live capture guards (kept outside the
+/// workers so a stop drops them once the take is over) and the mix
+/// topology the audio worker folds by. Tests pass `producers: vec![]`
+/// and feed the rings directly from feeder threads.
+pub struct AudioPlan {
+    pub producers: Vec<AudioProducer>,
+    pub channels: Vec<MixSource>,
+    /// The library row's `audio_json` fact (DATABASE §2.1), rendered by
+    /// the ipc layer from the same settings snapshot that built the
+    /// plan; the session stores it opaquely and hands it back with the
+    /// stop outcome (write-only until the library view lands).
+    pub row_note: Option<String>,
+}
+
+/// One hop from the audio worker to the video worker: encoded AAC
+/// packets, or the worker's fatal fault (a device-gone event is NOT a
+/// fault — it is reported by the worker directly and the take goes on).
+enum AudioMsg {
+    Packets(Vec<EncodedPacket>),
+    Fault(CoreError),
+}
+
+/// The audio worker's receive half + its join guard, owned by the video
+/// worker while the take runs. An `Err` capture path leaves the leg
+/// intact so `run_session` can reap the worker on every exit path.
+struct AudioLeg {
+    packets: mpsc::Receiver<AudioMsg>,
+    worker: Option<std::thread::JoinHandle<Result<(), CoreError>>>,
+}
+
+/// Wall-clock µs (recording-relative anchoring only — the same stamp the
+/// video frames carry, capture/pipewire.rs's clock).
+fn wall_us() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_micros() as u64)
+        .unwrap_or(0)
+}
+
+/// The audio worker: rings → 10 ms mix windows → AAC chunks → the video
+/// worker's mux loop. Laws implemented:
+/// - One PRE-MIXED stereo track (plan 2.1): fold happens here, before
+///   encode — never N audio streams in the container.
+/// - §6 backpressure: `try_send` only, never blocks. A full channel is
+///   retried briefly (the mux loop is the faster side in practice);
+///   a DISCONNECTED one means the video worker is gone — exit quietly,
+///   the take is already over.
+/// - Device-lost law (API §3): a disabled ring renders ONE non-fatal
+///   `pipewire.audio_device_gone` event per channel; the take continues
+///   with that channel silent (windows still pad it to the mix length).
+/// - Anchor law: the first content window is stamped against the video
+///   worker's first-frame wall stamp, so audio can never lead video
+///   (§5b). AAC chunks are stamped by their SAMPLE index over the
+///   anchor — the exact rounded µs clock (`pts_us_to_samples` inverts).
+fn run_audio_worker(
+    opened: ff::encoder::Audio,
+    channels: Vec<MixSource>,
+    video_base: Arc<AtomicU64>,
+    tx: mpsc::SyncSender<AudioMsg>,
+    stop: Arc<AtomicBool>,
+    events: Arc<dyn EventSink>,
+) -> Result<(), CoreError> {
+    let mut aac = SwAac::from_open(opened);
+    let frames_per_chunk = aac.frame_size(); // AAC: 1024 samples per channel
+    let chunk_samples = frames_per_chunk * 2; // interleaved stereo
+    let sample_rate = crate::capture::audio::SAMPLE_RATE;
+    // The unbroken sample-count clock: chunk k sits at its exact rounded
+    // µs stamp over the anchor (verified round-trippable in sw_aac):
+    // pts = anchor + (k·frames·1e6 + rate/2) / rate.
+    let chunk_pts = |k: i128, base: i64| -> i64 {
+        let pts = (k * 1_000_000 * (frames_per_chunk as i128) + i128::from(sample_rate) / 2)
+            / i128::from(sample_rate);
+        base.saturating_add(i64::try_from(pts).unwrap_or(i64::MAX))
+    };
+    let mut chunk_index: i64 = 0;
+    let mut anchor: Option<i64> = None;
+    let mut accum: Vec<f32> = Vec::new();
+    let mut reported_gone = vec![false; channels.len()];
+
+    // Bounded send: the mux side drains faster than the AAC side
+    // produces in every healthy path; a FULL channel gets a short retry
+    // window before the take is failed (§6: the producer never blocks
+    // indefinitely). Ok(false) = video worker gone (take already over).
+    let send_packets =
+        |tx: &mpsc::SyncSender<AudioMsg>, packets: Vec<EncodedPacket>| -> Result<bool, CoreError> {
+            for _ in 0..250 {
+                match tx.try_send(AudioMsg::Packets(packets.clone())) {
+                    Ok(()) => return Ok(true),
+                    Err(mpsc::TrySendError::Full(_)) => {
+                        std::thread::sleep(IDLE_POLL);
+                    }
+                    Err(mpsc::TrySendError::Disconnected(_)) => return Ok(false),
+                }
+            }
+            Err(CoreError::encoder(
+                "encoder.encode_failed",
+                false,
+                "Audio writing fell too far behind the recording.",
+            ))
+        };
+
+    loop {
+        // Device-lost events first: a disabled channel renders its ONE
+        // event and the take goes on with that channel silent.
+        for (i, channel) in channels.iter().enumerate() {
+            if !reported_gone[i] && channel.ring.is_disabled() {
+                reported_gone[i] = true;
+                events.emit(SessionEvent::Error(CoreError::pipewire(
+                    "pipewire.audio_device_gone",
+                    true,
+                    "An audio source stopped responding. The recording continues with the remaining audio.",
+                )
+                .to_ipc()));
+            }
+        }
+        if stop.load(Ordering::Acquire) {
+            break;
+        }
+        let window = super::audio::mix_rings(&channels, MIX_WINDOW_SAMPLES);
+        if window.is_empty() {
+            // All rings dry: park briefly (never busy-loop, §6).
+            std::thread::sleep(IDLE_POLL);
+            continue;
+        }
+        if anchor.is_none() {
+            // §5b: the audio clock may never lead the video clock — the
+            // anchor is the first window minus the video's first-frame
+            // wall stamp, waited for up to the bound (never spun on).
+            let content_wall = wall_us();
+            let deadline = Instant::now() + AUDIO_ANCHOR_WAIT;
+            let base = loop {
+                let base = video_base.load(Ordering::Acquire);
+                if base != 0 {
+                    break base;
+                }
+                if Instant::now() >= deadline {
+                    tracing::warn!("audio anchor waited out the video base; stamping from 0");
+                    break 0;
+                }
+                std::thread::sleep(IDLE_POLL);
+            };
+            anchor = Some(content_wall.saturating_sub(base) as i64);
+        }
+        accum.extend_from_slice(&window);
+        while accum.len() >= chunk_samples {
+            let chunk: Vec<f32> = accum.drain(..chunk_samples).collect();
+            let pts = chunk_pts(i128::from(chunk_index), anchor.unwrap_or(0));
+            chunk_index += 1;
+            match aac.encode(pts, &chunk) {
+                Ok(packets) => {
+                    if !send_packets(&tx, packets)? {
+                        // Video worker gone — the take is over; exit
+                        // without faulting (its fault already reported).
+                        return Ok(());
+                    }
+                }
+                Err(err) => {
+                    let _ = tx.try_send(AudioMsg::Fault(err));
+                    return Err(CoreError::encoder(
+                        "encoder.encode_failed",
+                        false,
+                        "Audio encoding failed while writing the recording.",
+                    ));
+                }
+            }
+        }
+    }
+
+    // Stop path: pad the leftover partial chunk with silence so the
+    // take's final audio moment is never dropped, flush the codec, and
+    // exit — the video worker drains whatever lands plus the EOF flush.
+    if !accum.is_empty() {
+        let pts = chunk_pts(i128::from(chunk_index), anchor.unwrap_or(0));
+        accum.resize(chunk_samples, 0.0);
+        let padded = std::mem::take(&mut accum);
+        let packets = aac.encode(pts, &padded)?;
+        let _ = send_packets(&tx, packets);
+    }
+    let tail = aac.finish()?;
+    let _ = send_packets(&tx, tail);
+    Ok(())
+}
+
+/// Drains the audio hop after the video loop ends: bounded (~2 s) so a
+/// wedged audio worker can never hang `recording_stop`, pulling every
+/// packet still queued into the muxer BEFORE the trailer (the AAC tail
+/// is part of the take), then joining the worker. Returns the take's
+/// first audio fault, if any.
+fn reap_audio(leg: &mut AudioLeg, mux: Option<&mut Muxer>) -> Option<CoreError> {
+    let mut mux = mux;
+    let mut fault: Option<CoreError> = None;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        match leg
+            .packets
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+        {
+            Ok(AudioMsg::Packets(packets)) => {
+                if let Some(mux) = mux.as_deref_mut()
+                    && let Err(err) = mux.write(&packets)
+                {
+                    tracing::error!(code = %err.code(), "audio tail write failed");
+                }
+            }
+            Ok(AudioMsg::Fault(err)) => {
+                tracing::error!(code = %err.code(), "audio worker faulted");
+                fault.get_or_insert(err);
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                tracing::warn!("audio worker drain timed out; audio tail truncated");
+                break;
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    if let Some(worker) = leg.worker.take() {
+        match worker.join() {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                fault.get_or_insert(err);
+            }
+            Err(panic) => {
+                tracing::error!(?panic, "audio worker panicked");
+                fault.get_or_insert(CoreError::encoder(
+                    "encoder.encode_failed",
+                    false,
+                    "The audio encoder failed while writing the recording.",
+                ));
+            }
+        }
+    }
+    fault
+}
 
 /// Data the ipc layer turns into the API §2.3 `recording_start` reply.
 #[derive(Debug, Clone)]
@@ -79,6 +340,10 @@ pub struct StopOutcome {
     pub started_at: String,
     /// RFC-3339 finalize stamp — the library row's `updated_at` (1.6).
     pub finished_at: String,
+    /// The take's audio description for the DB row (DATABASE §2.1
+    /// `audio_json`), rendered by the ipc layer at start. `None` = a
+    /// video-only take, row column stays NULL.
+    pub audio_json: Option<String>,
 }
 
 /// Managed state: at most one active recording (the bad_state rule of
@@ -102,6 +367,14 @@ struct ActiveRecording {
     /// None = already joined by a previous stop (defensive; stop takes
     /// the whole ActiveRecording out so this never happens per contract).
     worker: Option<std::thread::JoinHandle<Result<TakeFacts, CoreError>>>,
+    /// The live capture guards for the audio channels (2.1): held OUTSIDE
+    /// the workers — dropping them (stop / reap) ends the capture threads.
+    /// The audio worker only sees Arc<AudioRing> clones, so dropping these
+    /// after the join is always safe.
+    audio_producers: Vec<AudioProducer>,
+    /// The take's audio-row note (DATABASE §2.1 audioJson), rendered by
+    /// the ipc layer at start; handed back with the stop outcome.
+    audio_json: Option<String>,
 }
 
 impl RecordingHandle {
@@ -119,12 +392,18 @@ impl RecordingHandle {
     /// `events` receives the session's event stream (API §3: tick 1 Hz,
     /// stats 0.5 Hz, error on fault). The pipeline stays Tauri-agnostic:
     /// the IPC layer injects the Tauri-backed sink.
+    ///
+    /// `audio` carries the 2.1 audio plan (capture guards + mix
+    /// topology); `None` = video-only take (the 1.3 shape, still what
+    /// every pre-audio test exercises).
+    #[allow(clippy::too_many_arguments)]
     pub fn start(
         &self,
         bus: Arc<FrameBus>,
         dims: (u32, u32),
         dir: &Path,
         events: Arc<dyn EventSink>,
+        audio: Option<AudioPlan>,
     ) -> Result<StartInfo, CoreError> {
         let mut slot = self.locked();
         // A worker that ended on its own (a mid-take fault) must not
@@ -149,8 +428,30 @@ impl RecordingHandle {
             options: sw_x264::options(),
         };
         let path = next_output_path(dir);
-        let (mux, opened) = Muxer::open_video(&path, spec)?;
-        let encoder = SwX264::from_open(opened);
+        // A/V split (2.1): the container opens through the builder —
+        // video always; the AAC stream only when an audio plan exists.
+        // (Muxer::open_video cannot add a second stream; write_header
+        // is what freezes the stream table.)
+        let AudioPlan {
+            producers,
+            channels,
+            row_note,
+        } = audio.unwrap_or(AudioPlan {
+            producers: Vec::new(),
+            channels: Vec::new(),
+            row_note: None,
+        });
+        let has_audio = !channels.is_empty();
+        let builder = MuxerBuilder::create(&path)?;
+        let (builder, video_opened) = builder.add_video(&spec)?;
+        let (builder, audio_opened) = if has_audio {
+            let (builder, opened) = builder.add_audio(&composition_audio_spec())?;
+            (builder, Some(opened))
+        } else {
+            (builder, None)
+        };
+        let mux = builder.write_header()?;
+        let encoder = SwX264::from_open(video_opened);
         // Reply facts must be captured before the encoder moves into the
         // worker thread (the encoder info is static, the id/clock are not).
         let info = StartInfo {
@@ -161,16 +462,60 @@ impl RecordingHandle {
 
         let stop = Arc::new(AtomicBool::new(false));
         let ended = Arc::new(AtomicBool::new(false));
+        let video_base = Arc::new(AtomicU64::new(0));
+        let (audio_tx, audio_rx) = mpsc::sync_channel::<AudioMsg>(64);
         let ctx = SessionContext {
             recording_id: recording_id.clone(),
             dims,
-            events,
+            events: events.clone(),
             ended: ended.clone(),
         };
+        // The audio worker starts FIRST: it may begin folding the moment
+        // producers push; until the video worker stamps video_base it
+        // parks on the bounded anchor wait (by design).
+        let audio_leg = match audio_opened {
+            Some(opened) => {
+                // Clone BEFORE the move-closure: the closure takes these
+                // by value and the slot below still needs its own copies.
+                let base_for_audio = video_base.clone();
+                let stop_for_audio = stop.clone();
+                let events_for_audio = events.clone();
+                let handle = std::thread::Builder::new()
+                    .name("recording-audio".into())
+                    .spawn(move || {
+                        run_audio_worker(
+                            opened,
+                            channels,
+                            base_for_audio,
+                            audio_tx,
+                            stop_for_audio,
+                            events_for_audio,
+                        )
+                    })
+                    .map_err(|err| {
+                        // The header was already written; the take cannot
+                        // start — one typed spawn failure surfaces and the
+                        // locals (producers included) unwind here, so no
+                        // capture thread outlives the rejected start.
+                        tracing::error!(error = %err, "audio worker spawn failed");
+                        CoreError::encoder(
+                            "encoder.init_failed",
+                            false,
+                            "The recording worker could not start.",
+                        )
+                    })?;
+                Some(AudioLeg {
+                    packets: audio_rx,
+                    worker: Some(handle),
+                })
+            }
+            None => None,
+        };
         let worker_stop = stop.clone();
+        let worker_base = video_base.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
-            .spawn(move || run_session(mux, encoder, bus, worker_stop, ctx))
+            .spawn(move || run_session(mux, encoder, bus, worker_stop, ctx, audio_leg, worker_base))
             .map_err(|err| {
                 // mux/encoder drop here unwinds the header-less file; the
                 // take never started, so one typed error surfaces (spawn
@@ -189,6 +534,8 @@ impl RecordingHandle {
             stop,
             ended,
             worker: Some(worker),
+            audio_producers: producers,
+            audio_json: row_note,
         });
         Ok(info)
     }
@@ -233,6 +580,7 @@ impl RecordingHandle {
         // Latch the stop while the slot is held.
         active.stop.store(true, Ordering::Release);
         let info = active.info.clone();
+        let audio_json = active.audio_json.clone();
         let worker = active.worker.take().expect("stop owns the only join");
         // The join happens with the slot STILL occupied: a concurrent
         // start must not spawn a second consumer on the same SPSC bus
@@ -254,6 +602,7 @@ impl RecordingHandle {
                 encoder: info.encoder,
                 started_at: info.started_at,
                 finished_at: crate::util::time::rfc3339_now(),
+                audio_json,
             })),
             Ok(Err(err)) => Ok(Err(err)),
             Err(panic) => {
@@ -316,18 +665,37 @@ fn run_session(
     bus: Arc<FrameBus>,
     stop: Arc<AtomicBool>,
     ctx: SessionContext,
+    audio_leg: Option<AudioLeg>,
+    video_base: Arc<AtomicU64>,
 ) -> Result<TakeFacts, CoreError> {
-    let outcome = capture_take(mux, &mut encoder, &bus, &stop, &ctx);
+    let mut audio_leg = audio_leg;
+    let outcome = capture_take(
+        mux,
+        &mut encoder,
+        &bus,
+        &stop,
+        &ctx,
+        &mut audio_leg,
+        &video_base,
+    );
     // The take is over — mark it BEFORE the error event, so a UI that
     // reacts to the event can start the next take right away.
     ctx.ended.store(true, Ordering::Release);
+    // Every exit path reaps whatever remains of the audio leg (the
+    // success path consumed it inside capture_take; a fault leaves the
+    // worker running behind a broken file — join it and discard the
+    // late packets, the file is already unrecoverable).
+    let reap_fault = audio_leg.as_mut().and_then(|leg| reap_audio(leg, None));
     match outcome {
-        Ok(facts) => Ok(facts),
-        Err(err) => {
-            ctx.events.emit(SessionEvent::Error(err.to_ipc()));
-            Err(err)
-        }
+        Ok(facts) => match reap_fault {
+            Some(err) => Err(err),
+            None => Ok(facts),
+        },
+        // The video fault wins an outcome race with a concurrent audio
+        // fault — one event, one authoritative reply (API §3).
+        Err(err) => Err(err),
     }
+    .inspect_err(|err| ctx.events.emit(SessionEvent::Error(err.to_ipc())))
 }
 
 /// The take itself: drain → encode → mux until the stop latch, whose
@@ -338,6 +706,8 @@ fn capture_take(
     bus: &Arc<FrameBus>,
     stop: &Arc<AtomicBool>,
     ctx: &SessionContext,
+    audio_leg: &mut Option<AudioLeg>,
+    video_base: &Arc<AtomicU64>,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
@@ -350,6 +720,10 @@ fn capture_take(
     // Defensive empty-poll counter for the (theoretically unreachable)
     // latched-but-ring-empty branch — bounds stop latency unconditionally.
     let mut empty_polls: u32 = 0;
+    // A fatal audio-side fault (AAC encode failure) surfaced by the
+    // worker: the take continues (the video stream is still valid) and
+    // fails at the drain — the authoritative stop reply carries it.
+    let mut audio_fault: Option<CoreError> = None;
     // The event cadence (API §3): tick 1 Hz, stats 0.5 Hz. Both run on
     // the wall clock, never on frames — an idle source still ticks (§6).
     let session_start = Instant::now();
@@ -399,7 +773,17 @@ fn capture_take(
                     }
                     None => false,
                 };
-                let base = *first_pts.get_or_insert(frame.pts_us);
+                let base = match first_pts {
+                    Some(base) => base,
+                    None => {
+                        // §5b: publish the video clock (RAW wall µs) the
+                        // moment the first frame exists — the audio
+                        // worker anchors against this and must never see
+                        // a leading audio stream.
+                        video_base.store(frame.pts_us, Ordering::Release);
+                        *first_pts.insert(frame.pts_us)
+                    }
+                };
                 // Wall-clock monotonic µs; sanitize against a reordered
                 // producer clock instead of trusting it.
                 let rel = frame.pts_us.saturating_sub(base);
@@ -411,6 +795,21 @@ fn capture_take(
                 let encode_time = encode_started.elapsed();
                 let encoded_bytes: usize = packets.iter().map(|packet| packet.data.len()).sum();
                 mux.write(&packets)?;
+                // The audio hop rides along: non-blocking pull of what
+                // has arrived since the last frame. Matroska needs only
+                // PER-STREAM monotonic pts, so AAC landing slightly
+                // behind the video writes is harmless; the post-loop
+                // drain catches the tail (§5b, one pre-mixed track).
+                if let Some(leg) = audio_leg.as_mut() {
+                    while let Ok(msg) = leg.packets.try_recv() {
+                        match msg {
+                            AudioMsg::Packets(audio_packets) => mux.write(&audio_packets)?,
+                            AudioMsg::Fault(err) => {
+                                audio_fault.get_or_insert(err);
+                            }
+                        }
+                    }
+                }
                 meter.record_frame(encoded_bytes, encode_time);
                 frames += 1;
                 info_frames += 1;
@@ -482,6 +881,23 @@ fn capture_take(
             true,
             "Nothing was captured. Click a source and try again.",
         ));
+    }
+
+    // §5b: the audio tail is part of the take — drain the audio hop into
+    // the muxer BEFORE the video trailer, bounded so a wedged audio
+    // worker can never hang recording_stop. The leg is consumed on this
+    // path (run_session will not double-reap it); a fault fails the take
+    // exactly like a video fault would.
+    let drained_fault = match audio_leg.as_mut() {
+        Some(leg) => reap_audio(leg, Some(&mut mux)),
+        None => None,
+    };
+    let audio_fault = audio_fault.or(drained_fault);
+    if audio_leg.is_some() {
+        *audio_leg = None;
+    }
+    if let Some(err) = audio_fault {
+        return Err(err);
     }
 
     // Flush the encoder tail (B-frames queue behind GOP boundaries), write
@@ -663,7 +1079,7 @@ mod tests {
                 "-v",
                 "error",
                 "-show_entries",
-                "stream=codec_name,width,height:format=duration",
+                "stream=codec_name,width,height,sample_rate:format=duration",
                 "-of",
                 "json",
             ])
@@ -699,7 +1115,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("recording starts");
         assert_eq!(info.encoder.backend, "x264");
         assert!(!info.encoder.is_hardware);
@@ -755,13 +1171,13 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("first start");
         produce(&bus, 5, 0);
 
         // Second start while active → ipc.bad_state (API §2.3).
         let err = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .unwrap_err();
         assert_eq!(err.code(), "ipc.bad_state");
 
@@ -788,7 +1204,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let first = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("first");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -799,7 +1215,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let second = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("second");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -824,7 +1240,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(4));
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("clean start");
         // No frames are ever produced: the bus stays empty the whole take.
         let err = handle
@@ -842,7 +1258,7 @@ mod tests {
         // And the session is reusable afterwards (slot released cleanly).
         let bus = Arc::new(FrameBus::new(4));
         let next = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("session reuses the slot after a failed take");
         produce(&bus, 3, 0);
         wait_drained(&bus);
@@ -865,7 +1281,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(8));
         let dir = tempfile::tempdir().expect("tmp dir");
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
             .expect("start");
 
         // Live-source simulation: the producer runs through the whole
@@ -988,7 +1404,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
             .expect("recording starts");
 
         // Live producer: one frame every 16 ms (60 fps), like the capture.
@@ -1057,7 +1473,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
             .expect("recording starts");
 
         // A frame whose size does not match the opened encoder is a
@@ -1084,6 +1500,189 @@ mod tests {
         assert_eq!(err.code(), "pipewire.stream_lost");
     }
 
+    /// 2.1: a take with an audio plan probes TWO streams — the mixed
+    /// AAC track rides the same file as the video, its duration covering
+    /// the fed span (the mux round-trip pins packet timing; here the
+    /// SESSION wiring is the test subject: plan → workers → container).
+    #[test]
+    fn audio_take_mixed_from_two_rings_probes_two_streams() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let ring_mic = Arc::new(crate::pipeline::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let ring_desktop = Arc::new(crate::pipeline::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let plan = AudioPlan {
+            producers: Vec::new(), // test feeds the rings directly
+            channels: vec![
+                crate::pipeline::audio::MixSource {
+                    ring: ring_mic.clone(),
+                    gain: 1.0,
+                },
+                crate::pipeline::audio::MixSource {
+                    ring: ring_desktop.clone(),
+                    gain: 0.5,
+                },
+            ],
+            row_note: Some(r#"{"source":"test","used":true}"#.into()),
+        };
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .expect("recording starts");
+
+        // Live video (the §5b anchor needs a first frame) + two audio
+        // feeders at the 20 ms window pace (960 samples @ 48 kHz).
+        let keep = Arc::new(AtomicBool::new(true));
+        let video_producer = {
+            let bus = bus.clone();
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let mut n = 0u64;
+                let t0 = Instant::now();
+                while keep.load(Ordering::Acquire) {
+                    let pts = t0.elapsed().as_micros() as u64;
+                    match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                        crate::pipeline::Push::Pushed => {}
+                        crate::pipeline::Push::Full(_) => bus.mark_dropped(),
+                    }
+                    n += 1;
+                    std::thread::sleep(Duration::from_millis(16));
+                }
+            })
+        };
+        let feed = |ring: Arc<crate::pipeline::AudioRing>, level: f32| {
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let window = [level; 960]; // 480 stereo frames = 20 ms
+                while keep.load(Ordering::Acquire) {
+                    let started = Instant::now();
+                    let _ = ring.try_push(&window);
+                    std::thread::sleep(Duration::from_millis(20).saturating_sub(started.elapsed()));
+                }
+            })
+        };
+        let feeder_mic = feed(ring_mic, 0.25);
+        let feeder_desktop = feed(ring_desktop, 0.2);
+
+        std::thread::sleep(Duration::from_millis(900));
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean take with audio");
+        keep.store(false, Ordering::Release);
+        video_producer.join().expect("video producer");
+        feeder_mic.join().expect("mic feeder");
+        feeder_desktop.join().expect("desktop feeder");
+
+        assert!(outcome.path.exists());
+        assert!(sink.errors().is_empty(), "healthy take, no error events");
+        if let Some(report) = ffprobe_json(&outcome.path) {
+            let streams = report["streams"].as_array().expect("streams");
+            assert_eq!(streams.len(), 2, "video + the one mixed AAC track");
+            assert_eq!(streams[0]["codec_name"], "h264");
+            assert_eq!(streams[1]["codec_name"], "aac");
+            assert_eq!(streams[1]["sample_rate"], "48000");
+        } else {
+            eprintln!("ffprobe unavailable — two-stream probe skipped (disk asserts hold)");
+        }
+    }
+
+    /// 2.1 device-gone law (API §3): a capture source that dies mid-take
+    /// renders EXACTLY ONE non-fatal `pipewire.audio_device_gone` event;
+    /// the take itself survives and finishes clean with that channel
+    /// silent (the pad law).
+    #[test]
+    fn device_gone_reports_once_and_the_take_survives() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let ring = Arc::new(crate::pipeline::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let plan = AudioPlan {
+            producers: Vec::new(),
+            channels: vec![crate::pipeline::audio::MixSource {
+                ring: ring.clone(),
+                gain: 1.0,
+            }],
+            row_note: Some(r#"{"source":"mic","used":true}"#.into()),
+        };
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .expect("recording starts");
+
+        // Live video + a feeder that pushes ~100 ms then drops out the
+        // way a killed producer does (disable latch, thread gone).
+        let keep = Arc::new(AtomicBool::new(true));
+        let video_producer = {
+            let bus = bus.clone();
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let mut n = 0u64;
+                let t0 = Instant::now();
+                while keep.load(Ordering::Acquire) {
+                    let pts = t0.elapsed().as_micros() as u64;
+                    match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                        crate::pipeline::Push::Pushed => {}
+                        crate::pipeline::Push::Full(_) => bus.mark_dropped(),
+                    }
+                    n += 1;
+                    std::thread::sleep(Duration::from_millis(16));
+                }
+            })
+        };
+        let feeder = {
+            let ring = ring.clone();
+            std::thread::spawn(move || {
+                let window = [0.3f32; 960];
+                for _ in 0..5 {
+                    let _ = ring.try_push(&window);
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                ring.disable();
+            })
+        };
+        feeder.join().expect("feeder");
+
+        // Exactly ONE device-gone event, within a bounded wait.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while sink.errors().is_empty() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(error_code(&sink.errors()[0]), "pipewire.audio_device_gone");
+        // Grace window: a double-emit latch bug would fire promptly too.
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(
+            sink.errors().len(),
+            1,
+            "the lost channel reports exactly once"
+        );
+
+        // The take goes on and finishes CLEAN (silence padded).
+        std::thread::sleep(Duration::from_millis(400));
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("the take survives a device loss");
+        keep.store(false, Ordering::Release);
+        video_producer.join().expect("video producer");
+        assert!(outcome.path.exists());
+        if let Some(report) = ffprobe_json(&outcome.path) {
+            let streams = report["streams"].as_array().expect("streams");
+            assert_eq!(streams.len(), 2, "the audio track is still muxed");
+            assert_eq!(streams[1]["codec_name"], "aac");
+        } else {
+            eprintln!("ffprobe unavailable — two-stream probe skipped (disk asserts hold)");
+        }
+    }
+
     /// PLAN 1.4: a faulted take must not block the next recording. The
     /// error event tells the UI the take is over; the session frees its
     /// slot so "record again" works without an intervening stop.
@@ -1095,7 +1694,7 @@ mod tests {
         let sink = TestSink::new();
 
         handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
             .expect("recording starts");
         assert!(matches!(
             bus.try_push(synthetic_frame_dims(0, 0, W * 2, H * 2)),
@@ -1110,7 +1709,7 @@ mod tests {
 
         // The next take starts — the faulted worker was reaped.
         let next = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
             .expect("the faulted take freed the slot");
         // Real frames: the zero-frame guard (capture.no_frames) must not
         // be what this test exercises — it is about slot recovery.

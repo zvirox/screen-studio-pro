@@ -17,6 +17,12 @@ pub fn default_settings() -> Settings {
             mic_device_id: None, // system default; M4 lists real devices
             desktop_audio: true,
             echo_cancel: false,
+            mic_enabled: true,
+            mic_muted: false,
+            mic_level: 100,
+            desktop_device_id: None,
+            desktop_muted: false,
+            desktop_level: 100,
         },
         files: Files {
             dir: paths::videos_dir().to_string_lossy().into_owned(),

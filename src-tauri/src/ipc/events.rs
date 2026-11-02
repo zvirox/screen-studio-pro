@@ -287,6 +287,7 @@ impl From<&crate::pipeline::session::StopOutcome> for crate::library::FinalizedR
             is_hw_encoder: outcome.encoder.is_hardware,
             created_at: outcome.started_at.clone(),
             updated_at: outcome.finished_at.clone(),
+            audio_json: outcome.audio_json.clone(),
         }
     }
 }
@@ -326,9 +327,9 @@ pub fn library_recording(
         size_bytes: outcome.size_bytes,
         encoder: outcome.encoder.backend.to_string(),
         is_hw_encoder: outcome.encoder.is_hardware,
-        // The JSON value columns: no audio (M4), no chapters (flow 7.2),
-        // no thumbnail (5.1) yet.
-        audio_json: None,
+        // The JSON value columns: audio rides the take (2.1), chapters
+        // (flow 7.2) and thumbnails (5.1) are still later.
+        audio_json: outcome.audio_json.clone(),
         chapter_json: None,
         thumb_path: None,
         deleted_at: None,
@@ -356,6 +357,7 @@ mod tests {
             },
             started_at: "2026-11-02T10:00:00Z".to_string(),
             finished_at: "2026-11-02T10:00:02Z".to_string(),
+            audio_json: None, // 2.1: projection tests stay video-only
         }
     }
 

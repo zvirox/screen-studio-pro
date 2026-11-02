@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   IPC_CONTRACT_VERSION,
+  type AudioListDevicesReply,
+  type AudioSetChannelInput,
   type Capabilities,
   type Hello,
   type IpcError,
@@ -99,6 +101,18 @@ export function sourceSelect(kind: SourceKind, target?: string): Promise<SourceS
     Idempotent for an unknown or already-released source id. */
 export function sourceRelease(sourceId: string): Promise<{ ok: boolean }> {
   return call<{ ok: boolean }>("source_release", { sourceId });
+}
+
+/** `cmd://audio_list_devices` — cpal mics + PipeWire sinks with defaults
+    marked (API §2.2). A snapshot: re-list after device changes. */
+export function audioListDevices(): Promise<AudioListDevicesReply> {
+  return call<AudioListDevicesReply>("audio_list_devices", {});
+}
+
+/** `cmd://audio_set_channel` — enable/mute a channel, pick a device, set
+    level 0–100 (API §2.2). Persists through the settings store. */
+export function audioSetChannel(input: AudioSetChannelInput): Promise<{ ok: boolean }> {
+  return call<{ ok: boolean }>("audio_set_channel", { ...input });
 }
 
 /** `cmd://recording_start` — wire source→encode→mux and open the MKV

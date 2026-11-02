@@ -79,6 +79,16 @@ export interface AudioSettings {
   micDeviceId: string | null;
   desktopAudio: boolean;
   echoCancel: boolean;
+  /* 2.1: per-channel enable/mute/level (API §2.2 audio_set_channel).
+     Rust mirror — src-tauri/src/settings/mod.rs `Audio` (camelCase). */
+  micEnabled: boolean;
+  micMuted: boolean;
+  /** 0–100 (API §2.2). */
+  micLevel: number;
+  /** null = the system default sink. */
+  desktopDeviceId: string | null;
+  desktopMuted: boolean;
+  desktopLevel: number;
 }
 
 export interface FilesSettings {
@@ -124,6 +134,35 @@ export interface PrefsGetReply {
 
 export interface PrefsAllReply {
   prefs: PrefEntry[];
+}
+
+/* ---------- §2.2 Audio devices (task 2.1) ---------- */
+
+/** One enumerated audio device row (API §2.2). `isDefault` mirrors the
+    system default at listing time; sink rows have no default flag
+    (deviation recorded in the PLAN ledger). */
+export interface AudioDevice {
+  id: string;
+  label: string;
+  isDefault: boolean;
+}
+
+/** `cmd://audio_list_devices` reply — a snapshot; re-list after
+    plugging/unplugging (API §2.2 flag ⚠). */
+export interface AudioListDevicesReply {
+  mics: AudioDevice[];
+  desktop: AudioDevice[];
+}
+
+/** `cmd://audio_set_channel` body (API §2.2): every field past `channel`
+    is optional; `deviceId: null` clears back to the system default. */
+export interface AudioSetChannelInput {
+  channel: "mic" | "desktop";
+  enabled?: boolean;
+  muted?: boolean;
+  deviceId?: string | null;
+  /** 0–100 (API §2.2). */
+  level?: number;
 }
 
 /* ---------- §2.3 Recording session ---------- */

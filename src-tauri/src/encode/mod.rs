@@ -27,6 +27,9 @@ pub struct EncoderInfo {
 /// rescales to the container stream's time base at write time.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedPacket {
+    /// Muxer stream index — 0 = video (backends before 2.1), 1 = audio
+    /// (2.1's AAC path). u8: the take carries at most two streams in MVP.
+    pub stream: u8,
     pub pts_us: i64,
     /// `None` = no explicit dts (no B-frames) — the muxer mirrors pts.
     pub dts_us: Option<i64>,
@@ -54,6 +57,29 @@ pub trait Encoder: Send {
     /// EOF/drain at stop: flushes buffered B-frames and trailing packets.
     fn finish(&mut self) -> Result<Vec<EncodedPacket>, CoreError>;
 }
+
+/* A/V split (2.1): video keeps the full [`Encoder`] seam (scale + encode),
+audio gets this narrower one — audio frames need gain/mix BEFORE the
+encoder (pipeline side), not scaling inside the backend. Same laws: one
+backend per struct, packets in the µs time base, no panics on per-chunk
+errors (§4.2).
+Pre-wiring: the audio leg is consumed by the session worker in this
+task's Phase E — until then dead outside tests (as `Encoder` was in 1.2). */
+#[cfg_attr(not(test), allow(dead_code))]
+pub trait AudioEncoder: Send {
+    /// Backend identity for the `recording/started` event chip (Phase F).
+    #[allow(dead_code)]
+    fn info(&self) -> EncoderInfo;
+    /// Encode one chunk: `interleaved` holds `frame_size * 2` f32
+    /// samples (stereo, 48 kHz, gain already applied). `pts_us` is the
+    /// chunk's recording-relative stamp in the µs time base.
+    fn encode(&mut self, pts_us: i64, interleaved: &[f32])
+    -> Result<Vec<EncodedPacket>, CoreError>;
+    /// EOF/flush at stop: drains the codec's buffered tail chunks.
+    fn finish(&mut self) -> Result<Vec<EncodedPacket>, CoreError>;
+}
+
+pub mod sw_aac;
 
 /// Register libavformat/libavcodec once per process before any mux work.
 /// Called lazily by whoever enters the encode path first.

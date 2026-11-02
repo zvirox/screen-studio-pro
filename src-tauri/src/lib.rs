@@ -110,6 +110,8 @@ pub fn run() {
         ipc::commands::settings_set,
         ipc::commands::prefs_get,
         ipc::commands::prefs_set,
+        ipc::commands::audio_list_devices,
+        ipc::commands::audio_set_channel,
         ipc::commands::source_select,
         ipc::commands::source_release,
         ipc::commands::recording_start,
@@ -123,6 +125,8 @@ pub fn run() {
         ipc::commands::settings_set,
         ipc::commands::prefs_get,
         ipc::commands::prefs_set,
+        ipc::commands::audio_list_devices,
+        ipc::commands::audio_set_channel,
         ipc::commands::source_select,
         ipc::commands::source_release,
     ]);

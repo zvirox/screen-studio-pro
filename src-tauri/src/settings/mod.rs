@@ -47,6 +47,18 @@ pub struct Audio {
     pub desktop_audio: bool,
     /// Echo-cancel toggle (PRD §7.5 Audio group).
     pub echo_cancel: bool,
+    /* 2.1: per-channel enable/mute/level (API §2.2 `audio_set_channel`).
+    Fields are Option-free booleans/levels so the TOML stays hand-editable;
+    `#[serde(default)]` below keeps pre-2.1 files valid — the missing keys
+    fall back to "first four fields as they were, new ones at defaults". */
+    pub mic_enabled: bool,
+    pub mic_muted: bool,
+    pub mic_level: u8,
+    /// None = the default sink (M4: desktop capture follows the system
+    /// default sink unless the user pinned a device here).
+    pub desktop_device_id: Option<String>,
+    pub desktop_muted: bool,
+    pub desktop_level: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -96,6 +108,24 @@ pub fn validate(settings: &Settings) -> Result<(), CoreError> {
         return Err(invalid(
             "Microphone device can't be empty; clear it to use the system default.",
         ));
+    }
+    if settings
+        .audio
+        .desktop_device_id
+        .as_ref()
+        .is_some_and(|device| device.is_empty())
+    {
+        return Err(invalid(
+            "Desktop audio device can't be empty; clear it to use the system default.",
+        ));
+    }
+    for (kind, level) in [
+        ("Mic", settings.audio.mic_level),
+        ("Desktop", settings.audio.desktop_level),
+    ] {
+        if level > 100 {
+            return Err(invalid(&format!("{kind} audio level must be 0–100.")));
+        }
     }
     let f = &settings.files;
     if !Path::new(&f.dir).is_absolute() {
@@ -227,6 +257,85 @@ impl SettingsStore {
         Ok(serde_json::to_value(&self.cache).expect("Settings is plain JSON data"))
     }
 
+    /// API §2.2 `audio_set_channel`: merge optional per-channel fields
+    /// onto the audio section, re-validate, persist, return full settings.
+    /// The channel string is contract vocabulary ("mic" | "desktop");
+    /// everything else is optional and only provided fields change.
+    /// Device-id EXISTENCE is validated by the caller (the ipc layer
+    /// enumerates live devices; `pipewire.audio_device_gone` there).
+    /// Pre-wiring: consumed by the ipc handler in Phase F.
+    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_audio_channel(
+        &mut self,
+        channel: &str,
+        enabled: Option<bool>,
+        muted: Option<bool>,
+        // JSON null (Some(Value::Null)) clears back to the system default;
+        // a bare absence (None) changes nothing. serde keeps the two apart.
+        device_id: Option<Value>,
+        level: Option<u8>,
+    ) -> Result<Value, CoreError> {
+        if !matches!(channel, "mic" | "desktop") {
+            return Err(CoreError::settings(
+                "settings.invalid_value",
+                false,
+                "Unknown audio channel. Use mic or desktop.",
+            ));
+        }
+        if level.is_some_and(|level| level > 100) {
+            return Err(CoreError::settings(
+                "settings.invalid_value",
+                false,
+                "Audio level must be between 0 and 100.",
+            ));
+        }
+        let mut updated = self.cache.clone();
+        let audio = &mut updated.audio;
+        let (ch_enabled, ch_device, ch_muted, ch_level) = if channel == "mic" {
+            (
+                &mut audio.mic_enabled,
+                &mut audio.mic_device_id,
+                &mut audio.mic_muted,
+                &mut audio.mic_level,
+            )
+        } else {
+            (
+                &mut audio.desktop_audio,
+                &mut audio.desktop_device_id,
+                &mut audio.desktop_muted,
+                &mut audio.desktop_level,
+            )
+        };
+        if let Some(enabled) = enabled {
+            *ch_enabled = enabled;
+        }
+        if let Some(muted) = muted {
+            *ch_muted = muted;
+        }
+        if let Some(level) = level {
+            *ch_level = level;
+        }
+        match device_id {
+            Some(Value::Null) => *ch_device = None,
+            Some(value) => {
+                let Some(raw) = value.as_str() else {
+                    return Err(CoreError::settings(
+                        "settings.invalid_value",
+                        false,
+                        "deviceId must be a string or null.",
+                    ));
+                };
+                *ch_device = Some(raw.to_owned());
+            }
+            None => {}
+        }
+        validate(&updated)?;
+        self.cache = updated;
+        self.persist()?;
+        Ok(serde_json::to_value(&self.cache).expect("Settings is plain JSON data"))
+    }
+
     fn persist(&self) -> Result<(), CoreError> {
         if let Some(parent) = self.path.parent() {
             std::fs::create_dir_all(parent).map_err(disk_unwritable)?;
@@ -325,6 +434,72 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.code(), "settings.invalid_value");
         assert!(err.retryable());
+    }
+
+    /* ---- 2.1: audio_set_channel ---- */
+
+    #[test]
+    fn pre_21_settings_files_still_load() {
+        // A pre-2.1 TOML (no per-channel fields) must parse to the new
+        // schema with defaults filled in — never a schema_mismatch boot.
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("settings.toml"),
+            "[audio]\nmicDeviceId = \"mic_blue-snowball-0\"\ndesktopAudio = true\n",
+        )
+        .unwrap();
+        let loaded = store(tmp.path());
+        let audio = &loaded.get().audio;
+        assert_eq!(audio.mic_device_id.as_deref(), Some("mic_blue-snowball-0"));
+        assert!(audio.mic_enabled);
+        assert!(!audio.mic_muted);
+        assert_eq!(audio.mic_level, 100);
+        assert!(audio.desktop_device_id.is_none());
+    }
+
+    #[test]
+    fn audio_set_channel_updates_only_given_fields_and_persists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut s = store(tmp.path());
+        let merged = s
+            .apply_audio_channel("mic", Some(false), Some(true), None, Some(40))
+            .unwrap();
+        assert_eq!(merged["audio"]["micEnabled"], false);
+        assert_eq!(merged["audio"]["micMuted"], true);
+        assert_eq!(merged["audio"]["micLevel"], 40);
+        // Untouched fields keep their values (desktop is a different column set):
+        assert_eq!(merged["audio"]["desktopAudio"], true);
+        let reloaded = store(tmp.path());
+        let audio = &reloaded.get().audio;
+        assert!(!audio.mic_enabled && audio.mic_muted && audio.mic_level == 40);
+        // desktop channel writes its own column set:
+        let mut s = reloaded;
+        let merged = s
+            .apply_audio_channel("desktop", None, None, Some(json!(null)), None)
+            .unwrap();
+        assert_eq!(merged["audio"]["desktopDeviceId"], Value::Null);
+        assert_eq!(merged["audio"]["desktopAudio"], true); // enabled unchanged
+    }
+
+    #[test]
+    fn audio_set_channel_rejects_unknown_channel_and_out_of_range_level() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut s = store(tmp.path());
+        let snapshot = s.get().clone();
+        assert_eq!(
+            s.apply_audio_channel("camera", None, None, None, None)
+                .unwrap_err()
+                .code(),
+            "settings.invalid_value"
+        );
+        assert_eq!(
+            s.apply_audio_channel("mic", None, None, None, Some(101))
+                .unwrap_err()
+                .code(),
+            "settings.invalid_value"
+        );
+        // A rejected change must not have reached the cache (or disk):
+        assert_eq!(*s.get(), snapshot);
     }
 
     #[test]
