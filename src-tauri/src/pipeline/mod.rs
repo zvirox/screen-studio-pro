@@ -7,6 +7,8 @@ capture/settings/library paths without them. */
 pub mod muxer;
 #[cfg(feature = "encode")]
 pub mod session;
+#[cfg(feature = "encode")]
+pub mod stats;
 
 use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};

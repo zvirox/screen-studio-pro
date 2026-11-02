@@ -1,4 +1,5 @@
 use super::FrameBus;
+use super::stats::{EventSink, SessionEvent, StatsMeter, Throttle};
 use crate::encode::Encoder;
 use crate::encode::sw_x264::{self, SwX264};
 use crate::pipeline::muxer::{Muxer, VideoSpec};
@@ -36,6 +37,12 @@ const FRAME_RATE: (u32, u32) = (60, 1);
 /// PLAN 1.3 wired name (naming-pattern expansion is task 6.2/FILES).
 const BASE_FILE_STEM: &str = "first-rec";
 
+/// `recording/tick` cadence — API §3 rate law: 1 Hz.
+const TICK_PERIOD: Duration = Duration::from_secs(1);
+
+/// `recording/stats` cadence — API §3 rate law: 0.5 Hz (every 2 s).
+const STATS_PERIOD: Duration = Duration::from_secs(2);
+
 /// Data the ipc layer turns into the API §2.3 `recording_start` reply.
 #[derive(Debug, Clone)]
 pub struct StartInfo {
@@ -44,12 +51,34 @@ pub struct StartInfo {
     pub started_at: String,
 }
 
+/// What the worker reports about a finished take — the facts the file
+/// itself carries (no clock, no encoder identity).
+#[derive(Debug, Clone)]
+pub struct TakeFacts {
+    pub path: PathBuf,
+    pub duration_ms: u64,
+    pub size_bytes: u64,
+    /// Encoded dimensions (even-clamped).
+    pub width: u32,
+    pub height: u32,
+    /// The muxed stream's frame rate.
+    pub fps: u32,
+}
+
 /// What `recording_stop` reports (DB row upsert joins in 1.6 — no id yet).
 #[derive(Debug, Clone)]
 pub struct StopOutcome {
     pub path: PathBuf,
     pub duration_ms: u64,
     pub size_bytes: u64,
+    pub width: u32,
+    pub height: u32,
+    pub fps: u32,
+    pub encoder: crate::encode::EncoderInfo,
+    /// RFC-3339 start stamp — the library row's `created_at` (1.6).
+    pub started_at: String,
+    /// RFC-3339 finalize stamp — the library row's `updated_at` (1.6).
+    pub finished_at: String,
 }
 
 /// Managed state: at most one active recording (the bad_state rule of
@@ -61,11 +90,18 @@ pub struct RecordingHandle {
 
 struct ActiveRecording {
     recording_id: String,
+    /// The start facts (encoder identity + start stamp) — the stop reply
+    /// and the `recording/finished` projection need them.
+    info: StartInfo,
     /// Stop latch — set by `stop`, observed by the worker's idle poll.
     stop: Arc<AtomicBool>,
+    /// Set by the worker when the take ends by itself (a mid-take fault).
+    /// A faulted worker must not block the next take — the error event
+    /// already told the UI the take is over.
+    ended: Arc<AtomicBool>,
     /// None = already joined by a previous stop (defensive; stop takes
     /// the whole ActiveRecording out so this never happens per contract).
-    worker: Option<std::thread::JoinHandle<Result<StopOutcome, CoreError>>>,
+    worker: Option<std::thread::JoinHandle<Result<TakeFacts, CoreError>>>,
 }
 
 impl RecordingHandle {
@@ -79,13 +115,21 @@ impl RecordingHandle {
     /// if a recording is already active, per API §2.3. The muxer header
     /// is written synchronously (fast) so encoder/path problems surface
     /// in the `recording_start` reply, not only at stop.
+    ///
+    /// `events` receives the session's event stream (API §3: tick 1 Hz,
+    /// stats 0.5 Hz, error on fault). The pipeline stays Tauri-agnostic:
+    /// the IPC layer injects the Tauri-backed sink.
     pub fn start(
         &self,
         bus: Arc<FrameBus>,
         dims: (u32, u32),
         dir: &Path,
+        events: Arc<dyn EventSink>,
     ) -> Result<StartInfo, CoreError> {
         let mut slot = self.locked();
+        // A worker that ended on its own (a mid-take fault) must not
+        // block the next take — reap it and free the slot.
+        self.reap_finished(&mut slot);
         if slot.is_some() {
             return Err(bad_state(
                 "A recording is already running. Stop it before starting another.",
@@ -116,10 +160,17 @@ impl RecordingHandle {
         };
 
         let stop = Arc::new(AtomicBool::new(false));
+        let ended = Arc::new(AtomicBool::new(false));
+        let ctx = SessionContext {
+            recording_id: recording_id.clone(),
+            dims,
+            events,
+            ended: ended.clone(),
+        };
         let worker_stop = stop.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
-            .spawn(move || run_session(mux, encoder, bus, worker_stop))
+            .spawn(move || run_session(mux, encoder, bus, worker_stop, ctx))
             .map_err(|err| {
                 // mux/encoder drop here unwinds the header-less file; the
                 // take never started, so one typed error surfaces (spawn
@@ -134,10 +185,36 @@ impl RecordingHandle {
 
         *slot = Some(ActiveRecording {
             recording_id: recording_id.clone(),
+            info: info.clone(),
             stop,
+            ended,
             worker: Some(worker),
         });
         Ok(info)
+    }
+
+    /// Reaps a worker that ended by itself (a mid-take fault) so the next
+    /// take can start. The fault was already pushed as an event — the
+    /// reaping only collects the worker's result (tracing, §7.9).
+    fn reap_finished(&self, slot: &mut Option<ActiveRecording>) {
+        let ended = slot
+            .as_ref()
+            .map(|active| active.ended.load(Ordering::Acquire))
+            .unwrap_or(false);
+        if !ended {
+            return;
+        }
+        let finished = slot.take().expect("slot held a recording");
+        let Some(worker) = finished.worker else {
+            return;
+        };
+        match worker.join() {
+            Ok(Ok(_facts)) => tracing::warn!("a recording ended without a stop request"),
+            Ok(Err(err)) => {
+                tracing::error!(code = %err.code(), "recording worker ended with a fault")
+            }
+            Err(panic) => tracing::error!(?panic, "recording worker panicked"),
+        }
     }
 
     /// Stops (and joins) the active recording. Outer `Err` = contract
@@ -145,26 +222,40 @@ impl RecordingHandle {
     /// the take's own fate (mux disk faults, mid-take codec faults).
     pub fn stop(&self, recording_id: &str) -> Result<Result<StopOutcome, CoreError>, CoreError> {
         let mut slot = self.locked();
-        let active = match slot.take() {
-            Some(rec) if rec.recording_id == recording_id => rec,
-            // Not ours / none — put it back: the caller may have hit a
-            // racing id typo, the session itself is unaffected.
-            other => {
-                *slot = other;
-                return Err(bad_state("No recording is running with that id."));
-            }
+        let Some(active) = slot.as_mut() else {
+            return Err(bad_state("No recording is running with that id."));
         };
-        let ActiveRecording {
-            stop, mut worker, ..
-        } = active;
-        stop.store(true, Ordering::Release);
-        // The contract guarantees stop owns the only join; the take is
-        // defensive against future call paths. JoinError = worker panic
-        // (a bug) → encoder family, payload logged, raw strings never
-        // reach the UI (§7.9).
-        let join = worker.take().expect("stop owns the only join").join();
+        if active.recording_id != recording_id {
+            // Not ours — the session itself is unaffected (the recording
+            // stays in the slot; the caller may have hit a racing id typo).
+            return Err(bad_state("No recording is running with that id."));
+        }
+        // Latch the stop while the slot is held.
+        active.stop.store(true, Ordering::Release);
+        let info = active.info.clone();
+        let worker = active.worker.take().expect("stop owns the only join");
+        // The join happens with the slot STILL occupied: a concurrent
+        // start must not spawn a second consumer on the same SPSC bus
+        // (pipeline/mod.rs single-consumer law).
+        //
+        // JoinError = worker panic (a bug) → encoder family, payload
+        // logged, raw strings never reach the UI (§7.9).
+        let join = worker.join();
+        // The take is over — the slot is free again.
+        *slot = None;
         match join {
-            Ok(result) => Ok(result),
+            Ok(Ok(facts)) => Ok(Ok(StopOutcome {
+                path: facts.path,
+                duration_ms: facts.duration_ms,
+                size_bytes: facts.size_bytes,
+                width: facts.width,
+                height: facts.height,
+                fps: facts.fps,
+                encoder: info.encoder,
+                started_at: info.started_at,
+                finished_at: crate::util::time::rfc3339_now(),
+            })),
+            Ok(Err(err)) => Ok(Err(err)),
             Err(panic) => {
                 tracing::error!(?panic, "recording worker panicked");
                 Err(CoreError::encoder(
@@ -203,14 +294,51 @@ pub fn new_recording_id() -> String {
     format!("rec_{nanos:x}{counter:04x}")
 }
 
-/// The session body: drain → encode → mux until the stop latch, whose
-/// budget bounds the take at Stop time (see the loop body).
+/// The session's fixed facts — handed to the worker thread.
+struct SessionContext {
+    /// The take's id (every event carries it — API §3).
+    recording_id: String,
+    /// Encoded dimensions (even-clamped).
+    dims: (u32, u32),
+    /// Where the session's events go (the IPC layer's Tauri sink).
+    events: Arc<dyn EventSink>,
+    /// Set when the take ends — lets `start` reap a faulted worker.
+    ended: Arc<AtomicBool>,
+}
+
+/// The session body: the take plus its event stream (ARCHITECTURE §3.2
+/// steps 4 + 7). A fault pushes the typed error to the UI at FAULT TIME
+/// — a HUD learns the take is over without waiting for the user to press
+/// stop — and the same error is returned by `recording_stop`.
 fn run_session(
-    mut mux: Muxer,
+    mux: Muxer,
     mut encoder: SwX264,
     bus: Arc<FrameBus>,
     stop: Arc<AtomicBool>,
-) -> Result<StopOutcome, CoreError> {
+    ctx: SessionContext,
+) -> Result<TakeFacts, CoreError> {
+    let outcome = capture_take(mux, &mut encoder, &bus, &stop, &ctx);
+    // The take is over — mark it BEFORE the error event, so a UI that
+    // reacts to the event can start the next take right away.
+    ctx.ended.store(true, Ordering::Release);
+    match outcome {
+        Ok(facts) => Ok(facts),
+        Err(err) => {
+            ctx.events.emit(SessionEvent::Error(err.to_ipc()));
+            Err(err)
+        }
+    }
+}
+
+/// The take itself: drain → encode → mux until the stop latch, whose
+/// budget bounds the take at Stop time (see the loop body).
+fn capture_take(
+    mut mux: Muxer,
+    encoder: &mut SwX264,
+    bus: &Arc<FrameBus>,
+    stop: &Arc<AtomicBool>,
+    ctx: &SessionContext,
+) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
     let mut last_rel_pts: u64 = 0;
@@ -222,8 +350,30 @@ fn run_session(
     // Defensive empty-poll counter for the (theoretically unreachable)
     // latched-but-ring-empty branch — bounds stop latency unconditionally.
     let mut empty_polls: u32 = 0;
+    // The event cadence (API §3): tick 1 Hz, stats 0.5 Hz. Both run on
+    // the wall clock, never on frames — an idle source still ticks (§6).
+    let session_start = Instant::now();
+    let mut tick_gate = Throttle::new(TICK_PERIOD);
+    let mut stats_gate = Throttle::new(STATS_PERIOD);
+    let mut meter = StatsMeter::new();
+    let mut stats_window = Instant::now();
 
     loop {
+        // Cadence FIRST: the gates fire on the wall clock, so the events
+        // keep their documented rate even when the source goes quiet.
+        let now = Instant::now();
+        if tick_gate.due(now) {
+            ctx.events.emit(SessionEvent::Tick {
+                recording_id: ctx.recording_id.clone(),
+                elapsed_ms: session_start.elapsed().as_millis() as u64,
+            });
+        }
+        if stats_gate.due(now) {
+            let snapshot = meter.snapshot(bus.dropped(), stats_window.elapsed());
+            meter.reset();
+            stats_window = Instant::now();
+            ctx.events.emit(SessionEvent::Stats(snapshot));
+        }
         // Latch FIRST, every iteration: the take ends when Stop was
         // pressed (bounded stop latency), NOT whenever the encoder
         // catches up — with a live producer the ring refills faster
@@ -254,8 +404,14 @@ fn run_session(
                 // producer clock instead of trusting it.
                 let rel = frame.pts_us.saturating_sub(base);
                 frame.pts_us = rel;
+                // The encoder's cost is a meter (API §3 `encodeTimeMs`) —
+                // the muxer's cost is not part of the payload.
+                let encode_started = Instant::now();
                 let packets = encoder.encode(&frame)?;
+                let encode_time = encode_started.elapsed();
+                let encoded_bytes: usize = packets.iter().map(|packet| packet.data.len()).sum();
                 mux.write(&packets)?;
+                meter.record_frame(encoded_bytes, encode_time);
                 frames += 1;
                 info_frames += 1;
                 last_rel_pts = rel;
@@ -321,10 +477,13 @@ fn run_session(
         size_bytes,
         "recording finalized"
     );
-    Ok(StopOutcome {
+    Ok(TakeFacts {
         path,
         duration_ms: last_rel_pts / 1000,
         size_bytes,
+        width: ctx.dims.0,
+        height: ctx.dims.1,
+        fps: FRAME_RATE.0,
     })
 }
 
@@ -348,6 +507,7 @@ fn bad_state(message: &'static str) -> CoreError {
 #[cfg(all(test, feature = "encode"))]
 mod tests {
     use super::*;
+    use crate::pipeline::stats::StatsSnapshot;
 
     /* Synthetic-frame harness: no portal, no PipeWire — the tests play
     the producer half of the bus so the verify (§PLAN 1.3, ffprobe shows
@@ -356,17 +516,94 @@ mod tests {
     const W: u32 = 320;
     const H: u32 = 240;
 
+    /// A recording event sink — collects the session's events so the
+    /// tests can assert the API §3 cadences without a Tauri app.
+    #[derive(Default)]
+    struct TestSink {
+        events: Mutex<Vec<SessionEvent>>,
+    }
+
+    impl TestSink {
+        fn new() -> Arc<TestSink> {
+            Arc::new(TestSink::default())
+        }
+
+        fn all(&self) -> Vec<SessionEvent> {
+            self.events.lock().expect("sink lock").clone()
+        }
+
+        fn ticks(&self) -> Vec<(String, u64)> {
+            self.all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Tick {
+                        recording_id,
+                        elapsed_ms,
+                    } => Some((recording_id.clone(), *elapsed_ms)),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        fn stats(&self) -> Vec<StatsSnapshot> {
+            self.all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Stats(snapshot) => Some(*snapshot),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        fn errors(&self) -> Vec<crate::util::error::IpcError> {
+            self.all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Error(err) => Some(err.clone()),
+                    _ => None,
+                })
+                .collect()
+        }
+    }
+
+    impl EventSink for TestSink {
+        fn emit(&self, event: SessionEvent) {
+            self.events.lock().expect("sink lock").push(event);
+        }
+    }
+
+    /// The §1 error code of a recorded error event (the wire shape is
+    /// private — read it through the contract's own JSON projection).
+    fn error_code(err: &crate::util::error::IpcError) -> String {
+        serde_json::to_value(err).expect("serialize")["code"]
+            .as_str()
+            .expect("code is a string")
+            .to_string()
+    }
+
     /// Small BGRx frame; pixel content varies per frame so x264 has real
     /// work (a constant frame would make bitrate/duration checks silly).
     fn synthetic_frame(n: u64, pts_us: u64) -> crate::pipeline::Frame {
-        let stride = W as usize * 4;
-        let mut data = vec![0u8; stride * H as usize];
+        synthetic_frame_dims(n, pts_us, W, H)
+    }
+
+    /// The same frame at other dimensions — a portal session has ONE
+    /// resolution, so a different size is a mid-take renegotiation
+    /// (encode/sw_x264.rs → pipewire.stream_lost).
+    fn synthetic_frame_dims(
+        n: u64,
+        pts_us: u64,
+        width: u32,
+        height: u32,
+    ) -> crate::pipeline::Frame {
+        let stride = width as usize * 4;
+        let mut data = vec![0u8; stride * height as usize];
         for (i, byte) in data.iter_mut().enumerate() {
             *byte = (n as usize ^ i) as u8;
         }
         crate::pipeline::Frame {
-            width: W,
-            height: H,
+            width,
+            height,
             stride: stride as u32,
             layout: crate::pipeline::FrameLayout::Bgrx,
             pts_us,
@@ -441,7 +678,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
             .expect("recording starts");
         assert_eq!(info.encoder.backend, "x264");
         assert!(!info.encoder.is_hardware);
@@ -497,12 +734,14 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
             .expect("first start");
         produce(&bus, 5, 0);
 
         // Second start while active → ipc.bad_state (API §2.3).
-        let err = handle.start(bus.clone(), (W, H), dir.path()).unwrap_err();
+        let err = handle
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .unwrap_err();
         assert_eq!(err.code(), "ipc.bad_state");
 
         // Wrong-id stop → bad_state, session survives (put-back).
@@ -528,7 +767,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let first = handle
-            .start(bus.clone(), (W, H), dir.path())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
             .expect("first");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -539,7 +778,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let second = handle
-            .start(bus.clone(), (W, H), dir.path())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
             .expect("second");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -563,7 +802,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(8));
         let dir = tempfile::tempdir().expect("tmp dir");
         let info = handle
-            .start(bus.clone(), (W, H), dir.path())
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
             .expect("start");
 
         // Live-source simulation: the producer runs through the whole
@@ -672,5 +911,147 @@ mod tests {
         } else {
             eprintln!("ffprobe unavailable — file-size smoke only");
         }
+    }
+
+    /// PLAN 1.4 verify: the session's event stream keeps the documented
+    /// cadences (API §3: `recording/tick` 1 Hz, `recording/stats` 0.5 Hz)
+    /// — one tick per SECOND, never one per frame, and the stats at half
+    /// that rate. ARCHITECTURE §6: the coalescing happens in Rust.
+    #[test]
+    fn tick_and_stats_keep_the_contract_cadence() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .expect("recording starts");
+
+        // Live producer: one frame every 16 ms (60 fps), like the capture.
+        let keep = Arc::new(AtomicBool::new(true));
+        let producer = {
+            let bus = bus.clone();
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let mut n = 0u64;
+                let t0 = Instant::now();
+                while keep.load(Ordering::Acquire) {
+                    let pts = t0.elapsed().as_micros() as u64;
+                    match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                        crate::pipeline::Push::Pushed => {}
+                        crate::pipeline::Push::Full(_) => bus.mark_dropped(),
+                    }
+                    n += 1;
+                    std::thread::sleep(Duration::from_millis(16));
+                }
+            })
+        };
+
+        // Wait for the second tick (t ≈ 2 s).
+        let deadline = Instant::now() + Duration::from_secs(8);
+        while sink.ticks().len() < 2 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        // The stats event rides the same instant as the second tick.
+        std::thread::sleep(Duration::from_millis(100));
+
+        handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean take");
+        keep.store(false, Ordering::Release);
+        producer.join().expect("producer ok");
+
+        let ticks = sink.ticks();
+        assert_eq!(ticks.len(), 2, "one tick per second, not one per frame");
+        assert_eq!(ticks[0].0, info.recording_id, "the tick names the take");
+        assert!(
+            (900..=1_500).contains(&ticks[0].1),
+            "the first tick lands at ~1 s, got {}",
+            ticks[0].1
+        );
+        assert!(
+            (1_900..=2_600).contains(&ticks[1].1),
+            "the second tick lands at ~2 s, got {}",
+            ticks[1].1
+        );
+        let stats = sink.stats();
+        assert_eq!(stats.len(), 1, "stats at 0.5 Hz (one per 2 s)");
+        assert!(stats[0].fps > 0.0, "the meter saw the encoded frames");
+        assert!(sink.errors().is_empty(), "a healthy take reports no error");
+    }
+
+    /// PLAN 1.4: a mid-take fault pushes the typed error at FAULT TIME
+    /// (ARCHITECTURE §3.2 step 7) — the UI learns the take is over
+    /// without waiting for the user to press stop — and the stop reply
+    /// carries the same failure (authoritative).
+    #[test]
+    fn a_worker_fault_emits_an_error_event_at_fault_time() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .expect("recording starts");
+
+        // A frame whose size does not match the opened encoder is a
+        // mid-take renegotiation (encode/sw_x264.rs) → pipewire.stream_lost.
+        assert!(matches!(
+            bus.try_push(synthetic_frame_dims(0, 0, W * 2, H * 2)),
+            crate::pipeline::Push::Pushed
+        ));
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while sink.errors().is_empty() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let errors = sink.errors();
+        assert_eq!(errors.len(), 1, "one fault → one error event");
+        assert_eq!(error_code(&errors[0]), "pipewire.stream_lost");
+
+        // The stop reply carries the same failure (the event is the early
+        // push; the reply is the authoritative answer).
+        let err = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect_err("the take faulted");
+        assert_eq!(err.code(), "pipewire.stream_lost");
+    }
+
+    /// PLAN 1.4: a faulted take must not block the next recording. The
+    /// error event tells the UI the take is over; the session frees its
+    /// slot so "record again" works without an intervening stop.
+    #[test]
+    fn a_faulted_take_does_not_block_the_next_recording() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .expect("recording starts");
+        assert!(matches!(
+            bus.try_push(synthetic_frame_dims(0, 0, W * 2, H * 2)),
+            crate::pipeline::Push::Pushed
+        ));
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while sink.errors().is_empty() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(!sink.errors().is_empty(), "the fault was reported");
+
+        // The next take starts — the faulted worker was reaped.
+        let next = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone())
+            .expect("the faulted take freed the slot");
+        handle
+            .stop(&next.recording_id)
+            .expect("accepted")
+            .expect("clean take");
     }
 }

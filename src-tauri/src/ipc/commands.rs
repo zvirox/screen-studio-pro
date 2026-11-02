@@ -283,6 +283,7 @@ pub async fn recording_start(
     camera_id: Option<String>,
     preset_id: Option<String>,
     output_dir: Option<String>,
+    app: tauri::AppHandle,
     capture_state: State<'_, CaptureHandle>,
     recordings: State<'_, crate::pipeline::session::RecordingHandle>,
 ) -> Result<Value, IpcError> {
@@ -306,9 +307,14 @@ pub async fn recording_start(
         None => crate::util::paths::videos_dir(),
     };
 
+    // The session's event stream (API §3): the pipeline stays
+    // Tauri-agnostic — the IPC layer injects the Tauri-backed sink.
+    let events = std::sync::Arc::new(super::events::TauriEventSink::new(app.clone()));
     let info = recordings
-        .start(bus, source.geometry, &dir)
+        .start(bus, source.geometry, &dir, events)
         .map_err(|err| err.to_ipc())?;
+    // ARCHITECTURE §3.2 step 3: the session is live → announce it.
+    super::events::recording_started(&app, &info);
     Ok(serde_json::json!({
         "recordingId": info.recording_id,
         "status": "recording",
@@ -324,12 +330,16 @@ pub async fn recording_start(
 #[tauri::command]
 pub async fn recording_stop(
     recording_id: String,
+    app: tauri::AppHandle,
     recordings: State<'_, crate::pipeline::session::RecordingHandle>,
 ) -> Result<Value, IpcError> {
     let outcome = recordings
         .stop(&recording_id)
         .map_err(|err| err.to_ipc())? // outer: ipc.bad_state
         .map_err(|err| err.to_ipc())?; // inner: the take's own fate
+    // ARCHITECTURE §3.2 step 6: the take is on disk → announce it (the
+    // library row lands with 1.6 and rides the same payload).
+    super::events::recording_finished(&app, &recording_id, &outcome);
     Ok(serde_json::json!({
         "recording": {
             "path": outcome.path.display().to_string(),

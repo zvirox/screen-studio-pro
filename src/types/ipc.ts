@@ -222,7 +222,10 @@ export interface RecordingFlaggedEvt {
 export type RecordingErrorEvt = IpcError;
 
 /** DATABASE §2.1 `recordings` projection; the JSON value columns
-    (`audioJson`, `chapterJson`) travel as strings and decode at use sites. */
+    (`audioJson`, `chapterJson`) travel as strings and decode at use sites.
+    Task 1.4 scope: until the DB upsert (PLAN 1.6) there is NO row — the
+    `recording/finished` payload carries `id: 0` and null JSON/thumbnail
+    columns; 1.6 replaces the id and emits `library/updated`. */
 export interface LibraryRecording {
   id: number;
   path: string;
@@ -245,6 +248,7 @@ export interface LibraryRecording {
   updatedAt: string;
 }
 
+/** `recording/finished` — once per session, after the trailer was written. */
 export interface RecordingFinishedEvt {
   recordingId: string;
   recording: LibraryRecording;

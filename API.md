@@ -252,6 +252,8 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
 
 All event payloads are JSON, all carry the topic-scoped kind already shown; the webview subscribes through `lib/events.ts` exactly once per topic.
 
+*(Task 1.4 scope: the recording-session events are live — `recording/started` (once, from `recording_start`, after the session went live), `recording/tick` (1 Hz, `elapsedMs` = wall-clock take time), `recording/stats` (0.5 Hz: fps, dropped frames, encoded bitrate, mean encode time), `recording/error` (a mid-take fault, pushed AT FAULT TIME), `recording/finished` (once, after the trailer was written). Until the DB upsert (task 1.6) there is NO library row: the `finished` payload carries `recording.id = 0` and null `thumbPath`/`audioJson`/`chapterJson` — 1.6 replaces the id and emits `library/updated`. `recording/meters` needs the audio bus (M4), `recording/flagged` needs `cmd://recording_flag` (flow 7.2), `library/updated` lands with 1.6. `tick.state` is always `"recording"` — `recording_pause`/`recording_resume` have not landed. Channels: a command failure (`recording_start`/`recording_stop` rejected) travels on the command reply; the event stream carries the ASYNCHRONOUS failures — a mid-take fault is pushed at fault time AND returned by `recording_stop`, so a UI renders one failure once (DESIGN §6.5's no-double-telling law). The error payload is the §1 shape verbatim — it carries no recording id, so a consumer matches it to a take by the code it already knows.)*
+
 ---
 
 ## 4. Pagination, Filtering, Sorting, Rate Limits
