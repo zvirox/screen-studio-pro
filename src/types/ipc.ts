@@ -223,9 +223,8 @@ export type RecordingErrorEvt = IpcError;
 
 /** DATABASE §2.1 `recordings` projection; the JSON value columns
     (`audioJson`, `chapterJson`) travel as strings and decode at use sites.
-    Task 1.4 scope: until the DB upsert (PLAN 1.6) there is NO row — the
-    `recording/finished` payload carries `id: 0` and null JSON/thumbnail
-    columns; 1.6 replaces the id and emits `library/updated`. */
+    Since task 1.6 the stop path upserts the index row first — `id` is the
+    real row id, and `library/updated` rides after the upsert commits. */
 export interface LibraryRecording {
   id: number;
   path: string;

@@ -111,10 +111,36 @@ impl LibraryHandle {
     pub fn prefs_set(&self, key: &str, value: &Value) -> Result<Value, CoreError> {
         self.with_store(|store| store.prefs_set(key, value))
     }
+
+    /// Task 1.6: upsert a finalized take (DATABASE §6: the pipeline flow
+    /// is the writer). Returns the row id for the finished payload.
+    #[cfg(feature = "encode")]
+    pub fn record_finalize(&self, rec: &FinalizedRecording) -> Result<i64, CoreError> {
+        self.with_store(|store| store.record_finalize(rec))
+    }
 }
 
 pub struct LibraryStore {
     conn: Mutex<Connection>,
+}
+
+/// A finalized take, exactly as the library index wants it (DATABASE
+/// §2.1). Built by the IPC stop path from `StopOutcome`; the JSON value
+/// columns stay NULL until audio (M4), chapters (flow 7.2) and
+/// thumbnails (5.1) exist. `kind` is pinned to `recording` until the
+/// V2 seam is used.
+pub struct FinalizedRecording {
+    pub path: String,
+    pub container: String,
+    pub duration_ms: u64,
+    pub width: u32,
+    pub height: u32,
+    pub fps: u32,
+    pub size_bytes: u64,
+    pub encoder: String,
+    pub is_hw_encoder: bool,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl LibraryStore {
@@ -203,6 +229,78 @@ impl LibraryStore {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+
+    /// Task 1.6 — the stop-path upsert (PLAN: "status finalizing→ready").
+    /// Two writes inside ONE transaction: the row first exists as
+    /// `finalizing` (crash between INSERT and the UPDATE leaves an honest
+    /// `finalizing` row the library hides, not a fake `ready` one), then
+    /// the UPDATE commits the final facts. `path` is the upsert key
+    /// (§5); `created_at` survives a conflict (§2.1 note: the first
+    /// write wins — session start is immutable history).
+    // no-default builds compile this lib target without the stop path;
+    // the store tests still exercise it, so allow dead code there.
+    #[cfg_attr(not(feature = "encode"), allow(dead_code))]
+    fn record_finalize(&self, rec: &FinalizedRecording) -> Result<i64, CoreError> {
+        let mut conn = self.lock();
+        let tx = conn.transaction().map_err(db_error)?;
+        tx.execute(
+            "INSERT INTO recordings
+                (path, file_name, kind, container, status, size_bytes,
+                 encoder, is_hw_encoder, created_at, updated_at)
+             VALUES (?1, ?2, 'recording', ?3, 'finalizing', 0, ?4, ?5, ?6, ?7)
+             ON CONFLICT(path) DO UPDATE SET
+                file_name = excluded.file_name,
+                container = excluded.container,
+                status = 'finalizing',
+                encoder = excluded.encoder,
+                is_hw_encoder = excluded.is_hw_encoder,
+                updated_at = excluded.updated_at",
+            rusqlite::params![
+                rec.path,
+                file_name_of(&rec.path),
+                rec.container,
+                rec.encoder,
+                rec.is_hw_encoder as i64,
+                rec.created_at,
+                rec.updated_at,
+            ],
+        )
+        .map_err(db_error)?;
+        tx.execute(
+            "UPDATE recordings SET
+                status = 'ready',
+                duration_ms = ?2, width = ?3, height = ?4, fps = ?5,
+                size_bytes = ?6, updated_at = ?7
+             WHERE path = ?1",
+            rusqlite::params![
+                rec.path,
+                rec.duration_ms as i64,
+                rec.width as i64,
+                rec.height as i64,
+                rec.fps as i64,
+                rec.size_bytes as i64,
+                rec.updated_at,
+            ],
+        )
+        .map_err(db_error)?;
+        let id: i64 = tx
+            .query_row(
+                "SELECT id FROM recordings WHERE path = ?1",
+                [&rec.path],
+                |row| row.get(0),
+            )
+            .map_err(db_error)?;
+        tx.commit().map_err(db_error)?;
+        Ok(id)
+    }
+}
+
+/// §2.1: `file_name` is the display name — the path's last component.
+fn file_name_of(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_owned())
 }
 
 fn parse_json(text: &str) -> Option<Value> {
@@ -358,5 +456,123 @@ mod tests {
         let err = super::migrate_with(&conn, bad);
         assert!(err.is_err());
         assert_eq!(version(&conn), 1); // v1 committed, v2 rolled back whole
+    }
+
+    /// A finalized take shaped the way the stop path delivers it (the
+    /// JSON value columns stay NULL: audio M4, chapters flow 7.2,
+    /// thumbnails 5.1).
+    fn finalized() -> super::FinalizedRecording {
+        super::FinalizedRecording {
+            path: "/home/u/Videos/SSP/first-rec.mkv".into(),
+            container: "mkv".into(),
+            duration_ms: 1_540,
+            width: 1920,
+            height: 1080,
+            fps: 60,
+            size_bytes: 402_117,
+            encoder: "x264".into(),
+            is_hw_encoder: false,
+            created_at: "2026-11-02T09:00:00Z".into(), // take started
+            updated_at: "2026-11-02T09:00:02Z".into(), // trailer written
+        }
+    }
+
+    /// PLAN 1.6 verify: the upsert writes a COMPLETE row — status ready,
+    /// real dims, and app-maintained timestamps — readable right back.
+    #[test]
+    fn record_finalize_writes_a_complete_ready_row() {
+        let (_, store) = open_tmp();
+        let id = store.record_finalize(&finalized()).unwrap();
+        let conn = store.lock();
+        let row: (
+            String,
+            String,
+            String,
+            i64,
+            i64,
+            i64,
+            i64,
+            i64,
+            String,
+            i64,
+            String,
+            String,
+        ) = conn
+            .query_row(
+                "SELECT status, kind, container, duration_ms, width, height, fps, size_bytes,
+                        encoder, is_hw_encoder, created_at, updated_at
+                 FROM recordings WHERE id = ?1",
+                [id],
+                |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                        r.get(6)?,
+                        r.get(7)?,
+                        r.get(8)?,
+                        r.get(9)?,
+                        r.get(10)?,
+                        r.get(11)?,
+                    ))
+                },
+            )
+            .unwrap();
+        drop(conn);
+        assert_eq!(row.0, "ready");
+        assert_eq!(row.1, "recording"); // DATABASE §2.1 kind default
+        assert_eq!(row.2, "mkv");
+        assert_eq!(row.3, 1_540);
+        assert_eq!(row.4, 1920);
+        assert_eq!(row.5, 1080);
+        assert_eq!(row.6, 60);
+        assert_eq!(row.7, 402_117);
+        assert_eq!(row.8, "x264");
+        assert_eq!(row.9, 0);
+        assert_eq!(row.10, "2026-11-02T09:00:00Z"); // session start
+        assert_eq!(row.11, "2026-11-02T09:00:02Z"); // app-maintained on write
+    }
+
+    /// `path` is the upsert key (DATABASE §5 uq_recordings_path): a
+    /// re-finalize updates in place — one row, same id, created_at from
+    /// the first write survives (§2.1 note: created_at wins on upsert).
+    #[test]
+    fn record_finalize_upserts_by_path_without_duplicating() {
+        let (_, store) = open_tmp();
+        let first = store.record_finalize(&finalized()).unwrap();
+        let mut again = finalized();
+        again.duration_ms = 1_600;
+        again.size_bytes = 410_000;
+        // A second finalize must not rewrite history: even if the caller
+        // delivers a different session start, §2.1 keeps the first write.
+        again.created_at = "2026-11-02T10:00:00Z".into();
+        again.updated_at = "2026-11-02T09:00:03Z".into();
+        let second = store.record_finalize(&again).unwrap();
+        assert_eq!(first, second, "same path → same row identity");
+        let conn = store.lock();
+        let (count, duration, updated): (i64, i64, String) = conn
+            .query_row(
+                "SELECT COUNT(*), MAX(duration_ms), MAX(updated_at) FROM recordings WHERE path = ?1",
+                [finalized().path],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        let created: Vec<String> = {
+            let mut stmt = conn
+                .prepare("SELECT created_at FROM recordings WHERE path = ?1")
+                .unwrap();
+            stmt.query_map([finalized().path], |r| r.get(0))
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+        };
+        drop(conn);
+        assert_eq!(count, 1);
+        assert_eq!(duration, 1_600);
+        assert_eq!(updated, "2026-11-02T09:00:03Z");
+        assert_eq!(created, vec!["2026-11-02T09:00:00Z"]);
     }
 }

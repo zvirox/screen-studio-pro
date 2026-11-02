@@ -242,29 +242,69 @@ pub fn recording_finished(
     app: &tauri::AppHandle,
     recording_id: &str,
     outcome: &crate::pipeline::session::StopOutcome,
+    id: i64,
 ) {
     let _ = emit(
         app,
         topic::RECORDING_FINISHED,
         RecordingFinished {
             recording_id: recording_id.to_string(),
-            recording: library_recording(outcome),
+            recording: library_recording(outcome, id),
         },
     );
 }
 
-/// The `recording/finished` library-row projection (DATABASE §2.1).
-///
-/// Until the DB upsert (task 1.6) there is NO row: `id` is 0 and the
-/// JSON columns stay null. The shape is complete so consumers can be
-/// written against the final contract (API §5.2: the Rust truth is a
-/// superset of what the webview must tolerate).
+/// `library/updated` — on every row change (API §3). The stop path emits
+/// it right after the row upsert committed; deletes (trash) reuse it
+/// with `deleted: true` (M14).
+pub fn library_updated(app: &tauri::AppHandle, id: i64) {
+    let _ = emit(
+        app,
+        topic::LIBRARY_UPDATED,
+        LibraryUpdated { id, deleted: false },
+    );
+}
+
+/// The library-index write form of a finalized take (task 1.6) — one
+/// mapping so the store stays decoupled from pipeline types (§6 role
+/// split stays at the connection level, not a type dependency).
 #[cfg(feature = "encode")]
-pub fn library_recording(outcome: &crate::pipeline::session::StopOutcome) -> LibraryRecording {
+impl From<&crate::pipeline::session::StopOutcome> for crate::library::FinalizedRecording {
+    fn from(outcome: &crate::pipeline::session::StopOutcome) -> Self {
+        Self {
+            path: outcome.path.display().to_string(),
+            container: outcome
+                .path
+                .extension()
+                .map(|ext| ext.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "mkv".to_string()),
+            duration_ms: outcome.duration_ms,
+            width: outcome.width,
+            height: outcome.height,
+            fps: outcome.fps,
+            size_bytes: outcome.size_bytes,
+            encoder: outcome.encoder.backend.to_string(),
+            is_hw_encoder: outcome.encoder.is_hardware,
+            created_at: outcome.started_at.clone(),
+            updated_at: outcome.finished_at.clone(),
+        }
+    }
+}
+
+/// The `recording/finished` library-row projection (DATABASE §2.1) —
+/// the shape mirrors one index row, with the upsert's row id in `id`
+/// (task 1.6). The shape is complete so consumers can be written
+/// against the final contract (API §5.2: the Rust truth is a superset
+/// of what the webview must tolerate).
+#[cfg(feature = "encode")]
+pub fn library_recording(
+    outcome: &crate::pipeline::session::StopOutcome,
+    id: i64,
+) -> LibraryRecording {
     LibraryRecording {
-        // No row yet — the DB upsert lands with task 1.6 (which also emits
-        // `library/updated`).
-        id: 0,
+        // The row id from the task-1.6 upsert (0 only if the index write
+        // failed and the take was reported with a typed disk error).
+        id,
         path: outcome.path.display().to_string(),
         file_name: outcome
             .path
@@ -320,9 +360,9 @@ mod tests {
     }
 
     #[test]
-    fn the_finished_projection_carries_the_row_shape_until_the_db_upsert() {
-        let row = library_recording(&outcome());
-        assert_eq!(row.id, 0, "no library row until task 1.6");
+    fn the_finished_projection_carries_the_row_shape() {
+        let row = library_recording(&outcome(), 17);
+        assert_eq!(row.id, 17, "the upsert row id rides the finished payload");
         assert_eq!(row.path, "/home/u/Videos/SSP/first-rec.mkv");
         assert_eq!(row.file_name, "first-rec.mkv");
         assert_eq!(row.kind, "recording");
@@ -349,7 +389,7 @@ mod tests {
     fn the_finished_payload_matches_the_api_wire_shape() {
         let value = serde_json::to_value(RecordingFinished {
             recording_id: "rec_01hv4".to_string(),
-            recording: library_recording(&outcome()),
+            recording: library_recording(&outcome(), 17),
         })
         .expect("serialize");
         assert_eq!(value["recordingId"], "rec_01hv4");
@@ -357,7 +397,7 @@ mod tests {
         assert_eq!(value["recording"]["durationMs"], 1_540);
         assert_eq!(value["recording"]["isHwEncoder"], false);
         assert_eq!(value["recording"]["thumbPath"], serde_json::Value::Null);
-        assert_eq!(value["recording"]["id"], 0);
+        assert_eq!(value["recording"]["id"], 17);
     }
 
     #[test]

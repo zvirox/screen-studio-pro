@@ -331,17 +331,29 @@ pub async fn recording_start(
 pub async fn recording_stop(
     recording_id: String,
     app: tauri::AppHandle,
+    library: tauri::State<'_, crate::library::LibraryHandle>,
     recordings: State<'_, crate::pipeline::session::RecordingHandle>,
 ) -> Result<Value, IpcError> {
     let outcome = recordings
         .stop(&recording_id)
         .map_err(|err| err.to_ipc())? // outer: ipc.bad_state
         .map_err(|err| err.to_ipc())?; // inner: the take's own fate
-    // ARCHITECTURE §3.2 step 6: the take is on disk → announce it (the
-    // library row lands with 1.6 and rides the same payload).
-    super::events::recording_finished(&app, &recording_id, &outcome);
+    // Task 1.6: the take is on disk → the pipeline flow writes the
+    // library row (DATABASE §6 writer role) and the reply carries the
+    // real row id. The files stay on disk even if the index write
+    // fails — the error propagates as a typed disk failure (§1) and the
+    // finished event is NOT emitted (no payload can claim a row that
+    // does not exist).
+    let id = library
+        .record_finalize(&crate::library::FinalizedRecording::from(&outcome))
+        .map_err(|err| err.to_ipc())?;
+    // ARCHITECTURE §3.2 step 6: announce the finished take, then the
+    // library change (API §3: `library/updated` on row change).
+    super::events::recording_finished(&app, &recording_id, &outcome, id);
+    super::events::library_updated(&app, id);
     Ok(serde_json::json!({
         "recording": {
+            "id": id,
             "path": outcome.path.display().to_string(),
             "container": "mkv",
             "durationMs": outcome.duration_ms,
