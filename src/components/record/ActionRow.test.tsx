@@ -102,7 +102,7 @@ describe("ActionRow (§5.1/§6.5)", () => {
     expect(stopRecording).not.toHaveBeenCalled();
   });
 
-  it("fault: the human copy renders once, inline, with the §5.2 error pattern", () => {
+  it("fault copy is NOT rendered inline since 1.7 — error toasts carry it once (§5.6)", () => {
     setState(LIVE, {
       ...INITIAL_SESSION,
       fault: {
@@ -114,26 +114,12 @@ describe("ActionRow (§5.1/§6.5)", () => {
       },
     });
     render(<ActionRow />);
-    const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("Screen capture permission was denied.");
-    // §5.2: error = color + icon + text, never color alone (icon present)
-    expect(alert.querySelector("svg")).not.toBeNull();
-  });
-
-  it("no-double-telling: one fault copy even while a stop is in flight", () => {
-    setState(LIVE, {
-      ...INITIAL_SESSION,
-      status: "stopping",
-      recordingId: "rec_1",
-      fault: {
-        kind: "pipewire",
-        code: "pipewire.stream_lost",
-        retryable: false,
-        userMessage: "The capture stream ended unexpectedly.",
-        details: null,
-      },
-    });
-    render(<ActionRow />);
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    // No second telling: no alert role lives in the row.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // §6.5: retry after a failure is still the primary action
+    // (the store pushes the toast; the row keeps the row's one job).
+    const button = screen.getByRole("button");
+    expect(button).toBeEnabled();
+    expect(button).not.toBeDisabled();
   });
 });

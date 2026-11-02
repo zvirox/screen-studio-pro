@@ -69,6 +69,43 @@ export const INITIAL_SESSION: SessionSlice = {
   fault: null,
 };
 
+/* ---------- Toasts (§5.6 saved-file feedback; PLAN 1.7) ---------- */
+
+export type ToastKind = "status" | "error";
+
+export interface Toast {
+  id: number;
+  kind: ToastKind;
+  /** Human copy (§7.9 vocabulary) — errors render the §1 userMessage. */
+  title: string;
+  /** Take duration in ms — the Saved toast's mono line (§5.6). */
+  durationMs?: number;
+  /** The saved file's path — Reveal/Copy actions ride it (§5.6). */
+  path?: string;
+  /** API §1 code — the no-double-telling key (§6.5): a fault is only
+      pushed when no open toast carries its code already. */
+  code?: string;
+}
+
+/* §4.1 ephemeral-UI law (ARCHITECTURE §2): toast state never round-trips
+   to Rust. The store only accumulates/dismisses; auto-dismiss TIMERS live
+   in ToastHost (§5.6: 5s plain, 6s with action, errors persist). */
+const TOAST_LIMIT = 3;
+export const INITIAL_TOASTS: Pick<SspState, "toasts" | "nextToastId"> = {
+  toasts: [],
+  nextToastId: 1,
+};
+
+type ToastPush = Pick<SspState, "toasts" | "nextToastId">;
+
+function pushToast(state: ToastPush, toast: Omit<Toast, "id">): ToastPush {
+  const toasts = [
+    ...state.toasts,
+    { ...toast, id: state.nextToastId },
+  ].slice(-TOAST_LIMIT);
+  return { toasts, nextToastId: state.nextToastId + 1 };
+}
+
 interface SspState {
   view: ViewId;
   setView: (view: ViewId) => void;
@@ -87,6 +124,11 @@ interface SspState {
   onTick: (evt: RecordingTickEvt) => void;
   onSessionError: (err: IpcError) => void;
   onFinished: (evt: RecordingFinishedEvt) => void;
+
+  /* Toasts (§5.6) — ToastHost renders; dismissToast is the user's ✕. */
+  toasts: Toast[];
+  nextToastId: number;
+  dismissToast: (id: number) => void;
 }
 
 export const useSspStore = create<SspState>((set, get) => ({
@@ -95,6 +137,11 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   source: INITIAL_SOURCE,
   session: INITIAL_SESSION,
+  ...INITIAL_TOASTS,
+
+  dismissToast(id) {
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+  },
 
   async selectMonitor() {
     if (get().source.status === "selecting") return;
@@ -113,6 +160,14 @@ export const useSspStore = create<SspState>((set, get) => ({
     } catch (err) {
       // errors.ts already normalized the throw into the §1 shape (lib/ipc).
       set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError } });
+      // §5.6: with ToastHost live (1.7), faults surface at floatover level.
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
     }
   },
 
@@ -145,8 +200,16 @@ export const useSspStore = create<SspState>((set, get) => ({
       });
     } catch (err) {
       // Command failure rides the reply (API §3 note) — back to idle, the
-      // ActionRow surfaces the copy inline.
+      // error toast carries the copy (the inline fault line is gone with
+      // ToastHost, 1.7).
       set({ session: { ...INITIAL_SESSION, fault: err as IpcError } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
     }
   },
 
@@ -166,6 +229,21 @@ export const useSspStore = create<SspState>((set, get) => ({
       // time; the stop reply carries the same error — keep one copy.
       const keep = prior && prior.code === fault.code ? prior : fault;
       set({ session: { ...INITIAL_SESSION, fault: keep } });
+      // Same law at toast level: the existing error toast (same code) IS
+      // the copy the user is reading — a stop reply that repeats it must
+      // not stack a second one.
+      const told = get().toasts.some(
+        (t) => t.kind === "error" && t.code === fault.code,
+      );
+      if (!told) {
+        set((s) =>
+          pushToast(s, {
+            kind: "error",
+            title: fault.userMessage,
+            code: fault.code,
+          }),
+        );
+      }
     }
   },
 
@@ -181,11 +259,30 @@ export const useSspStore = create<SspState>((set, get) => ({
     // Fault at take time: the worker has ended, but the take only resolves
     // with the authoritative stop reply — keep status, show the copy now.
     set({ session: { ...session, fault: err } });
+    // §5.6 errors persist until dismissed; the stop reply's repeat is
+    // deduped by code (§6.5).
+    set((s) =>
+      pushToast(s, {
+        kind: "error",
+        title: err.userMessage,
+        code: err.code,
+      }),
+    );
   },
 
-  onFinished() {
+  onFinished(evt) {
     // Trailer written; the session is over regardless of which trigger won
     // the race (stop reply resolves alongside this event).
     set({ session: { ...INITIAL_SESSION } });
+    // §6.2 step 3: ONE saved toast — duration + path for Reveal/Copy
+    // (rendered by ToastHost with the §5.6 6s auto-dismiss).
+    set((s) =>
+      pushToast(s, {
+        kind: "status",
+        title: "Recording saved",
+        durationMs: evt.recording.durationMs,
+        path: evt.recording.path,
+      }),
+    );
   },
 }));

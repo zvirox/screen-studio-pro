@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import NavBar from "./components/chrome/NavBar";
+import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
 import { useRecordingState } from "./hooks/useRecordingState";
 import { useSspStore, type ViewId } from "./lib/store";
@@ -7,7 +8,9 @@ import { useSspStore, type ViewId } from "./lib/store";
 /* App shell — NavBar + view router (ARCHITECTURE §2).
    Record is live (1.5 slice); Library/Settings remain stubs until their
    phases. The session-event hook mounts once here (§4.1: the event
-   stream is the state sync, so projections keep updating on any view). */
+   stream is the state sync, so projections keep updating on any view).
+   ToastHost (§5.6, 1.7) sits above every view — faults and the saved
+   toast are floatover-level surface, not view content. */
 
 // §4.6 m.base: enter is y +6→0, opacity 0→1; reduced-motion drops to opacity-only via tailwind.css
 const enter = {
@@ -49,6 +52,7 @@ export default function App() {
           )}
         </motion.div>
       </main>
+      <ToastHost />
     </div>
   );
 }

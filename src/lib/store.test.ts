@@ -249,3 +249,111 @@ describe("session event projection (Rust truth, §4.1)", () => {
     expect(s.source.status).toBe("live");
   });
 });
+
+describe("toasts (§5.6 saved-file feedback; 1.7)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSspStore.setState({
+      source: INITIAL_SOURCE,
+      session: INITIAL_SESSION,
+      toasts: [],
+      nextToastId: 1,
+    });
+  });
+
+  const FINISHED = {
+    recordingId: "rec_01HV3",
+    recording: {
+      id: 17,
+      path: "/home/u/Videos/SSP/first-rec.mkv",
+      fileName: "first-rec.mkv",
+      kind: "recording",
+      container: "mkv",
+      status: "ready",
+      durationMs: 65_400,
+      width: 1920,
+      height: 1080,
+      fps: 60,
+      sizeBytes: 593_282,
+      encoder: "x264",
+      isHwEncoder: false,
+      audioJson: null,
+      chapterJson: null,
+      thumbPath: null,
+      deletedAt: null,
+      createdAt: "2026-11-02T10:00:00Z",
+      updatedAt: "2026-11-02T10:01:05Z",
+    },
+  } as const;
+
+  it("onFinished pushes ONE saved toast carrying path + duration for §5.6/§6.2", () => {
+    liveSource();
+    recordingSession();
+    useSspStore.getState().onFinished(FINISHED);
+    const toasts = useSspStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    const saved = toasts[0]!;
+    expect(saved.kind).toBe("status");
+    expect(saved.path).toBe("/home/u/Videos/SSP/first-rec.mkv");
+    expect(saved.durationMs).toBe(65_400);
+  });
+
+  it("toasts are capped at three — oldest drops (§5.6 stack law)", () => {
+    const push = useSspStore.getState();
+    // Four finished events → only the three newest toasts remain.
+    push.onFinished(FINISHED);
+    push.onFinished({ ...FINISHED, recordingId: "rec_2" });
+    push.onFinished({ ...FINISHED, recordingId: "rec_3" });
+    push.onFinished({ ...FINISHED, recordingId: "rec_4" });
+    const toasts = useSspStore.getState().toasts;
+    expect(toasts).toHaveLength(3);
+    expect(toasts[0]!.durationMs).toBe(65_400);
+  });
+
+  it("dismissToast removes exactly one toast by id", () => {
+    useSspStore.getState().onFinished(FINISHED);
+    const first = useSspStore.getState().toasts[0]!;
+    useSspStore.getState().dismissToast(first.id);
+    expect(useSspStore.getState().toasts).toHaveLength(0);
+  });
+
+  it("a NEW fault pushes one error toast; the no-double-telling stop reply adds none", async () => {
+    liveSource();
+    recordingSession();
+    useSspStore.getState().onSessionError(STREAM_LOST);
+    const afterFault = useSspStore.getState().toasts;
+    expect(afterFault).toHaveLength(1);
+    expect(afterFault[0]!.kind).toBe("error");
+    expect(afterFault[0]!.title).toBe(STREAM_LOST.userMessage);
+
+    // The authoritative stop reply carries the SAME code — the copy the
+    // user is reading is kept, and no second toast may appear (§6.5).
+    mockedStop.mockRejectedValue({
+      ...STREAM_LOST,
+      userMessage: "Take ended early.",
+    });
+    await useSspStore.getState().stopRecording();
+    expect(useSspStore.getState().toasts).toHaveLength(1);
+  });
+
+  it("a stop reply failure with a NEW code pushes its own error toast", async () => {
+    liveSource();
+    recordingSession();
+    mockedStop.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().stopRecording();
+    const toasts = useSspStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
+  });
+
+  it("selectMonitor rejection surfaces as an error toast (floatover level now that ToastHost exists)", async () => {
+    mockedSelect.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().selectMonitor();
+    const toasts = useSspStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]!.kind).toBe("error");
+    // The §1 copy keeps flowing from the slice — the toast renders it once.
+    expect(toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
+  });
+});
+

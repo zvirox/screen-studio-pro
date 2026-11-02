@@ -88,7 +88,7 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     expect(screen.getByRole("button", { name: /Monitor/ })).toBeDisabled();
   });
 
-  it("error: shows the human copy from §1 (never the raw backend string)", () => {
+  it("error: the §6.3 slot keeps the neutral education copy (1.7) — the denied copy rides the error toast", () => {
     setState({
       ...INITIAL_SOURCE,
       status: "error",
@@ -101,10 +101,16 @@ describe("SourceDeck (§6.1/§6.3)", () => {
       },
     });
     render(<SourceDeck />);
+    // §6.3: education, not an error screen — the invitation stays up.
     expect(
-      screen.getByText("Screen capture permission was denied."),
+      screen.getByText(/Click Monitor to allow capture/),
     ).toBeInTheDocument();
-    // The teaching stays with the copy: the chip remains available to retry.
+    // No second telling of the denial (§6.5): the toast already carries it.
+    expect(
+      screen.queryByText("Screen capture permission was denied."),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // The chip remains available to retry.
     expect(screen.getByRole("button", { name: /Monitor/ })).toBeEnabled();
   });
 });

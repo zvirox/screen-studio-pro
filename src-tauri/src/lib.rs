@@ -191,4 +191,21 @@ mod capability_guard_tests {
         // The main window scope is the only window this build has.
         assert_eq!(caps["windows"][0].as_str(), Some("main"));
     }
+
+    #[test]
+    fn reveal_item_in_dir_is_granted() {
+        let caps = default_capability();
+        let perms = caps["permissions"].as_array().expect("permissions array");
+        // §5.6 (1.7): the Saved toast's Reveal action calls
+        // `revealItemInDir` from the opener plugin; `opener:default`
+        // covers open but NOT the reveal-in-file-manager command, so the
+        // manifest must name it — a missing entry surfaces only as a
+        // runtime `not allowed` rejection of the toast action.
+        assert!(
+            perms
+                .iter()
+                .any(|p| p.as_str() == Some("opener:allow-reveal-item-in-dir")),
+            "capability manifest must grant `opener:allow-reveal-item-in-dir` — the Saved toast's Reveal action breaks without it"
+        );
+    }
 }

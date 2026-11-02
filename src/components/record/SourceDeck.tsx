@@ -4,10 +4,11 @@ import { useSspStore } from "../../lib/store";
 /* §6.1 #2 source deck — 1.5 slice: the Monitor chip only (Window/Region
    chips arrive with the M2/M3 portal flavours; dead controls never render,
    §6.3) + the preview frame, the only place video frames may ever render.
-   Idle/error show the §6.3 education slot ("Click Monitor to allow capture
-   through your compositor"); a denied session shows the §1 human copy in
-   the same slot — education, not an error screen (ARCHITECTURE §4.2.4).
-   Stills-based preview content lands with PLAN 3.5. */
+   Whenever capture is not live, the §6.3 education slot shows the neutral
+   invitation copy — a denied session surfaces its §1 human copy once, as
+   an error toast (§5.6, ToastHost since 1.7); the slot never becomes a
+   second telling (ARCHITECTURE §4.2.4). Stills-based preview content
+   lands with PLAN 3.5. */
 
 function capabilityLine(
   caps: { width: number; height: number; fps: number } | null,
@@ -78,18 +79,9 @@ export default function SourceDeck() {
               className="text-ink-disabled"
               aria-hidden="true"
             />
-            {source.status === "error" && source.error ? (
-              <p
-                role="alert"
-                className="flex items-start gap-1.5 text-body-sm text-error"
-              >
-                {source.error.userMessage}
-              </p>
-            ) : (
-              <p className="text-body-sm text-ink-secondary">
-                Click Monitor to allow capture through your compositor
-              </p>
-            )}
+            <p className="text-body-sm text-ink-secondary">
+              Click Monitor to allow capture through your compositor
+            </p>
           </div>
         ) : null}
       </div>

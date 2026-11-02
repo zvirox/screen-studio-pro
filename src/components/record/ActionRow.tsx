@@ -1,23 +1,14 @@
-import { AlertCircle, Dot, LoaderCircle, Square } from "lucide-react";
+import { Dot, LoaderCircle, Square } from "lucide-react";
 import { useSspStore } from "../../lib/store";
+import { formatElapsed } from "../../lib/format";
 
 /* §5.1/§6.1 #5 action row — 1.5 slice: the 48px primary Record button only
    (the preset select and encoder chip join with their features in 3.x).
    §6.5 flow: Record → loading ("Working…") → while the take runs the row
    shows the elapsed mono timer + Stop & save (the §5.9 HUD window itself
-   lands in PLAN 2.4) → idle again. Faults render their §1 human copy once,
-   inline, per the §5.2 error pattern — never raw backend strings. */
-
-/** m:ss below an hour, h:mm:ss above — tabular figures on the mono face. */
-function formatElapsed(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
+   lands in PLAN 2.4) → idle again. Fault copy surfaces once, at floatover
+   level, through the store's error toasts (§5.6, ToastHost since 1.7) —
+   the row renders no second telling of it. */
 
 export default function ActionRow() {
   const source = useSspStore((s) => s.source);
@@ -28,11 +19,9 @@ export default function ActionRow() {
   const busy = session.status === "starting" || session.status === "stopping";
   const recording = session.status === "recording";
   const idle = session.status === "idle";
-  // Any failure of the take (start rejection, async fault, stop reply)
-  // surfaces through the one fault channel the store keeps — and stays
-  // visible while the stop reply reconciles (§6.5 no-double-telling).
+  // A fault still tints the retry state (primary action after failure);
+  // its copy renders once, in the error toast (§6.5 no-double-telling).
   const fault = session.fault;
-  const faultVisible = fault !== null;
 
   const label = busy ? (
     <span role="status" aria-live="polite" className="flex items-center justify-center gap-2">
@@ -93,16 +82,6 @@ export default function ActionRow() {
           {label}
         </button>
       </div>
-
-      {faultVisible && fault ? (
-        <p
-          role="alert"
-          className="flex items-center gap-1.5 text-body-sm text-error"
-        >
-          <AlertCircle size={14} strokeWidth={2} aria-hidden="true" />
-          {fault.userMessage}
-        </p>
-      ) : null}
     </section>
   );
 }
