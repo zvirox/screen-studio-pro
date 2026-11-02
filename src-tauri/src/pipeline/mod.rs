@@ -1,5 +1,13 @@
 #![allow(dead_code)]
 
+/* Recording-session submodules need system ffmpeg dev libs (SETUP §3.1);
+they default on since task 1.3. `--no-default-features` still builds the
+capture/settings/library paths without them. */
+#[cfg(feature = "encode")]
+pub mod muxer;
+#[cfg(feature = "encode")]
+pub mod session;
+
 use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
@@ -77,7 +85,8 @@ pub enum Push {
 
 /// Capacity must be a power of two (index masking); tiny on purpose —
 /// 1080p BGRx frames are ~8 MB, so 60 slots ≈ 500 MB, and §6 caps RSS at
-/// ~150 MB. 8 slots ≈ 1.6 s of buffered video at 60 fps worst-case stall.
+/// ~150 MB. 8 slots ≈ 133 ms of buffered video at 60 fps — enough to
+/// ride out a scheduler hiccup while keeping the worst-case stall bounded.
 pub const DEFAULT_CAPACITY: usize = 8;
 
 pub struct FrameBus {

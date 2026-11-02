@@ -7,6 +7,12 @@ documented base. */
 
 const APP_SUBDIR: &str = "screen-studio-pro";
 
+/// User-facing recordings folder (ARCHITECTURE §5: "~/Videos/SSP").
+/// Deliberately NOT the XDG app subdir — that one names the app's own
+/// config/data/state dirs; recordings are the user's files, and the
+/// contract pins this name (API §2.3/§2.6 show `~/Videos/SSP`).
+const RECORDINGS_SUBDIR: &str = "SSP";
+
 fn home_dir() -> PathBuf {
     // Linux session always defines HOME; fall back to / for safety, never panic.
     std::env::var_os("HOME")
@@ -52,7 +58,7 @@ pub fn videos_dir() -> PathBuf {
     std::env::var_os("XDG_VIDEOS_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| home_dir().join("Videos"))
-        .join(APP_SUBDIR)
+        .join(RECORDINGS_SUBDIR)
 }
 
 #[cfg(test)]
@@ -89,5 +95,16 @@ mod tests {
         unsafe { std::env::remove_var("XDG_STATE_HOME") };
         let dir = state_dir();
         assert!(dir.ends_with(".local/state/screen-studio-pro"));
+    }
+
+    /// ARCHITECTURE §5 pins the recordings folder to `~/Videos/SSP` —
+    /// NOT the XDG app subdir (that names config/data/state).
+    #[test]
+    fn videos_dir_is_the_ssp_folder_under_videos() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("XDG_VIDEOS_HOME") };
+        let dir = videos_dir();
+        assert!(dir.ends_with("Videos/SSP"), "got {}", dir.display());
+        assert!(!dir.ends_with("screen-studio-pro"), "got {}", dir.display());
     }
 }

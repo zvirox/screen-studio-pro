@@ -1,3 +1,4 @@
+use crate::pipeline::{Frame, FrameBus, FrameLayout, Push};
 use crate::util::error::CoreError;
 use pipewire as pw;
 use pw::spa;
@@ -5,13 +6,15 @@ use std::os::fd::OwnedFd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /* PipeWire stream consumption — ARCHITECTURE §2: the frame bus lives HERE
 and below; frames never cross the IPC (API §6 standing flag). Task 1.1
 scope: attach to the portal's remote, negotiate a raw video format, and
-count frames with a 1 Hz fps debug log (PLAN 1.1 verify). Task 1.2
-replaces the "count then drop" consumer with the SpSC frame bus. */
+count frames with a 1 Hz fps debug log (PLAN 1.1 verify). Task 1.2 add
+the SpSC frame bus; task 1.3 makes THIS module its producer — the process
+callback copies pixels into a pipeline::Frame and tries the bus once
+(never blocks, §6: the PipeWire data thread cannot wait on the encoder). */
 
 /// Fps reporting window for the debug log (one line per second, not per
 /// frame — tracing cadence law, ARCHITECTURE §6).
@@ -35,6 +38,38 @@ fn report_lost(slot: &LostSlot, reason: &str) {
     }
 }
 
+/// Capture-time stamp: wall-clock µs. The recording session anchors on
+/// the FIRST frame (`session.rs` run_session), so only deltas matter.
+fn frame_pts_us() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_micros() as u64)
+        .unwrap_or(0)
+}
+
+/// The negotiated raw format (param_changed → process handoff on the
+/// same data thread — no cross-thread sync needed).
+struct Negotiated {
+    width: u32,
+    height: u32,
+    layout: FrameLayout,
+}
+
+/// Offered formats only (the pod offers BGRx first, BGRA second).
+fn layout_from_spa(format: spa::param::video::VideoFormat) -> Option<FrameLayout> {
+    match format {
+        spa::param::video::VideoFormat::BGRx => Some(FrameLayout::Bgrx),
+        spa::param::video::VideoFormat::BGRA => Some(FrameLayout::Bgra),
+        other => {
+            tracing::warn!(
+                format = other.as_raw(),
+                "unexpected negotiated video format"
+            );
+            None
+        }
+    }
+}
+
 /// Per-stream accounting — lives entirely on the PipeWire data thread; the
 /// callbacks get `&mut self` there.
 struct FrameCounting {
@@ -44,6 +79,10 @@ struct FrameCounting {
     /// Frames after the stream left `Streaming` are teardown noise.
     exited: bool,
     on_lost: LostSlot,
+    /// Encode-tier bus (task 1.3): Some = frames are produced into it.
+    frame_bus: Option<Arc<FrameBus>>,
+    /// Set from the Format param_changed before the first process call.
+    negotiated: Option<Negotiated>,
 }
 
 impl FrameCounting {
@@ -113,10 +152,13 @@ impl Drop for StreamGuard {
 /// immediately; consumption runs on a dedicated thread. `on_lost` fires at
 /// most once if the stream errors or disconnects underneath us (e.g.
 /// compositor restart) — the `source/lost` event rides on it.
+/// `frame_bus`: the encode-tier bus to feed (task 1.3); `None` keeps the
+/// count-only behaviour (manual gate path).
 pub fn start(
     node_id: u32,
     size: (u32, u32),
     remote_fd: OwnedFd,
+    frame_bus: Option<Arc<FrameBus>>,
     on_lost: OnLost,
 ) -> Result<StreamGuard, CoreError> {
     let stop = Arc::new(AtomicBool::new(false));
@@ -128,7 +170,7 @@ pub fn start(
             let stop = stop.clone();
             let frames = frames.clone();
             let lost_slot = lost_slot.clone();
-            move || run_loop(node_id, size, remote_fd, stop, frames, lost_slot)
+            move || run_loop(node_id, size, remote_fd, frame_bus, stop, frames, lost_slot)
         })
         .map_err(|_| {
             CoreError::pipewire(
@@ -152,6 +194,7 @@ fn run_loop(
     node_id: u32,
     size: (u32, u32),
     remote_fd: OwnedFd,
+    frame_bus: Option<Arc<FrameBus>>,
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
     lost_slot: LostSlot,
@@ -164,6 +207,8 @@ fn run_loop(
         window_frames: 0,
         exited: false,
         on_lost: lost_slot.clone(),
+        frame_bus,
+        negotiated: None,
     };
 
     let Ok(mainloop) = pw::main_loop::MainLoopRc::new(None) else {
@@ -304,7 +349,7 @@ fn run_loop(
             }
             pw::stream::StreamState::Connecting | pw::stream::StreamState::Paused => {}
         })
-        .param_changed(|_stream, _counting, id, param| {
+        .param_changed(|_stream, counting, id, param| {
             let Some(param) = param else {
                 return;
             };
@@ -323,10 +368,23 @@ fn run_loop(
             }
             let mut info = spa::param::video::VideoInfoRaw::default();
             if info.parse(param).is_ok() {
+                let (width, height) = (info.size().width, info.size().height);
+                let Some(layout) = layout_from_spa(info.format()) else {
+                    // The stream renegotiated into a format we did not
+                    // offer — frames stay count-only (never pushed).
+                    counting.negotiated = None;
+                    return;
+                };
+                counting.negotiated = Some(Negotiated {
+                    width,
+                    height,
+                    layout,
+                });
                 tracing::debug!(
-                    width = info.size().width,
-                    height = info.size().height,
+                    width,
+                    height,
                     format = info.format().as_raw(),
+                    layout = ?layout,
                     "capture format negotiated"
                 );
             }
@@ -335,10 +393,53 @@ fn run_loop(
             let Some(mut buffer) = stream.dequeue_buffer() else {
                 return;
             };
-            let Some(data) = buffer.datas_mut().first() else {
+            let Some(data) = buffer.datas_mut().first_mut() else {
                 return;
             };
             counting.count(data.chunk().size());
+
+            // Producer half of the 1.2 bus (task 1.3): one try, never
+            // wait — a full ring drops the NEWEST frame and counts it
+            // (§6 encode-tier precedence law, pipeline/mod.rs header).
+            let (Some(negotiated), Some(bus)) = (&counting.negotiated, &counting.frame_bus) else {
+                return;
+            };
+            // The portal pads rows (§ pipeline::Frame stride law); trust
+            // the negotiated stride only if it covers width × bpp.
+            let row_bytes = negotiated.width as usize * negotiated.layout.bpp();
+            let stride = data.chunk().stride().max(row_bytes as i32) as usize;
+            let need = match stride.checked_mul(negotiated.height as usize) {
+                Some(need) => need,
+                None => return, // degenerate negotiated size — drop the frame
+            };
+            let Some(pixels) = data.data() else {
+                return;
+            };
+            if pixels.len() < need {
+                // A short mapping is a compositor/driver contract break;
+                // this frame is dropped rather than read out of bounds.
+                tracing::warn!(
+                    have = pixels.len(),
+                    need,
+                    "capture buffer shorter than frame"
+                );
+                return;
+            }
+            let frame = Frame {
+                width: negotiated.width,
+                height: negotiated.height,
+                stride: stride as u32,
+                layout: negotiated.layout,
+                pts_us: frame_pts_us(),
+                data: pixels[..need].to_vec(),
+            };
+            match bus.try_push(frame) {
+                Push::Pushed => {}
+                // Counted only — the session's 1 Hz progress log reports
+                // `dropped` (§6 cadence law; a per-frame line here would
+                // fire up to 60×/s during an encoder stall).
+                Push::Full(_) => bus.mark_dropped(),
+            }
         })
         .register()
     else {

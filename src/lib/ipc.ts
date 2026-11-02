@@ -8,6 +8,9 @@ import {
   type PrefValue,
   type PrefsGetReply,
   type PrefsAllReply,
+  type RecordingStartInput,
+  type RecordingStartReply,
+  type RecordingStopReply,
   type Settings,
   type SettingsPatch,
   type SettingsSection,
@@ -96,6 +99,21 @@ export function sourceSelect(kind: SourceKind, target?: string): Promise<SourceS
     Idempotent for an unknown or already-released source id. */
 export function sourceRelease(sourceId: string): Promise<{ ok: boolean }> {
   return call<{ ok: boolean }>("source_release", { sourceId });
+}
+
+/** `cmd://recording_start` — wire source→encode→mux and open the MKV
+    (API §2.3). Task 1.3 scope: video-only monitor recording — the Audio/
+    camera/preset fields ride in the body at their neutral values (the
+    Rust side accepts but does not honor them yet); `outputDir` null
+    selects the default Videos dir. */
+export function recordingStart(input: RecordingStartInput): Promise<RecordingStartReply> {
+  return call<RecordingStartReply>("recording_start", { ...input });
+}
+
+/** `cmd://recording_stop` — flush + trailer + join (API §2.3). Resolves
+    with the take's path/duration/size; the row id/thumb joins in PLAN 1.6. */
+export function recordingStop(recordingId: string): Promise<RecordingStopReply> {
+  return call<RecordingStopReply>("recording_stop", { recordingId });
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */

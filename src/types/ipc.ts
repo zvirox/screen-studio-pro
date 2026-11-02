@@ -126,6 +126,55 @@ export interface PrefsAllReply {
   prefs: PrefEntry[];
 }
 
+/* ---------- §2.3 Recording session ---------- */
+
+/** Wire element of the `audio` array (API §2.3). */
+export interface AudioChannelSpec {
+  channel: "mic" | "desktop";
+  deviceId: string | null;
+}
+
+/** Full §2.3 body shape — fields the 1.3 core does not honor yet are
+    sent as their neutral values so the wire shape is contract-complete. */
+export interface RecordingStartInput {
+  sourceId: string;
+  /** Region crop rect (M3); null = uncropped monitor capture. */
+  regionRect: { x: number; y: number; w: number; h: number } | null;
+  audio: AudioChannelSpec[];
+  cameraId: string | null;
+  presetId: string | null;
+  outputDir: string | null;
+}
+
+/** §2.3 `recording_start` 200 reply. */
+export interface RecordingStartReply {
+  recordingId: string;
+  status: "recording";
+  encoder: {
+    backend: EncoderBackend;
+    isHardware: boolean;
+  };
+  startedAt: string;
+}
+
+/** The `recording` object of the §2.3 `recording_stop` reply. Task 1.3
+    scope: `id` (library row) and `thumbPath` join when the DB upsert
+    (PLAN 1.6) lands — consumer must tolerate their absence (§5.2). */
+export interface RecordingStopInfo {
+  id?: number;
+  path: string;
+  container: "mkv" | "mp4" | "webm";
+  durationMs: number;
+  sizeBytes: number;
+  thumbPath?: string;
+  status: "ready";
+}
+
+/** §2.3 `recording_stop` 200 reply. */
+export interface RecordingStopReply {
+  recording: RecordingStopInfo;
+}
+
 /* ---------- §3 Events (payload shapes only — lib/events.ts subscribes) ---------- */
 
 export type RecordingPhase = "recording" | "paused";

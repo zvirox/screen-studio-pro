@@ -1,4 +1,7 @@
-use super::{LiveSource, SourceCapabilities, SourceKind, SourcePreview, SourceSelected, pipewire};
+use super::pipewire;
+use super::{LiveSource, SourceCapabilities, SourceKind, SourcePreview, SourceSelected};
+#[cfg(feature = "encode")]
+use crate::pipeline::{DEFAULT_CAPACITY, FrameBus};
 use crate::util::error::CoreError;
 use ashpd::desktop::screencast::{
     CursorMode, OpenPipeWireRemoteOptions, Screencast, SelectSourcesOptions, SourceType,
@@ -7,6 +10,8 @@ use ashpd::desktop::screencast::{
 use ashpd::desktop::{CreateSessionOptions, PersistMode, ResponseError, Session};
 use ashpd::{Error as PortalError, WindowIdentifier, enumflags2::BitFlags};
 use std::os::fd::OwnedFd;
+#[cfg(feature = "encode")]
+use std::sync::Arc;
 use std::time::Duration;
 
 /* Portal screencast orchestration (ashpd) — API §2.1 `source_select`,
@@ -19,13 +24,22 @@ only timeout we impose is generous and maps to `portal.timeout`. */
 /// Manual UX means minutes, not milliseconds — 2 minutes, then recoverable.
 const CONSENT_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// A live monitor capture session: the ashpd session (for `Close`) plus the
-/// PipeWire consumption guard (for frame teardown). Geometry lives in the
-/// §2.1 reply; the pipeline (1.2+) reads it from the frame metadata.
+/// A live monitor capture session: the ashpd session (for `Close`), the
+/// PipeWire consumption guard (for frame teardown), and the encode-tier
+/// frame bus (task 1.3 — recordings attach to it via `frame_bus()`).
 pub struct MonitorSession {
     source_id: String,
     session: Session<Screencast>,
     stream: pipewire::StreamGuard,
+    /// Encode-tier wiring (task 1.3): the frame bus recordings drain and
+    /// the negotiated geometry. Only the `encode` feature consumes them —
+    /// without it the capture path stays count-only.
+    #[cfg(feature = "encode")]
+    frame_bus: Arc<FrameBus>,
+    #[cfg(feature = "encode")]
+    width: u32,
+    #[cfg(feature = "encode")]
+    height: u32,
 }
 
 impl MonitorSession {
@@ -56,6 +70,16 @@ impl LiveSource for MonitorSession {
         if let Err(err) = self.session.close().await {
             tracing::warn!(%err, "portal session close failed");
         }
+    }
+
+    #[cfg(feature = "encode")]
+    fn frame_bus(&self) -> Option<Arc<FrameBus>> {
+        Some(self.frame_bus.clone())
+    }
+
+    #[cfg(feature = "encode")]
+    fn geometry(&self) -> (u32, u32) {
+        (self.width, self.height)
     }
 }
 
@@ -145,7 +169,23 @@ pub async fn select_monitor(
         .await
         .map_err(portal_error)?;
 
-    let stream_guard = pipewire::start(node_id, (width, height), remote_fd, Box::new(on_lost))?;
+    // The encode-tier bus (1.2): capacity 8 ≈ 133 ms of 1080p at 60 fps
+    // — bounded by design (§6 memory law), enough to ride out a stall.
+    // Without the `encode` feature there is no consumer, so the capture
+    // path stays count-only (header-less sandboxes still work).
+    #[cfg(feature = "encode")]
+    let frame_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
+    #[cfg(feature = "encode")]
+    let stream_guard = pipewire::start(
+        node_id,
+        (width, height),
+        remote_fd,
+        Some(frame_bus.clone()),
+        Box::new(on_lost),
+    )?;
+    #[cfg(not(feature = "encode"))]
+    let stream_guard =
+        pipewire::start(node_id, (width, height), remote_fd, None, Box::new(on_lost))?;
 
     tracing::info!(
         %source_id,
@@ -183,6 +223,12 @@ pub async fn select_monitor(
             source_id,
             session,
             stream: stream_guard,
+            #[cfg(feature = "encode")]
+            frame_bus,
+            #[cfg(feature = "encode")]
+            width,
+            #[cfg(feature = "encode")]
+            height,
         },
         reply,
     ))

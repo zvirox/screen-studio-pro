@@ -5,7 +5,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { asIpcError, ipcHello, isContractMatch, prefsGet, prefsSet, settingsGet, settingsSet, sourceRelease, sourceSelect, systemCapabilities } from "./ipc";
+import { asIpcError, ipcHello, isContractMatch, prefsGet, prefsSet, recordingStart, recordingStop, settingsGet, settingsSet, sourceRelease, sourceSelect, systemCapabilities } from "./ipc";
 import { IPC_CONTRACT_VERSION } from "../types/ipc";
 
 /* Contract tests against mock IPC (TESTING §1 P1) — the lib/ipc.ts ↔
@@ -87,6 +87,46 @@ describe("lib/ipc", () => {
     invokeMock.mockResolvedValueOnce({ ok: true });
     await expect(sourceRelease("src_01hv3")).resolves.toEqual({ ok: true });
     expect(invokeMock).toHaveBeenCalledWith("source_release", { sourceId: "src_01hv3" });
+  });
+
+  it("recordingStart sends the full §2.3 body shape", async () => {
+    invokeMock.mockResolvedValueOnce({
+      recordingId: "rec_01hv4",
+      status: "recording",
+      encoder: { backend: "x264", isHardware: false },
+      startedAt: "2026-11-02T10:00:00Z",
+    });
+    const input = {
+      sourceId: "src_01hv3",
+      regionRect: null,
+      audio: [],
+      cameraId: null,
+      presetId: null,
+      outputDir: null,
+    };
+    await expect(recordingStart(input)).resolves.toMatchObject({
+      recordingId: "rec_01hv4",
+      status: "recording",
+      encoder: { backend: "x264", isHardware: false },
+      startedAt: "2026-11-02T10:00:00Z",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("recording_start", input);
+  });
+
+  it("recordingStop addresses the recording id and returns the §2.3 recording object", async () => {
+    invokeMock.mockResolvedValueOnce({
+      recording: {
+        path: "/home/u/Videos/SSP/first-rec.mkv",
+        container: "mkv",
+        durationMs: 1540,
+        sizeBytes: 402_117,
+        status: "ready",
+      },
+    });
+    await expect(recordingStop("rec_01hv4")).resolves.toMatchObject({
+      recording: { container: "mkv", status: "ready" },
+    });
+    expect(invokeMock).toHaveBeenCalledWith("recording_stop", { recordingId: "rec_01hv4" });
   });
 
   it("passes §1-shaped errors through without rewrapping", async () => {

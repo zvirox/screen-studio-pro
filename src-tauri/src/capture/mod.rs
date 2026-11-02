@@ -80,9 +80,31 @@ pub trait LiveSource: Send {
     fn stop_frames(&mut self);
     /// Close the portal session itself (async, best-effort).
     async fn close(&mut self);
+    /// The encode-tier frame bus this source feeds, if it produces one.
+    /// Recordings attach their session drain to THIS bus (not a slot
+    /// re-fetch) so a stop/start cycle needs no bus re-lookup.
+    #[cfg(feature = "encode")]
+    fn frame_bus(&self) -> Option<std::sync::Arc<crate::pipeline::FrameBus>> {
+        None
+    }
+    /// Negotiated capture geometry (even-dim clamping happens downstream
+    /// in the recording session; the raw portal size is the truth here).
+    #[cfg(feature = "encode")]
+    fn geometry(&self) -> (u32, u32) {
+        (0, 0)
+    }
 }
 
 /* ---------- the single-session slot (§2.1 portal.busy rule) ---------- */
+
+/// What `active_info` hands the recording session: id, the encode-tier
+/// bus (if the source produces frames), and the negotiated geometry.
+#[cfg(feature = "encode")]
+pub struct ActiveCaptureInfo {
+    pub source_id: String,
+    pub frame_bus: Option<std::sync::Arc<crate::pipeline::FrameBus>>,
+    pub geometry: (u32, u32),
+}
 
 /// Managed state: at most one live capture session. The slot reserves
 /// during the (long, user-paced) portal consent await so a second
@@ -161,6 +183,23 @@ impl CaptureHandle {
                     ))
                 }
             }
+        }
+    }
+
+    /// Snapshot of the active session for the recording session lookup
+    /// (API §2.3: `recording_start` binds to the active `sourceId`).
+    /// `None` = nothing active; a `Starting` slot reads as None because a
+    /// recording cannot attach to a source the user has not confirmed.
+    #[cfg(feature = "encode")]
+    pub fn active_info(&self) -> Option<ActiveCaptureInfo> {
+        let slot = self.locked();
+        match &*slot {
+            Slot::Active(source) => Some(ActiveCaptureInfo {
+                source_id: source.source_id().to_owned(),
+                frame_bus: source.frame_bus(),
+                geometry: source.geometry(),
+            }),
+            _ => None,
         }
     }
 

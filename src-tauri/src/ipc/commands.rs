@@ -7,7 +7,6 @@ use crate::capture::CaptureHandle;
 use crate::library::LibraryHandle;
 use crate::settings::SettingsStore;
 use crate::util::error::{CoreError, IpcError};
-
 /* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
 0.6 brought the handshake + capability probe; 0.7 adds `settings_get/set`
 (API §2.6) over the TOML store. Command names are the `cmd://` verbs of
@@ -255,6 +254,91 @@ fn capture_invalid_kind() -> CoreError {
         false,
         "That source kind isn't available in this build. Monitor capture is ready; window and region capture arrive in a later update.",
     )
+}
+
+/* ---------- recording session (API §2.3, task 1.3) ---------- */
+
+/// The canonical `ipc.bad_state` producer — 409-class conflicts of the
+/// recording/session state machine (codes are add-only, API §1).
+#[cfg(feature = "encode")]
+fn bad_state(message: &'static str) -> CoreError {
+    CoreError::ipc("ipc.bad_state", false, message)
+}
+
+/// `cmd://recording_start` (API §2.3) — wire source→bus→encode→mux for
+/// the active monitor source. Thin by tree law: state checks here, the
+/// whole pipeline dance lives in pipeline/session.rs. Task 1.3 scope
+/// (API §2.3 note): video-only monitor recording; the other body fields
+/// are contract-shaped but not honored until their PLAN tasks land.
+#[cfg(feature = "encode")]
+// The parameter list IS the API §2.3 body (6 wire fields) plus the two
+// Tauri managed states — the contract fixes the shape, so the lint is
+// acknowledged here rather than reshaping the command.
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn recording_start(
+    source_id: String,
+    region_rect: Option<Value>,
+    audio: Option<Vec<Value>>,
+    camera_id: Option<String>,
+    preset_id: Option<String>,
+    output_dir: Option<String>,
+    capture_state: State<'_, CaptureHandle>,
+    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+) -> Result<Value, IpcError> {
+    let _ = (region_rect, audio, camera_id, preset_id); // 1.3 scope note
+    let Some(source) = capture_state
+        .active_info()
+        .filter(|active| active.source_id == source_id)
+    else {
+        return Err(bad_state(
+            "Select a capture source before recording (or the source id changed).",
+        )
+        .into());
+    };
+    let Some(bus) = source.frame_bus else {
+        return Err(bad_state("The active source does not produce a recording stream.").into());
+    };
+
+    // outputDir from the caller, else the default Videos dir (PRD M9).
+    let dir = match output_dir {
+        Some(dir) => std::path::PathBuf::from(dir),
+        None => crate::util::paths::videos_dir(),
+    };
+
+    let info = recordings
+        .start(bus, source.geometry, &dir)
+        .map_err(|err| err.to_ipc())?;
+    Ok(serde_json::json!({
+        "recordingId": info.recording_id,
+        "status": "recording",
+        "encoder": { "backend": info.encoder.backend, "isHardware": info.encoder.is_hardware },
+        "startedAt": info.started_at,
+    }))
+}
+
+/// `cmd://recording_stop` (API §2.3) — flush + trailer + join; the reply's
+/// `recording` object carries only the fields that exist before the
+/// library row (1.6). Contract errors: `ipc.bad_state`, `disk.*`.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub async fn recording_stop(
+    recording_id: String,
+    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+) -> Result<Value, IpcError> {
+    let outcome = recordings
+        .stop(&recording_id)
+        .map_err(|err| err.to_ipc())? // outer: ipc.bad_state
+        .map_err(|err| err.to_ipc())?; // inner: the take's own fate
+    Ok(serde_json::json!({
+        "recording": {
+            "path": outcome.path.display().to_string(),
+            "container": "mkv",
+            "durationMs": outcome.duration_ms,
+            "sizeBytes": outcome.size_bytes,
+            "status": "ready",
+        }
+    }))
 }
 
 #[cfg(test)]

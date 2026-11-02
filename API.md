@@ -30,7 +30,7 @@ Every error response — command failure or `error` event payload — is one sha
 | `userMessage` | `string` | Human copy, DESIGN §7.9 vocabulary — UI renders **only** this; raw errors stay in the tracing log |
 | `details` | `object \| null` | Optional structured extras (encoder chain attempted, free bytes, compositor name) |
 
-**Canonical error codes (initial set):** `portal.unavailable`, `portal.denied`, `portal.timeout`, `portal.busy` · `encoder.unavailable`, `encoder.init_failed`, `encoder.fallback_applied` · `pipewire.stream_lost`, `pipewire.audio_device_gone` · `capture.region_invalid`, `capture.camera_unavailable`, `capture.invalid_kind` · `disk.no_space`, `disk.write_failed`, `disk.path_unwritable` · `settings.invalid_value`, `settings.schema_mismatch` · `ipc.contract_mismatch`, `ipc.unknown_command`.
+**Canonical error codes (initial set):** `portal.unavailable`, `portal.denied`, `portal.timeout`, `portal.busy` · `encoder.unavailable`, `encoder.init_failed`, `encoder.encode_failed`, `encoder.fallback_applied` · `pipewire.stream_lost`, `pipewire.audio_device_gone` · `capture.region_invalid`, `capture.camera_unavailable`, `capture.invalid_kind` · `disk.no_space`, `disk.write_failed`, `disk.path_unwritable` · `settings.invalid_value`, `settings.schema_mismatch` · `ipc.contract_mismatch`, `ipc.unknown_command`, `ipc.bad_state`. *(Set is add-only; codes exist before their UI surfaces them.)*
 
 *(Additions since v1.0.0: `portal.busy` — §2.1 always intended it ("a session is already active — code added to canonical set §1") but the list above missed it; corrected at task 1.1. `capture.invalid_kind` — added at task 1.1 for window/region kinds before their portal flavours land (M2/M3). Codes are add-only (§1 rule).)*
 
@@ -103,6 +103,8 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 
 ### 2.3 Recording session
 
+*(Task 1.3 scope: video-only monitor recording. `regionRect`, `audio`, `cameraId`, `presetId` are accepted at their §-shapes but not honored until M3/M4/M11; `outputDir` is honored when given, else the default `$XDG_VIDEOS_DIR/SSP`. The stop reply omits the library row `id` and `thumbPath` until the DB upsert (task 1.6); `container` is `"mkv"` — remux to MP4 joins M9. Mid-take faults (mux disk errors, codec failures, a panicked or lost capture stream) surface at `recording_stop` as the §1 error; the event-stream join is task 1.4. `recording_pause`/`recording_resume` are not implemented yet — nothing can pause in 1.3.)*
+
 #### `cmd://recording_start`
 - **Method:** command · **PRD:** M1–M5, M7–M11 · **DB:** R (INSERT with `status='recording'`, `created_at` set) · **Flag:** ✓
 - **Purpose:** wire source→composite→encode→mux, open the MKV, flip AppState, start event feeds.
@@ -124,7 +126,7 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
   "encoder": { "backend": "vaapi", "isHardware": true },
   "startedAt": "2026-11-01T14:05:00Z" }
 ```
-- **Errors:** `encoder.unavailable`+`encoder.init_failed` (the x264 **fallback is applied automatically first** and only errors if that also fails — `details.encoderChain` then lists what was tried) · `portal.denied` (session lapsed) · `disk.no_space`, `disk.path_unwritable` · `pipewire.stream_lost`
+- **Errors:** `encoder.unavailable`+`encoder.init_failed` (the x264 **fallback is applied automatically first** and only errors if that also fails — `details.encoderChain` then lists what was tried) · `portal.denied` (session lapsed) · `disk.no_space`, `disk.path_unwritable` · `pipewire.stream_lost` · `409`-class `ipc.bad_state` (a recording is already active, or `sourceId` is not the active source)
 
 #### `cmd://recording_pause` / `cmd://recording_resume`
 - **Method:** command · **PRD:** M7 (segment stitching) · **DB:** R (no row change; session state) · **Flag:** ⚠
@@ -141,7 +143,7 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
     "thumbPath": "/home/z/.local/share/screen-studio-pro/thumbs/2026-11-01-1412.png",
     "status": "ready" } }
 ```
-- **Errors:** `disk.write_failed`, `disk.no_space`, `banner` none — remux failure downgrades to `encoder.init_failed` with `userMessage` explaining MKV was preserved
+- **Errors:** `disk.write_failed`, `disk.no_space` · `409`-class `ipc.bad_state` (nothing active / id mismatch — the session survives a wrong id) · mid-take faults surface here: `disk.write_failed` (made it to stop), `encoder.encode_failed` (codec failure or worker panic), `pipewire.stream_lost` (capture died mid-take; a probeable partial MKV is kept) — remux failure downgrades to `encoder.init_failed` with `userMessage` explaining MKV was preserved
 
 #### `cmd://recording_flag`
 - **Method:** command · **PRD:** flow 7.2 (chapter markers) · **DB:** R (UPDATE `chapter_json` append) · **Flag:** ✓

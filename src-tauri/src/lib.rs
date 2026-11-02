@@ -1,4 +1,6 @@
 mod capture;
+#[cfg(feature = "encode")]
+mod encode;
 mod ipc;
 mod library;
 mod pipeline;
@@ -91,37 +93,65 @@ fn init_tracing() {
 pub fn run() {
     init_tracing();
 
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
-            // ARCHITECTURE §4.1: settings cached in Rust at boot. A corrupt
-            // or unwritable TOML must not kill the boot — fall back to
-            // in-memory defaults; the Settings UI (M10) surfaces recovery.
-            let dir = util::paths::config_dir();
-            let store = match settings::SettingsStore::load_or_create(&dir) {
-                Ok(store) => store,
-                Err(err) => {
-                    tracing::error!(code = %err.code(), "settings load failed; using in-memory defaults");
-                    settings::SettingsStore::from_defaults(&dir)
-                }
-            };
-            app.manage(std::sync::Mutex::new(store));
-            // DATABASE §1: the library index lives beside the app data dir.
-            app.manage(library::LibraryHandle::open(&util::paths::data_dir()));
-            // §2.1: the single active portal session lives in managed state.
-            app.manage(capture::CaptureHandle::new());
-            Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
-            ipc::commands::ipc_hello,
-            ipc::commands::system_capabilities,
-            ipc::commands::settings_get,
-            ipc::commands::settings_set,
-            ipc::commands::prefs_get,
-            ipc::commands::prefs_set,
-            ipc::commands::source_select,
-            ipc::commands::source_release,
-        ])
+        .setup(setup);
+
+    // The recording commands need the encode feature (ffmpeg dev libs,
+    // default-on since 1.3): register the contract surface per build.
+    // cfg attributes cannot sit inside a method chain, so the handler
+    // list is selected here instead.
+    #[cfg(feature = "encode")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        ipc::commands::ipc_hello,
+        ipc::commands::system_capabilities,
+        ipc::commands::settings_get,
+        ipc::commands::settings_set,
+        ipc::commands::prefs_get,
+        ipc::commands::prefs_set,
+        ipc::commands::source_select,
+        ipc::commands::source_release,
+        ipc::commands::recording_start,
+        ipc::commands::recording_stop,
+    ]);
+    #[cfg(not(feature = "encode"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        ipc::commands::ipc_hello,
+        ipc::commands::system_capabilities,
+        ipc::commands::settings_get,
+        ipc::commands::settings_set,
+        ipc::commands::prefs_get,
+        ipc::commands::prefs_set,
+        ipc::commands::source_select,
+        ipc::commands::source_release,
+    ]);
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// The `.setup` body — app-managed singletons (ARCHITECTURE §4.1).
+fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    // ARCHITECTURE §4.1: settings cached in Rust at boot. A corrupt
+    // or unwritable TOML must not kill the boot — fall back to
+    // in-memory defaults; the Settings UI (M10) surfaces recovery.
+    let dir = util::paths::config_dir();
+    let store = match settings::SettingsStore::load_or_create(&dir) {
+        Ok(store) => store,
+        Err(err) => {
+            tracing::error!(code = %err.code(), "settings load failed; using in-memory defaults");
+            settings::SettingsStore::from_defaults(&dir)
+        }
+    };
+    app.manage(std::sync::Mutex::new(store));
+    // DATABASE §1: the library index lives beside the app data dir.
+    app.manage(library::LibraryHandle::open(&util::paths::data_dir()));
+    // §2.1: the single active portal session lives in managed state.
+    app.manage(capture::CaptureHandle::new());
+    // §2.3: the single active recording session (task 1.3).
+    #[cfg(feature = "encode")]
+    app.manage(pipeline::session::RecordingHandle::new());
+    Ok(())
 }
