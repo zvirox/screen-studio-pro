@@ -45,6 +45,21 @@ impl Muxer {
     ) -> Result<(Self, ff::encoder::Video), CoreError> {
         crate::encode::ensure_init();
 
+        // PRD G3: first run has no save folder yet — the app bootstraps
+        // its own (`~/Videos/SSP`), an ENOENT here would mislabel every
+        // take "not writable" (1.5 visual pass). A real permission
+        // failure still lands in `path_failed` below.
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|err| {
+                tracing::error!(error = %err, path = %parent.display(), "save folder create failed");
+                CoreError::disk(
+                    "disk.path_unwritable",
+                    false,
+                    "The recording folder could not be created. Pick another folder in Files settings.",
+                )
+            })?;
+        }
+
         // Container inferred from the `.mkv` extension (matroska muxer).
         let mut ctx = ff::format::output(path).map_err(|err| path_failed(path, err))?;
 
@@ -221,4 +236,38 @@ fn init_failed(path: &std::path::Path, what: &str, err: ff::Error) -> CoreError 
         false,
         "The video encoder could not start with the current settings.",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// First run on a fresh machine: the default save folder
+    /// (`~/Videos/SSP`) does not exist yet. PRD G3 promises 60 s to the
+    /// first recording — the app bootstraps its own folder instead of
+    /// erroring every take with `disk.path_unwritable` (found in the 1.5
+    /// visual pass: every take died ENOENT, the UI told the user to pick
+    /// another folder the app was supposed to create).
+    #[test]
+    fn open_video_creates_a_missing_output_folder() {
+        crate::encode::ensure_init();
+        let tmp = tempfile::tempdir().expect("tmp dir");
+        let dir = tmp.path().join("SSP-missing");
+        let path = dir.join("first-rec.mkv");
+        assert!(!dir.exists(), "precondition: folder absent");
+
+        let spec = VideoSpec {
+            codec: ff::codec::Id::H264,
+            width: 320,
+            height: 240,
+            pix_fmt: ff::format::Pixel::YUV420P,
+            frame_rate: (60, 1),
+            options: Vec::new(),
+        };
+        let (muxer, _opened) =
+            Muxer::open_video(&path, spec).expect("missing folder is auto-created");
+        assert!(dir.is_dir(), "the save folder now exists");
+        muxer.finalize().expect("trailer still writes");
+        assert!(path.exists(), "the take lands on disk");
+    }
 }

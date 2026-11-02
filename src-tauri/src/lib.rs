@@ -155,3 +155,40 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(pipeline::session::RecordingHandle::new());
     Ok(())
 }
+
+#[cfg(test)]
+mod capability_guard_tests {
+    /* Window chrome law (DESIGN §5.8): the app renders its own titlebar
+    (custom CSD, native decorations off) — the drag region works through
+    `core:window:allow-start-dragging`, and the minimize button through
+    `core:window:allow-minimize`. Neither is part of `core:default`, so
+    the manifest must name them explicitly; missing entries surface only
+    as runtime `not allowed` rejections (found in the 1.5 visual pass). */
+    use serde_json::Value;
+
+    fn default_capability() -> Value {
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities/default.json");
+        serde_json::from_str(
+            &std::fs::read_to_string(path).expect("capabilities/default.json readable"),
+        )
+        .expect("capabilities/default.json is valid JSON")
+    }
+
+    #[test]
+    fn chrome_window_permissions_are_granted() {
+        let caps = default_capability();
+        let perms = caps["permissions"].as_array().expect("permissions array");
+        for needed in [
+            "core:window:allow-start-dragging",
+            "core:window:allow-minimize",
+        ] {
+            assert!(
+                perms.iter().any(|p| p.as_str() == Some(needed)),
+                "capability manifest must grant `{needed}` — the CSD titlebar or tray-minimize breaks without it"
+            );
+        }
+        // The main window scope is the only window this build has.
+        assert_eq!(caps["windows"][0].as_str(), Some("main"));
+    }
+}

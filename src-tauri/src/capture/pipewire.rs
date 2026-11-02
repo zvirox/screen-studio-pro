@@ -83,6 +83,88 @@ struct FrameCounting {
     frame_bus: Option<Arc<FrameBus>>,
     /// Set from the Format param_changed before the first process call.
     negotiated: Option<Negotiated>,
+    /// First-occurrence diagnostics (§6: cadence law — these fire ONCE,
+    /// not per frame; they exist because every branch below them is a
+    /// silent `return` whose outcome is invisible at info level).
+    first_drop_reason: Option<&'static str>,
+}
+
+/// The EnumFormat we offer at connect — authored from measured caps
+/// (pw-dump of KWin's screencast node, session 1919×1079 and 1920×1080
+/// runs): BGRx/BGRA only, size defaulted to the portal's reported
+/// geometry (always the node's fixed size), framerate range CONTAINING
+/// 0/1 (pinned 60 failed: [60..60] ∩ {0/1} = empty).
+///
+/// NO VideoModifier property. Modifier `0` is DRM_FORMAT_MOD_INVALID
+/// ("dmabuf, implicit modifier"), not "system memory" — and KWin's
+/// screencast (screencaststream.cpp `onStreamParamChanged`) allocates
+/// DMABUF buffers whenever a modifier key survives into the fixated
+/// format. The earlier `{0}` pin therefore yielded unmapped DMABUF
+/// every frame (`data.data()` == None) while the counter kept
+/// reporting 60 fps — the task-1.5 zero-frame take. Without the key
+/// KWin resets its dmabuf params and allocates MemFd buffers, which
+/// `MAP_BUFFERS` maps for us. (Leaving the modifier out of a
+/// *pre-fixation* offer is a different pod than withholding it from a
+/// fixate response; pw auto-fixation copies our offer, so the offer
+/// itself must be modifier-free.)
+///
+/// Extracted so the pod's shape stays under test — see the `tests` mod.
+fn format_offer_pod(size: (u32, u32)) -> pw::spa::pod::Object {
+    pw::spa::pod::object!(
+        pw::spa::utils::SpaTypes::ObjectParamFormat,
+        pw::spa::param::ParamType::EnumFormat,
+        pw::spa::pod::property!(
+            pw::spa::param::format::FormatProperties::MediaType,
+            Id,
+            pw::spa::param::format::MediaType::Video
+        ),
+        pw::spa::pod::property!(
+            pw::spa::param::format::FormatProperties::MediaSubtype,
+            Id,
+            pw::spa::param::format::MediaSubtype::Raw
+        ),
+        pw::spa::pod::property!(
+            pw::spa::param::format::FormatProperties::VideoFormat,
+            Choice,
+            Enum,
+            Id,
+            pw::spa::param::video::VideoFormat::BGRx,
+            pw::spa::param::video::VideoFormat::BGRx,
+            pw::spa::param::video::VideoFormat::BGRA
+        ),
+        pw::spa::pod::property!(
+            pw::spa::param::format::FormatProperties::VideoSize,
+            Choice,
+            Range,
+            Rectangle,
+            pw::spa::utils::Rectangle {
+                width: size.0.max(1),
+                height: size.1.max(1)
+            },
+            pw::spa::utils::Rectangle {
+                width: 1,
+                height: 1
+            },
+            pw::spa::utils::Rectangle {
+                width: 4096,
+                height: 4096
+            }
+        ),
+        pw::spa::pod::property!(
+            pw::spa::param::format::FormatProperties::VideoFramerate,
+            Choice,
+            Range,
+            Fraction,
+            // 0/1 = "variable"; must include 0 or KWin's fixed {0/1}
+            // never intersects (the task-1.2 frame bus paces output).
+            pw::spa::utils::Fraction { num: 0, denom: 1 },
+            pw::spa::utils::Fraction { num: 0, denom: 1 },
+            pw::spa::utils::Fraction {
+                num: 1000,
+                denom: 1
+            }
+        ),
+    )
 }
 
 impl FrameCounting {
@@ -114,6 +196,16 @@ impl FrameCounting {
     fn lost(&mut self, reason: &str) {
         self.exited = true;
         report_lost(&self.on_lost, reason);
+    }
+
+    /// Reports a per-frame drop ONCE (1.5 visual-pass lesson: the silent
+    /// `return`s below masked a zero-frame take behind a healthy 60 fps
+    /// counter — every one of them must leave one line of evidence).
+    fn note_drop(&mut self, reason: &'static str) {
+        if self.first_drop_reason.is_none() {
+            self.first_drop_reason = Some(reason);
+            tracing::debug!("capture frame dropped in producer once: {reason}");
+        }
     }
 }
 
@@ -209,6 +301,7 @@ fn run_loop(
         on_lost: lost_slot.clone(),
         frame_bus,
         negotiated: None,
+        first_drop_reason: None,
     };
 
     let Ok(mainloop) = pw::main_loop::MainLoopRc::new(None) else {
@@ -233,87 +326,11 @@ fn run_loop(
     };
 
     // Format pod — authored from measured caps (pw-dump of KWin's
-    // screencast node, session 1919×1079 and 1920×1080 runs):
-    //   format: Choice Enum {BGRA default, BGRx} — NO RGB/RGBA/I420 offer;
-    //   size:   FIXED per session (varies by KWin scale rounding);
-    //   framerate: FIXED 0/1 ("variable") with maxFramerate ~60.020;
-    //   modifier: Choice incl. 0 (system memory) + DMABUF tokens.
-    // We therefore offer: BGRx/BGRA only, size defaulted to the portal's
-    // reported geometry (always the node's fixed size), framerate range
-    // CONTAINING 0/1 (pinned 60 failed: [60..60] ∩ {0/1} = empty), and
-    // modifier {0} to pin system memory — DMABUF re-fixation is what kills
-    // the stream ~4s in when left to the daemon (verified run 3).
-    let format = pw::spa::pod::object!(
-        pw::spa::utils::SpaTypes::ObjectParamFormat,
-        pw::spa::param::ParamType::EnumFormat,
-        pw::spa::pod::property!(
-            pw::spa::param::format::FormatProperties::MediaType,
-            Id,
-            pw::spa::param::format::MediaType::Video
-        ),
-        pw::spa::pod::property!(
-            pw::spa::param::format::FormatProperties::MediaSubtype,
-            Id,
-            pw::spa::param::format::MediaSubtype::Raw
-        ),
-        pw::spa::pod::property!(
-            pw::spa::param::format::FormatProperties::VideoFormat,
-            Choice,
-            Enum,
-            Id,
-            pw::spa::param::video::VideoFormat::BGRx,
-            pw::spa::param::video::VideoFormat::BGRx,
-            pw::spa::param::video::VideoFormat::BGRA
-        ),
-        pw::spa::pod::property!(
-            pw::spa::param::format::FormatProperties::VideoSize,
-            Choice,
-            Range,
-            Rectangle,
-            pw::spa::utils::Rectangle {
-                width: size.0.max(1),
-                height: size.1.max(1)
-            },
-            pw::spa::utils::Rectangle {
-                width: 1,
-                height: 1
-            },
-            pw::spa::utils::Rectangle {
-                width: 4096,
-                height: 4096
-            }
-        ),
-        pw::spa::pod::property!(
-            pw::spa::param::format::FormatProperties::VideoFramerate,
-            Choice,
-            Range,
-            Fraction,
-            // 0/1 = "variable"; must include 0 or KWin's fixed {0/1}
-            // never intersects (the task-1.2 frame bus paces output).
-            pw::spa::utils::Fraction { num: 0, denom: 1 },
-            pw::spa::utils::Fraction { num: 0, denom: 1 },
-            pw::spa::utils::Fraction {
-                num: 1000,
-                denom: 1
-            }
-        ),
-        // No macro arm for a Long choice (libspa's Choice macros only
-        // cover named SPA types); the modifier property is constructed
-        // directly instead.
-        pw::spa::pod::Property {
-            key: pw::spa::param::format::FormatProperties::VideoModifier.as_raw(),
-            flags: pw::spa::pod::PropertyFlags::empty(),
-            value: pw::spa::pod::Value::Choice(pw::spa::pod::ChoiceValue::Long(
-                pw::spa::utils::Choice(
-                    pw::spa::utils::ChoiceFlags::empty(),
-                    pw::spa::utils::ChoiceEnum::Enum {
-                        default: 0,
-                        alternatives: vec![0],
-                    },
-                ),
-            )),
-        },
-    );
+    // screencast node, session 1919×1079 and 1920×1080 runs); the
+    // builder lives in `format_offer_pod` so its shape stays testable,
+    // and deliberately carries NO VideoModifier key (the doc comment
+    // there explains why — it forced DMABUF buffers on KWin).
+    let format = format_offer_pod(size);
     // The pod object must be serialized to bytes before the stream can
     // carry it (upstream streams.rs pattern) — Object ≠ Pod in libspa.
     let values = match pw::spa::pod::serialize::PodSerializer::serialize(
@@ -394,6 +411,7 @@ fn run_loop(
                 return;
             };
             let Some(data) = buffer.datas_mut().first_mut() else {
+                counting.note_drop("buffer has no data planes");
                 return;
             };
             counting.count(data.chunk().size());
@@ -401,18 +419,32 @@ fn run_loop(
             // Producer half of the 1.2 bus (task 1.3): one try, never
             // wait — a full ring drops the NEWEST frame and counts it
             // (§6 encode-tier precedence law, pipeline/mod.rs header).
-            let (Some(negotiated), Some(bus)) = (&counting.negotiated, &counting.frame_bus) else {
+            // Copied out of `counting` before the mutable `note_drop`
+            // borrows below.
+            let (Some(neg), Some(bus)) = (counting.negotiated.as_ref(), counting.frame_bus.clone())
+            else {
+                counting.note_drop(if counting.negotiated.is_none() {
+                    "no format negotiated"
+                } else {
+                    "no frame bus attached"
+                });
                 return;
             };
+            let (neg_width, neg_height, neg_layout) = (neg.width, neg.height, neg.layout);
+            let _ = neg; // release the shared borrow
             // The portal pads rows (§ pipeline::Frame stride law); trust
             // the negotiated stride only if it covers width × bpp.
-            let row_bytes = negotiated.width as usize * negotiated.layout.bpp();
+            let row_bytes = neg_width as usize * neg_layout.bpp();
             let stride = data.chunk().stride().max(row_bytes as i32) as usize;
-            let need = match stride.checked_mul(negotiated.height as usize) {
+            let need = match stride.checked_mul(neg_height as usize) {
                 Some(need) => need,
-                None => return, // degenerate negotiated size — drop the frame
+                None => {
+                    counting.note_drop("degenerate negotiated size (stride overflow)");
+                    return;
+                }
             };
             let Some(pixels) = data.data() else {
+                counting.note_drop("buffer memory not host-accessible (dmabuf/unmapped)");
                 return;
             };
             if pixels.len() < need {
@@ -423,22 +455,38 @@ fn run_loop(
                     need,
                     "capture buffer shorter than frame"
                 );
+                counting.note_drop("buffer shorter than frame");
                 return;
             }
             let frame = Frame {
-                width: negotiated.width,
-                height: negotiated.height,
+                width: neg_width,
+                height: neg_height,
                 stride: stride as u32,
-                layout: negotiated.layout,
+                layout: neg_layout,
                 pts_us: frame_pts_us(),
                 data: pixels[..need].to_vec(),
             };
             match bus.try_push(frame) {
-                Push::Pushed => {}
+                Push::Pushed => {
+                    // First successful hand-off: proves the producer→bus
+                    // half of the chain once (the worker logs its own 1 Hz).
+                    if counting.first_drop_reason != Some("first frame pushed") {
+                        counting.first_drop_reason = Some("first frame pushed");
+                        tracing::debug!(
+                            width = neg_width,
+                            height = neg_height,
+                            stride,
+                            "first capture frame pushed onto the encode bus"
+                        );
+                    }
+                }
                 // Counted only — the session's 1 Hz progress log reports
                 // `dropped` (§6 cadence law; a per-frame line here would
                 // fire up to 60×/s during an encoder stall).
-                Push::Full(_) => bus.mark_dropped(),
+                Push::Full(_) => {
+                    counting.note_drop("encode bus full (worker not draining)");
+                    bus.mark_dropped();
+                }
             }
         })
         .register()
@@ -473,4 +521,29 @@ fn run_loop(
     drop(core);
     drop(context);
     drop(mainloop);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pw::spa::param::format::FormatProperties;
+
+    /// The SHM contract (task 1.5, zero-frame take fix): KWin's
+    /// screencast negotiation allocates DMABUF buffers whenever the
+    /// fixated format carries a VideoModifier key — modifier `0` IS
+    /// DRM_FORMAT_MOD_INVALID ("dmabuf, implicit modifier"), never
+    /// "system memory". Without the key KWin falls back to MemFd
+    /// buffers, which MAP_BUFFERS maps so `data.data()` yields pixels.
+    #[test]
+    fn format_offer_carries_no_modifier_property() {
+        let pod = format_offer_pod((1920, 1080));
+        let keys: Vec<u32> = pod.properties.iter().map(|p| p.key).collect();
+        // Meaningfulness guard: the offer really carries the format
+        // choice (an empty-object false positive fails here).
+        assert!(keys.contains(&FormatProperties::VideoFormat.as_raw()));
+        assert!(
+            !keys.contains(&FormatProperties::VideoModifier.as_raw()),
+            "capture format offer must not carry a VideoModifier key"
+        );
+    }
 }

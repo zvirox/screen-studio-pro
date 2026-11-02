@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NavBar from "./NavBar";
-import { useUiStore } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ minimize: vi.fn().mockResolvedValue(undefined) }),
@@ -12,7 +12,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 describe("NavBar (§5.8)", () => {
   beforeEach(() => {
-    useUiStore.setState({ view: "record" });
+    useSspStore.setState({ view: "record" });
   });
 
   it("renders the four segments with roles and labels", () => {
@@ -36,13 +36,13 @@ describe("NavBar (§5.8)", () => {
   it("activates a view on click", () => {
     render(<NavBar />);
     fireEvent.click(screen.getByRole("tab", { name: "Library" }));
-    expect(useUiStore.getState().view).toBe("library");
+    expect(useSspStore.getState().view).toBe("library");
   });
 
   it("ignores clicks on the disabled Stream pill", () => {
     render(<NavBar />);
     fireEvent.click(screen.getByRole("tab", { name: /Stream/ }));
-    expect(useUiStore.getState().view).toBe("record");
+    expect(useSspStore.getState().view).toBe("record");
   });
 
   it("roves selection with ArrowRight, skipping the disabled pill (§7.3)", () => {
@@ -50,15 +50,15 @@ describe("NavBar (§5.8)", () => {
     const record = screen.getByRole("tab", { name: "Record" });
     record.focus();
     fireEvent.keyDown(record, { key: "ArrowRight" });
-    expect(useUiStore.getState().view).toBe("library");
+    expect(useSspStore.getState().view).toBe("library");
   });
 
   it("wraps roving from the last enabled item back to Record", () => {
-    useUiStore.setState({ view: "settings" });
+    useSspStore.setState({ view: "settings" });
     render(<NavBar />);
     const settings = screen.getByRole("tab", { name: "Settings" });
     settings.focus();
     fireEvent.keyDown(settings, { key: "ArrowRight" });
-    expect(useUiStore.getState().view).toBe("record");
+    expect(useSspStore.getState().view).toBe("record");
   });
 });

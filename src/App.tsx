@@ -1,10 +1,13 @@
 import { motion } from "framer-motion";
 import NavBar from "./components/chrome/NavBar";
-import { useUiStore, type ViewId } from "./lib/store";
+import RecordView from "./components/record/RecordView";
+import { useRecordingState } from "./hooks/useRecordingState";
+import { useSspStore, type ViewId } from "./lib/store";
 
 /* App shell — NavBar + view router (ARCHITECTURE §2).
-   The panels below are 0.4 skeletons; the real views land feature-by-feature
-   (SourceDeck in M1, LibraryGrid in M5+, SettingsView in Phase 5). */
+   Record is live (1.5 slice); Library/Settings remain stubs until their
+   phases. The session-event hook mounts once here (§4.1: the event
+   stream is the state sync, so projections keep updating on any view). */
 
 // §4.6 m.base: enter is y +6→0, opacity 0→1; reduced-motion drops to opacity-only via tailwind.css
 const enter = {
@@ -22,24 +25,28 @@ function ViewStub({ title, note }: { title: string; note: string }) {
   );
 }
 
-const STUB_NOTES: Record<ViewId, string> = {
-  record: "Source deck, audio strip, camera slab and the record action arrive with F-M1 (monitor capture).",
+const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
   library: "The recordings grid lands with the library feature — seeded from the SQLite index (task 0.8).",
   settings: "Settings panes (capture, audio, camera, files, shortcuts, about) arrive with the settings store (task 0.7).",
 };
 
 export default function App() {
-  const view = useUiStore((s) => s.view);
+  const view = useSspStore((s) => s.view);
+  useRecordingState();
 
   return (
     <div className="flex h-screen flex-col bg-canvas text-ink">
       <NavBar />
       <main role="tabpanel" className="min-h-0 flex-1 overflow-y-auto p-6">
         <motion.div key={view} {...enter}>
-          <ViewStub
-            title={view.charAt(0).toUpperCase() + view.slice(1)}
-            note={STUB_NOTES[view]}
-          />
+          {view === "record" ? (
+            <RecordView />
+          ) : (
+            <ViewStub
+              title={view.charAt(0).toUpperCase() + view.slice(1)}
+              note={STUB_NOTES[view]}
+            />
+          )}
         </motion.div>
       </main>
     </div>

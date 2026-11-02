@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useUiStore, type ViewId } from "../../lib/store";
+import { useSspStore, type ViewId } from "../../lib/store";
 
 /* §5.8 NavBar — window chrome law:
    52px Pane recipe, r.lg top corners only · segmented pill (r.full, 32px,
@@ -25,8 +25,8 @@ const NAV_ITEMS: readonly NavItem[] = [
 ];
 
 export default function NavBar() {
-  const view = useUiStore((s) => s.view);
-  const setView = useUiStore((s) => s.setView);
+  const view = useSspStore((s) => s.view);
+  const setView = useSspStore((s) => s.setView);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function select(id: NavItem["id"], el?: HTMLButtonElement | null) {

@@ -463,6 +463,27 @@ fn capture_take(
         empty_polls = 0;
     }
 
+    // Zero-frame guard (task 1.5): finalizing here would write a
+    // header-only MKV with an empty cluster — unreadable (ffprobe:
+    // invalid EBML) — and report a "successful" take. Fail loudly
+    // instead (API §1: capture.no_frames) and leave no artifact.
+    if frames == 0 {
+        let path = mux.path().to_owned();
+        // Drop closes the container without a trailer; the partial file
+        // is removed so the library never lists a take it cannot play.
+        drop(mux);
+        if let Err(err) = std::fs::remove_file(&path)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            tracing::warn!(%err, "could not remove empty take file");
+        }
+        return Err(CoreError::capture(
+            "capture.no_frames",
+            true,
+            "Nothing was captured. Click a source and try again.",
+        ));
+    }
+
     // Flush the encoder tail (B-frames queue behind GOP boundaries), write
     // the container trailer — after this point the file is complete.
     let path = mux.path().to_owned();
@@ -792,6 +813,48 @@ mod tests {
         assert!(second_outcome.size_bytes > 0);
     }
 
+    /// Regression (task 1.5 zero-frame takes): a stop with ZERO encoded
+    /// frames must fail loudly — a header-only MKV with an empty cluster
+    /// is unreadable (ffprobe: invalid EBML) — and must leave no file.
+    /// Before the guard, the take "succeeded" with a 535-byte artifact.
+    #[test]
+    fn stop_with_zero_frames_fails_and_leaves_no_file() {
+        let handle = RecordingHandle::new();
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let bus = Arc::new(FrameBus::new(4));
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .expect("clean start");
+        // No frames are ever produced: the bus stays empty the whole take.
+        let err = handle
+            .stop(&info.recording_id)
+            .expect("stop accepted")
+            .expect_err("zero-frame take must fail");
+        assert_eq!(err.code(), "capture.no_frames");
+        // The partial container must be gone, not a corrupt header-only
+        // file that fakes a successful take in the library.
+        assert_eq!(
+            std::fs::read_dir(dir.path()).expect("tmp listing").count(),
+            0,
+            "no corrupt empty take may remain on disk"
+        );
+        // And the session is reusable afterwards (slot released cleanly).
+        let bus = Arc::new(FrameBus::new(4));
+        let next = handle
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new())
+            .expect("session reuses the slot after a failed take");
+        produce(&bus, 3, 0);
+        wait_drained(&bus);
+        // The failed take's file was removed, so sequential naming hands
+        // the first name out again (never-overwrite, not never-reuse).
+        let outcome = handle
+            .stop(&next.recording_id)
+            .expect("stop")
+            .expect("recovered take");
+        assert_eq!(outcome.path, dir.path().join("first-rec.mkv"));
+    }
+
     /// Regression (rust-pro/systematic-debugging audit): a LIVE source
     /// keeps feeding the bus after Stop (the session never closes the
     /// bus, §6). The worker must honor the latch with a bounded drain —
@@ -1049,6 +1112,10 @@ mod tests {
         let next = handle
             .start(bus.clone(), (W, H), dir.path(), sink.clone())
             .expect("the faulted take freed the slot");
+        // Real frames: the zero-frame guard (capture.no_frames) must not
+        // be what this test exercises — it is about slot recovery.
+        produce(&bus, 3, 0);
+        wait_drained(&bus);
         handle
             .stop(&next.recording_id)
             .expect("accepted")
