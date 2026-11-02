@@ -62,6 +62,14 @@ Also binding: `PRAGMA` note — behavior changes that alter any contract file mu
 4. **Verify** (run the commands; show real output; two rounds of visual inspection if UI changed).
 5. **Then explain what changed in a short summary:** files touched, contract files updated (or "none"), verification evidence, anything the user should double-check. Short means short — no novel-length recaps.
 
+## 5b. Task cadence rule (standing)
+
+After each task is delivered (committed + pushed + reported): **pause**. Do not start the next
+task. In the delivery report, always state the **next / upcoming task** (name + one-line scope)
+so the user can green-light it. No task begins without that checkpoint — even when the user
+said "start the next task," the plan it produces is presented for OK before code (per step 2),
+and the pause remains in force after every delivery.
+
 Commits stay small, `ci.yml` stays green, and the contract files' version bumps follow their own governance rules (DESIGN §8, API §5, DATABASE §8).
 
 ## 6. Conflict Rule (the stop-and-ask rule)
