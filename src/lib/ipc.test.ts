@@ -155,9 +155,9 @@ describe("lib/ipc", () => {
   });
 
   it("pins the webview contract version (API §5.1)", () => {
-    expect(IPC_CONTRACT_VERSION).toBe("1.0.0");
-    expect(isContractMatch("1.0.0")).toBe(true);
-    expect(isContractMatch("1.1.0")).toBe(false);
+    expect(IPC_CONTRACT_VERSION).toBe("1.1.0");
+    expect(isContractMatch("1.1.0")).toBe(true);
+    expect(isContractMatch("1.0.0")).toBe(false);
     expect(isContractMatch("2.0.0")).toBe(false);
   });
 });

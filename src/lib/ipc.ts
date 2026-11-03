@@ -10,6 +10,7 @@ import {
   type PrefValue,
   type PrefsGetReply,
   type PrefsAllReply,
+  type RecordingPhaseReply,
   type RecordingStartInput,
   type RecordingStartReply,
   type RecordingStopReply,
@@ -128,6 +129,17 @@ export function recordingStart(input: RecordingStartInput): Promise<RecordingSta
     with the take's path/duration/size; the row id/thumb joins in PLAN 1.6. */
 export function recordingStop(recordingId: string): Promise<RecordingStopReply> {
   return call<RecordingStopReply>("recording_stop", { recordingId });
+}
+
+/** `cmd://recording_pause` / `cmd://recording_resume` (API §2.3) — the
+    take's phase flips on the Rust side; `recording/tick` carries it at the
+    next beat. `ipc.bad_state` when not recording / not paused. */
+export function recordingPause(recordingId: string): Promise<RecordingPhaseReply> {
+  return call<RecordingPhaseReply>("recording_pause", { recordingId });
+}
+
+export function recordingResume(recordingId: string): Promise<RecordingPhaseReply> {
+  return call<RecordingPhaseReply>("recording_resume", { recordingId });
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */

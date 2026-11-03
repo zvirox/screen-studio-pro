@@ -14,7 +14,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.0.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.1.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -477,6 +477,36 @@ pub async fn recording_start(
     }))
 }
 
+/// `cmd://recording_pause` / `cmd://recording_resume` (API §2.3) — state
+/// transitions on the live take; the reply carries the new phase verbatim
+/// and the tick stream flips to `paused` at the next 1 Hz beat (API §3).
+/// Contract errors: `ipc.bad_state` (not recording / not paused) — the
+/// session-level matrix (session.rs) owns the law; these stay thin
+/// (validate → delegate, ARCHITECTURE §2).
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub async fn recording_pause(
+    recording_id: String,
+    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+) -> Result<Value, IpcError> {
+    recordings
+        .pause(&recording_id)
+        .map_err(|err| err.to_ipc())?;
+    Ok(serde_json::json!({ "status": "paused" }))
+}
+
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub async fn recording_resume(
+    recording_id: String,
+    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+) -> Result<Value, IpcError> {
+    recordings
+        .resume(&recording_id)
+        .map_err(|err| err.to_ipc())?;
+    Ok(serde_json::json!({ "status": "recording" }))
+}
+
 /// `cmd://recording_stop` (API §2.3) — flush + trailer + join; the reply's
 /// `recording` object carries only the fields that exist before the
 /// library row (1.6). Contract errors: `ipc.bad_state`, `disk.*`.
@@ -525,7 +555,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.0.0");
+        assert_eq!(v["ipcContract"], "1.1.0");
     }
 
     #[test]
@@ -538,7 +568,7 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["vaapi", "nvenc", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.0.0");
+        assert_eq!(v["version"]["ipcContract"], "1.1.0");
         assert_eq!(v["version"]["app"], "0.1.0");
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());

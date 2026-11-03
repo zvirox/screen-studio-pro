@@ -125,11 +125,13 @@ impl StatsMeter {
 /// 3–7). The IPC layer maps them onto the API §3 wire payloads.
 #[derive(Debug, Clone)]
 pub enum SessionEvent {
-    /// `recording/tick` — 1 Hz. The phase is not carried: `recording_pause`
-    /// has not landed, so every tick is a `recording` one.
+    /// `recording/tick` — 1 Hz. `paused` is the 2.3 phase law (API §3
+    /// `state`): gate it from the pause state, never guess it from the
+    /// elapsed (the ipc layer maps it onto `RecordingPhase`).
     Tick {
         recording_id: String,
         elapsed_ms: u64,
+        paused: bool,
     },
     /// `recording/stats` — 0.5 Hz.
     Stats(StatsSnapshot),

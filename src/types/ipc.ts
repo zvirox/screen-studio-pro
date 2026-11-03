@@ -6,7 +6,7 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.0.0";
+export const IPC_CONTRACT_VERSION = "1.1.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
@@ -212,6 +212,11 @@ export interface RecordingStopInfo {
 /** §2.3 `recording_stop` 200 reply. */
 export interface RecordingStopReply {
   recording: RecordingStopInfo;
+}
+
+/** §2.3 `recording_pause`/`recording_resume` 200 reply — the new phase. */
+export interface RecordingPhaseReply {
+  status: RecordingPhase;
 }
 
 /* ---------- §3 Events (payload shapes only — lib/events.ts subscribes) ---------- */

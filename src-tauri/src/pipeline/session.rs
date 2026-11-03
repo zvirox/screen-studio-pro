@@ -157,6 +157,7 @@ fn run_audio_worker(
     tx: mpsc::SyncSender<AudioMsg>,
     stop: Arc<AtomicBool>,
     events: Arc<dyn EventSink>,
+    pause: PauseState,
 ) -> Result<(), CoreError> {
     let mut aac = SwAac::from_open(opened);
     let frames_per_chunk = aac.frame_size(); // AAC: 1024 samples per channel
@@ -239,6 +240,20 @@ fn run_audio_worker(
         }
         if stop.load(Ordering::Acquire) {
             break;
+        }
+        // 2.3 pause gate: a paused take records NOTHING. The rings are
+        // still drained (§6 backpressure — the producers keep pushing),
+        // but the samples are discarded, the anchor is not computed and
+        // NO meter liveness is refreshed — the sample-count clock never
+        // advances through a pause (that IS the audio continuity), and
+        // the post-gain bars decay past the hold (loop-top gate) because
+        // the gate below stops feeding it. The PRE-pause anchor, if one
+        // was already computed, survives untouched — chunks resume at
+        // the sample where the pause found them.
+        if pause.is_active() {
+            let _ = super::audio::mix_rings(&channels, MIX_WINDOW_SAMPLES);
+            std::thread::sleep(IDLE_POLL);
+            continue;
         }
         let pass = super::audio::mix_rings(&channels, MIX_WINDOW_SAMPLES);
         if pass.samples.is_empty() {
@@ -459,6 +474,117 @@ struct ActiveRecording {
     /// The take's audio-row note (DATABASE §2.1 audioJson), rendered by
     /// the ipc layer at start; handed back with the stop outcome.
     audio_json: Option<String>,
+    /// 2.3 pause gate — shared with both workers; transitions (pause/
+    /// resume) happen HERE under the slot lock, workers only read.
+    pause: PauseState,
+}
+
+/// The 2.3 pause gate (PLAN 2.3). Laws:
+/// - The pause is measured in WALL µs — the same clock the video pts are
+///   stamped in, so the take's rel timeline (raw − base − paused_total)
+///   excludes the pause exactly by construction and never regresses
+///   (saturating everywhere; a wall step mid-pause shortens BOTH the
+///   interval and the raw span it explains).
+/// - Transitions run under the ipc slot lock; the workers read `active`
+///   as a fast atomic and the accumulator under the mutex (60 Hz / 1 Hz
+///   readers — uncontended, §6 never blocks a capture path on it).
+/// - The AUDIO clock needs none of this: its pts are a sample count, so
+///   not encoding while paused IS the continuity (A/V stay in step
+///   because both clocks freeze for the same real interval).
+#[derive(Clone)]
+struct PauseState {
+    /// Worker-side gate: true while paused (Release on resume AFTER the
+    /// accumulator is updated, so a reader that observes unpaused also
+    /// observes the full total — Acquire pairs with it).
+    active: Arc<AtomicBool>,
+    track: Arc<Mutex<PauseTrack>>,
+}
+
+#[derive(Debug, Clone)]
+struct PauseTrack {
+    /// The take's t0 in wall µs — the tick elapsed's basis (frozen during
+    /// a pause: `up_to − start − total` where `up_to` is the pause's
+    /// start wall instead of now while paused).
+    start_wall_us: u64,
+    /// Wall stamp when the current pause began; None while recording.
+    since_wall_us: Option<u64>,
+    /// Accumulated paused wall µs (complete intervals only).
+    total_wall_us: u64,
+}
+
+impl PauseState {
+    fn new(start_wall_us: u64) -> Self {
+        Self {
+            active: Arc::new(AtomicBool::new(false)),
+            track: Arc::new(Mutex::new(PauseTrack {
+                start_wall_us,
+                since_wall_us: None,
+                total_wall_us: 0,
+            })),
+        }
+    }
+
+    fn is_active(&self) -> bool {
+        self.active.load(Ordering::Acquire)
+    }
+
+    /// Enter the pause. Returns false when already paused (the caller
+    /// turns that into the §2.3 `ipc.bad_state`). `now` = wall µs.
+    fn pause(&self, now: u64) -> bool {
+        if self.active.swap(true, Ordering::AcqRel) {
+            return false;
+        }
+        self.track
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .since_wall_us = Some(now);
+        true
+    }
+
+    /// Leave the pause, banking the interval into the accumulator.
+    /// Returns false when not paused (§2.3 "not paused" bad_state).
+    fn resume(&self, now: u64) -> bool {
+        {
+            let mut track = self
+                .track
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let Some(since) = track.since_wall_us else {
+                return false;
+            };
+            track.total_wall_us += now.saturating_sub(since);
+            track.since_wall_us = None;
+        }
+        self.active.store(false, Ordering::Release);
+        true
+    }
+
+    /// `recording/tick`'s `elapsedMs` — RECORDING time (the pause is
+    /// excluded, API §3 2.3 note) and FROZEN while paused (the `up_to`
+    /// value stops at the pause's start wall, deterministic per tick).
+    fn elapsed_ms(&self, now: u64) -> u64 {
+        let track = self
+            .track
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let up_to = if track.since_wall_us.is_some() {
+            track.since_wall_us.unwrap_or(now)
+        } else {
+            now
+        };
+        up_to
+            .saturating_sub(track.start_wall_us)
+            .saturating_sub(track.total_wall_us)
+            / 1000
+    }
+
+    /// The frame pts shift (video worker, once per accepted frame).
+    fn total_us(&self) -> u64 {
+        self.track
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .total_wall_us
+    }
 }
 
 impl RecordingHandle {
@@ -550,6 +676,9 @@ impl RecordingHandle {
         // The anchor's SENTINEL flag — separate from the value because a
         // first-frame pt of 0 is legal (see the audio worker's anchor law).
         let video_anchored = Arc::new(AtomicBool::new(false));
+        // 2.3: the pause gate is born with the take; the ipc layer holds
+        // a clone on ActiveRecording, both workers hold their own.
+        let pause = PauseState::new(wall_us());
         let (audio_tx, audio_rx) = mpsc::sync_channel::<AudioMsg>(64);
         let ctx = SessionContext {
             recording_id: recording_id.clone(),
@@ -568,6 +697,7 @@ impl RecordingHandle {
                 let anchored_for_audio = video_anchored.clone();
                 let stop_for_audio = stop.clone();
                 let events_for_audio = events.clone();
+                let pause_for_audio = pause.clone();
                 let handle = std::thread::Builder::new()
                     .name("recording-audio".into())
                     .spawn(move || {
@@ -579,6 +709,7 @@ impl RecordingHandle {
                             audio_tx,
                             stop_for_audio,
                             events_for_audio,
+                            pause_for_audio,
                         )
                     })
                     .map_err(|err| {
@@ -603,6 +734,7 @@ impl RecordingHandle {
         let worker_stop = stop.clone();
         let worker_base = video_base.clone();
         let worker_anchored = video_anchored.clone();
+        let worker_pause = pause.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
@@ -615,6 +747,7 @@ impl RecordingHandle {
                     audio_leg,
                     worker_base,
                     worker_anchored,
+                    worker_pause,
                 )
             })
             .map_err(|err| {
@@ -637,6 +770,7 @@ impl RecordingHandle {
             worker: Some(worker),
             audio_producers: producers,
             audio_json: row_note,
+            pause,
         });
         Ok(info)
     }
@@ -663,6 +797,43 @@ impl RecordingHandle {
             }
             Err(panic) => tracing::error!(?panic, "recording worker panicked"),
         }
+    }
+
+    /// 2.3 (API §2.3): latch the pause on the active recording. Outer
+    /// `Err` = contract `ipc.bad_state` — nothing running / id mismatch /
+    /// already paused (the §2.3 "not recording" class at 409).
+    pub fn pause(&self, recording_id: &str) -> Result<(), CoreError> {
+        let mut slot = self.locked();
+        // A worker that ended by itself is gone — pause is a state of a
+        // LIVE take (the reaper frees the slot, the reply is bad_state).
+        self.reap_finished(&mut slot);
+        let Some(active) = slot.as_ref() else {
+            return Err(bad_state("No recording is running with that id."));
+        };
+        if active.recording_id != recording_id {
+            return Err(bad_state("No recording is running with that id."));
+        }
+        if !active.pause.pause(wall_us()) {
+            return Err(bad_state("The recording is already paused."));
+        }
+        Ok(())
+    }
+
+    /// 2.3 (API §2.3): leave the pause. `ipc.bad_state` when nothing is
+    /// running, the id mismatches, or the take is not paused.
+    pub fn resume(&self, recording_id: &str) -> Result<(), CoreError> {
+        let mut slot = self.locked();
+        self.reap_finished(&mut slot);
+        let Some(active) = slot.as_ref() else {
+            return Err(bad_state("No recording is running with that id."));
+        };
+        if active.recording_id != recording_id {
+            return Err(bad_state("No recording is running with that id."));
+        }
+        if !active.pause.resume(wall_us()) {
+            return Err(bad_state("The recording is not paused."));
+        }
+        Ok(())
     }
 
     /// Stops (and joins) the active recording. Outer `Err` = contract
@@ -770,6 +941,7 @@ fn run_session(
     audio_leg: Option<AudioLeg>,
     video_base: Arc<AtomicU64>,
     video_anchored: Arc<AtomicBool>,
+    pause: PauseState,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
     let outcome = capture_take(
@@ -781,6 +953,7 @@ fn run_session(
         &mut audio_leg,
         &video_base,
         &video_anchored,
+        &pause,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
     // reacts to the event can start the next take right away.
@@ -814,6 +987,7 @@ fn capture_take(
     audio_leg: &mut Option<AudioLeg>,
     video_base: &Arc<AtomicU64>,
     video_anchored: &Arc<AtomicBool>,
+    pause: &PauseState,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
@@ -832,7 +1006,8 @@ fn capture_take(
     let mut audio_fault: Option<CoreError> = None;
     // The event cadence (API §3): tick 1 Hz, stats 0.5 Hz. Both run on
     // the wall clock, never on frames — an idle source still ticks (§6).
-    let session_start = Instant::now();
+    // 2.3: the tick's elapsed is RECORDING time on the wall clock minus
+    // the pause accumulator (frozen while paused, exact per the gate).
     let mut tick_gate = Throttle::new(TICK_PERIOD);
     let mut stats_gate = Throttle::new(STATS_PERIOD);
     let mut meter = StatsMeter::new();
@@ -845,7 +1020,8 @@ fn capture_take(
         if tick_gate.due(now) {
             ctx.events.emit(SessionEvent::Tick {
                 recording_id: ctx.recording_id.clone(),
-                elapsed_ms: session_start.elapsed().as_millis() as u64,
+                elapsed_ms: pause.elapsed_ms(wall_us()),
+                paused: pause.is_active(),
             });
         }
         if stats_gate.due(now) {
@@ -879,6 +1055,19 @@ fn capture_take(
                     }
                     None => false,
                 };
+                // 2.3 pause gate: while paused the take records NOTHING.
+                // Frames in the ring at pause time are discarded even
+                // under a stop-drain budget (budget keeps decrementing so
+                // a stop-while-paused stays bounded; the at-most-half-ring
+                // (~8 frames ≈ 130 ms) pre-pause in-flight content that a
+                // racing pause can drop is imperceptible — pauses cut at
+                // "nothing from here on", the ledger records the cost).
+                if pause.is_active() {
+                    if take_last {
+                        break;
+                    }
+                    continue;
+                }
                 let base = match first_pts {
                     Some(base) => base,
                     None => {
@@ -893,8 +1082,24 @@ fn capture_take(
                     }
                 };
                 // Wall-clock monotonic µs; sanitize against a reordered
-                // producer clock instead of trusting it.
-                let rel = frame.pts_us.saturating_sub(base);
+                // producer clock instead of trusting it. 2.3: the paused
+                // wall time is subtracted with the SAME clock, so the
+                // encoded timeline excludes the pause by construction
+                // (never regresses — the accumulator only grows in
+                // wall µs the raw span actually spans).
+                let raw_shifted = frame
+                    .pts_us
+                    .saturating_sub(base)
+                    .saturating_sub(pause.total_us());
+                // Monotonic clamp: the subtract law assumes the raw span
+                // covers the banked pause (both are wall µs). A producer
+                // clock that disagrees (an NTP step, synthetic feeders)
+                // must not regress the stream — matroska REQUIRES
+                // per-stream monotonic pts and the mux write fails hard
+                // otherwise (red-test caught in 2.3). The clamp is a
+                // no-op on every honest wall-clock producer: the resumed
+                // raw gap always exceeds the banked pause there.
+                let rel = raw_shifted.max(last_rel_pts.saturating_add(1));
                 frame.pts_us = rel;
                 // The encoder's cost is a meter (API §3 `encodeTimeMs`) —
                 // the muxer's cost is not part of the payload.
@@ -1084,6 +1289,7 @@ mod tests {
                     SessionEvent::Tick {
                         recording_id,
                         elapsed_ms,
+                        ..
                     } => Some((recording_id.clone(), *elapsed_ms)),
                     _ => None,
                 })
@@ -1213,6 +1419,41 @@ mod tests {
             return None;
         }
         serde_json::from_slice(&output.stdout).ok()
+    }
+
+    /// 2.3: the wall-clock producer the pause subtract-law presupposes —
+    /// pts are stamped from the wall at push time and paced on the real
+    /// 60 fps grid, so the pts span covers the pause the way a live
+    /// feeder's does (fixed synthetic bases do NOT advance through a
+    /// real pause; feeding them post-resume would clamp-squeeze the
+    /// resumed segment onto the pre-pause tail — red-test lesson).
+    fn produce_wall(bus: &Arc<FrameBus>, count: u64, spacing: Duration) {
+        let started = Instant::now();
+        for n in 0..count {
+            let pts = wall_us();
+            let mut retries = 0u32;
+            loop {
+                match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                    crate::pipeline::Push::Pushed => break,
+                    crate::pipeline::Push::Full(_) => {
+                        retries += 1;
+                        assert!(
+                            retries < 2_000,
+                            "frame {n} was never accepted — the consumer is gone"
+                        );
+                        std::thread::sleep(IDLE_POLL);
+                    }
+                }
+            }
+            // Pace to the 60 fps grid in real time (the push already ate
+            // whatever the cap-8 bus forced it to wait — never sleep past
+            // the grid, only up to it).
+            let due = started + spacing * (n as u32 + 1);
+            let now = Instant::now();
+            if due > now {
+                std::thread::sleep(due - now);
+            }
+        }
     }
 
     /// Wait until the worker has drained the bus (poll-May sleep, §6).
@@ -2003,5 +2244,501 @@ mod tests {
             .stop(&next.recording_id)
             .expect("accepted")
             .expect("clean take");
+    }
+
+    /* ---------- 2.3 pause/resume (API §2.3) ---------- */
+
+    impl TestSink {
+        /// `(recording_id, elapsed_ms, paused)` triples — the 2.3 tick
+        /// shape (the phase rides every tick, API §3).
+        fn tick_phases(&self) -> Vec<(String, u64, bool)> {
+            self.all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Tick {
+                        recording_id,
+                        elapsed_ms,
+                        paused,
+                    } => Some((recording_id.clone(), *elapsed_ms, *paused)),
+                    _ => None,
+                })
+                .collect()
+        }
+    }
+
+    /// PLAN 2.3 verify: the pause window is NOT in the take. Frames fed
+    /// while paused are discarded, elapsed freezes (constant `elapsed_ms`
+    /// across paused ticks), the resumed take's pts continues where the
+    /// pause began (one continuous stream, pts never regresses), and the
+    /// final duration counts only recorded content.
+    #[test]
+    fn pause_resume_excludes_paused_time_and_ticks_the_phase() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .expect("recording starts");
+
+        // Segment 1: ~1.1 s of content on the WALL clock (60 fps real
+        // pacing; a synthetic fixed base would not span the pause — see
+        // produce_wall). >1 s so a pre-pause 1 Hz tick is guaranteed.
+        produce_wall(&bus, 66, Duration::from_micros(16_666));
+        wait_drained(&bus);
+
+        handle
+            .pause(&info.recording_id)
+            .expect("pause while recording");
+        // Ticks during the pause must carry phase `paused` with a FROZEN
+        // elapsed (exact equality — the pause wall is subtracted, not
+        // guessed). ~2.3 s of pause ⇒ at least one 1 Hz tick pair.
+        std::thread::sleep(Duration::from_millis(2_300));
+
+        // Segment 2 (discard window): 30 frames fed INTO the pause must
+        // not appear in the file. The pause loop keeps draining, so the
+        // producers never wedge.
+        produce(&bus, 30, wall_us());
+        wait_drained(&bus);
+
+        handle
+            .resume(&info.recording_id)
+            .expect("resume while paused");
+
+        // Segment 3: another ~1.1 s of content after the pause — again
+        // >1 tick period so a post-resume `recording` tick lands before
+        // stop (the phase-flap law needs ticks on BOTH sides). The wall
+        // clock having continued through the pause, raw pts now sit
+        // ≥2.3 s past base, past the banked pause total.
+        produce_wall(&bus, 66, Duration::from_micros(16_666));
+        wait_drained(&bus);
+
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("stop accepted while idle (never paused at stop)")
+            .expect("clean take");
+
+        // 2×~1.1 s of wall content (+ drain slop) — the paused 2.3 s and
+        // the 30 discard-window frames are GONE (a shift-removal bug
+        // probes as ~5.5 s; the discard-window frames would inflate the
+        // packet count instead — probed below).
+        assert!(
+            (1_900..=3_000).contains(&outcome.duration_ms),
+            "durationMs must exclude the pause + discarded frames, got {}",
+            outcome.duration_ms
+        );
+
+        // Ticks: recording → (≥1 paused) → recording, and the paused
+        // stretch froze `elapsedMs` while the phase flapped.
+        let ticks = sink.tick_phases();
+        assert!(
+            ticks.len() >= 4,
+            "tick cadence over a ~4 s take: got {}",
+            ticks.len()
+        );
+        assert!(!ticks[0].2, "pre-pause ticks are 'recording'");
+        let paused_ticks: Vec<(String, u64)> = ticks
+            .iter()
+            .filter(|(_, _, paused)| *paused)
+            .map(|(id, ms, _)| (id.clone(), *ms))
+            .collect();
+        assert!(!paused_ticks.is_empty(), "at least one paused tick");
+        assert!(
+            paused_ticks.iter().all(|(id, _)| id == &info.recording_id),
+            "paused ticks carry the take id"
+        );
+        let frozen = paused_ticks[0].1;
+        assert!(
+            paused_ticks.iter().all(|(_, ms)| *ms == frozen),
+            "elapsed freezes during pause (values: {:?})",
+            paused_ticks.iter().map(|(_, ms)| *ms).collect::<Vec<_>>()
+        );
+        let last = ticks.last().expect("a final tick").clone();
+        assert!(!last.2, "post-resume ticks return to 'recording'");
+        // The frozen value must sit between the pre-pause elapsed and the
+        // post-resume elapsed (elapsed resumes FROM the frozen point —
+        // stale-resume bugs jump backwards or re-count the pause).
+        let pre: Vec<u64> = ticks
+            .iter()
+            .take_while(|(_, _, p)| !*p)
+            .map(|(_, ms, _)| *ms)
+            .collect();
+        let post: Vec<u64> = ticks
+            .iter()
+            .skip_while(|(_, _, p)| !*p) // over the pre-pause ticks
+            .skip_while(|(_, _, p)| *p) // over the paused ticks
+            .map(|(_, ms, _)| *ms)
+            .collect();
+        if let (Some(&last_pre), Some(&first_post)) = (pre.last(), post.first()) {
+            assert!(
+                first_post >= frozen && frozen > last_pre,
+                "elapsed must resume from the frozen point (last_pre {last_pre}, frozen {frozen}, first_post {first_post})"
+            );
+        }
+
+        // ffprobe: one continuous h264 stream whose duration excludes the
+        // pause (kill-scoped double check of the pts-shift law), and the
+        // encoded packet count — with wall pts the discard law's second
+        // signal (duration alone survives a removed discard gate here:
+        // mid-pause pts would clamp onto the tail with the same span).
+        if let Some(report) = ffprobe_json(&outcome.path) {
+            let stream = &report["streams"][0];
+            assert_eq!(stream["codec_name"], "h264");
+            let duration: f64 = report["format"]["duration"]
+                .as_str()
+                .and_then(|d| d.parse().ok())
+                .expect("container duration");
+            assert!(
+                (1.8..=3.2).contains(&duration),
+                "probed duration must exclude the pause, got {duration}s"
+            );
+            // 132 encoded frames (2 × 66) — a removed discard gate pushes
+            // this past 160 (the discard window's 30 frames encoded too).
+            let packets = std::process::Command::new("ffprobe")
+                .args([
+                    "-v",
+                    "error",
+                    "-count_packets",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=nb_read_packets",
+                    "-of",
+                    "csv=p=0",
+                ])
+                .arg(&outcome.path)
+                .output()
+                .ok()
+                .filter(|out| out.status.success())
+                .map(|out| {
+                    String::from_utf8_lossy(&out.stdout)
+                        .trim()
+                        .parse::<u64>()
+                        .expect("packet count")
+                });
+            if let Some(packets) = packets {
+                assert!(
+                    (125..=145).contains(&packets),
+                    "exactly the 132 recorded frames may be encoded, got {packets}"
+                );
+            }
+        } else {
+            eprintln!("ffprobe unavailable — size/duration asserts only");
+        }
+    }
+
+    /// The monotonic clamp (2.3 red-caught): a producer clock that
+    /// rewinds must never hand the muxer a regressing pts — matroska
+    /// requires per-stream monotonic pts and the write fails hard
+    /// otherwise. The clamp is the sanitizer of last resort; duration
+    /// then measures the producer's OWN span (the rewind is squeezed,
+    /// not dropped — refuse-to-lie beats pretend-it-never-happened).
+    #[test]
+    fn a_regressing_producer_clock_cannot_regress_the_stream() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .expect("recording starts");
+        // Raw pts jump forward, then step BACK (a producer clock stepping
+        // under NTP, or any reordered-clock pathology).
+        let _ = bus.try_push(synthetic_frame(0, 10_000_000));
+        wait_drained(&bus);
+        let _ = bus.try_push(synthetic_frame(1, 11_000_000));
+        wait_drained(&bus);
+        let _ = bus.try_push(synthetic_frame(2, 10_500_000));
+        wait_drained(&bus);
+
+        // Without the clamp this stop dies with disk.write_failed (the
+        // mux write rejects regressing pts); the take must survive clean.
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean take — the clamp sanitized the rewind");
+        // The rewound frame rides at last_rel + 1 µs, so the last rel is
+        // the producer's own maximum (frame 2's 1.0 s), not the rewind's
+        // 0.5 s — the span is kept, the regression is not.
+        assert!(
+            (1_000..=1_005).contains(&outcome.duration_ms),
+            "duration = the producer's own span, got {}",
+            outcome.duration_ms
+        );
+    }
+
+    /// PLAN 2.3 live gate, run by hand on a live desktop:
+    ///
+    /// ```sh
+    /// SSP_LOG_LEVEL=info cargo test --manifest-path src-tauri/Cargo.toml \
+    ///   manual_pause_excludes_paused_time -- --ignored --nocapture
+    /// ```
+    ///
+    /// A consent dialog appears; approve it. The gate records ~3 s of the
+    /// real monitor, pauses 5 s (timer must freeze, phase = paused), then
+    /// records ~3 s more. Assertions: the probed duration centers on ~6 s
+    /// — NOT ~11 s (the pause is excluded from the encoded timeline by
+    /// the wall-clock shift) — and the take survives with no errors.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "manual gate: needs a live portal + a human consent click"]
+    async fn manual_pause_excludes_paused_time() {
+        use crate::capture::LiveSource;
+        use crate::capture::portal::select_monitor;
+        let _ = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_test_writer()
+            .try_init();
+
+        let source_id = crate::capture::new_source_id();
+        let lost_id = source_id.clone();
+        let (mut session, reply) = select_monitor(source_id.clone(), move |reason| {
+            tracing::error!(source = %lost_id, reason, "capture source lost during manual pause gate");
+        })
+        .await
+        .expect("portal consent + stream");
+        assert_eq!(reply.kind, "monitor");
+        assert!(reply.capabilities.width > 0 && reply.capabilities.height > 0);
+
+        let handle = RecordingHandle::new();
+        let bus = session
+            .frame_bus()
+            .expect("monitor source produces a recording stream");
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+        let info = handle
+            .start(
+                bus.clone(),
+                session.geometry(),
+                dir.path(),
+                sink.clone(),
+                None,
+            )
+            .expect("recording starts");
+
+        // ~3 s content.
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        handle.pause(&info.recording_id).expect("pause");
+        tracing::info!("PAUSED — the on-screen timer must freeze");
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        handle.resume(&info.recording_id).expect("resume");
+        tokio::time::sleep(Duration::from_secs(3)).await;
+
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean live take");
+        session.stop_frames();
+        session.close().await;
+
+        let paused_ticks = sink
+            .tick_phases()
+            .iter()
+            .filter(|(_, _, paused)| *paused)
+            .count();
+        tracing::info!(
+            duration_ms = outcome.duration_ms,
+            paused_ticks,
+            "manual pause gate outcome"
+        );
+        assert!(paused_ticks >= 3, "5 s pause ⇒ ≥3 paused ticks");
+        assert!(
+            (4_000..=8_500).contains(&outcome.duration_ms),
+            "duration must exclude the 5 s pause (~6 s of content), got {} ms",
+            outcome.duration_ms
+        );
+        if let Some(report) = ffprobe_json(&outcome.path) {
+            let duration: f64 = report["format"]["duration"]
+                .as_str()
+                .and_then(|d| d.parse().ok())
+                .expect("probed duration");
+            assert!(
+                (4.0..=8.5).contains(&duration),
+                "probed duration excludes the pause, got {duration}s"
+            );
+        }
+    }
+
+    /// API §2.3 error law: pause needs an actively recording take with the
+    /// right id; resume needs a PAUSED one; stop-while-paused is legal.    #[test]
+    fn pause_and_resume_state_matrix_is_bad_state_governed() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+
+        // Pause with nothing running → ipc.bad_state.
+        let err = handle.pause("rec_nobody").unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .expect("recording starts");
+        produce(&bus, 10, 0);
+
+        // Wrong id → bad_state, session survives.
+        let err = handle.pause("rec_wrong").unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+        // Resume before any pause → bad_state ("not paused" law).
+        let err = handle.resume(&info.recording_id).unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+
+        handle.pause(&info.recording_id).expect("pause");
+        // Double pause — the take is not "recording" anymore → bad_state.
+        let err = handle.pause(&info.recording_id).unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+        // Wrong-id resume while paused → bad_state.
+        let err = handle.resume("rec_wrong").unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+
+        // Stop while paused: legal, bounded, clean.
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean take");
+        assert!(outcome.path.exists());
+        // The paused take still recorded its pre-pause segment only.
+        assert!(outcome.duration_ms > 0, "segment 1 was encoded");
+
+        // post-stop pause/resume → bad_state again.
+        let err = handle.pause(&info.recording_id).unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+        let err = handle.resume(&info.recording_id).unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+    }
+
+    /// 2.3 + 2.1 cross-law: pausing a take WITH audio keeps both streams
+    /// continuous (per-stream monotonic pts), keeps A/V in step, and
+    /// excludes the pause from both. The audio clock is a sample-count —
+    /// pause gates its windows, so continuity is proven by sane durations.
+    /// Meters decay to SILENT during the pause (post-gain law: nothing is
+    /// recorded while paused; 2.2 hold gives the bars ≥250 ms of grace).
+    #[test]
+    fn pause_keeps_av_streams_continuous_and_excludes_pause() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let ring_mic = Arc::new(crate::pipeline::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let ring_desktop = Arc::new(crate::pipeline::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let plan = AudioPlan {
+            producers: Vec::new(),
+            channels: vec![
+                crate::pipeline::audio::MixSource {
+                    ring: ring_mic.clone(),
+                    gain: 1.0,
+                    channel: crate::capture::audio::AudioChannel::Mic,
+                },
+                crate::pipeline::audio::MixSource {
+                    ring: ring_desktop.clone(),
+                    gain: 0.5,
+                    channel: crate::capture::audio::AudioChannel::Desktop,
+                },
+            ],
+            row_note: None,
+        };
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .expect("recording starts");
+
+        let keep = Arc::new(AtomicBool::new(true));
+        let video_producer = {
+            let bus = bus.clone();
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let mut n = 0u64;
+                let t0 = Instant::now();
+                while keep.load(Ordering::Acquire) {
+                    let pts = t0.elapsed().as_micros() as u64;
+                    match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                        crate::pipeline::Push::Pushed => {}
+                        crate::pipeline::Push::Full(_) => bus.mark_dropped(),
+                    }
+                    n += 1;
+                    std::thread::sleep(Duration::from_millis(16));
+                }
+            })
+        };
+        let feed = |ring: Arc<crate::pipeline::AudioRing>, level: f32| {
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let window = [level; 960]; // 480 stereo frames = 20 ms
+                while keep.load(Ordering::Acquire) {
+                    let started = Instant::now();
+                    let _ = ring.try_push(&window);
+                    std::thread::sleep(Duration::from_millis(20).saturating_sub(started.elapsed()));
+                }
+            })
+        };
+        let feeder_mic = feed(ring_mic, 0.25);
+        let feeder_desktop = feed(ring_desktop, 0.2);
+
+        // 1 s of content → 2.2 s pause → 1 s more.
+        std::thread::sleep(Duration::from_millis(1_000));
+        handle.pause(&info.recording_id).expect("pause");
+        std::thread::sleep(Duration::from_millis(2_200));
+        handle.resume(&info.recording_id).expect("resume");
+        std::thread::sleep(Duration::from_millis(1_000));
+
+        let wall_ms = 4_200; // lower bound of the take's wall time
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean take");
+        keep.store(false, Ordering::Release);
+        video_producer.join().expect("video producer");
+        feeder_mic.join().expect("mic feeder");
+        feeder_desktop.join().expect("desktop feeder");
+
+        // The pause (≈2.2 s) must be gone from the reported duration.
+        assert!(
+            outcome.duration_ms + 1_500 < wall_ms,
+            "duration {} must exclude the ~2.2 s pause (wall ≥ {wall_ms})",
+            outcome.duration_ms
+        );
+        assert!(sink.errors().is_empty(), "healthy take, no error events");
+
+        if let Some(report) = ffprobe_json(&outcome.path) {
+            let streams = report["streams"].as_array().expect("streams");
+            assert_eq!(streams.len(), 2, "video + the one mixed AAC track");
+            let duration: f64 = report["format"]["duration"]
+                .as_str()
+                .and_then(|d| d.parse().ok())
+                .expect("probed duration");
+            assert!(
+                (1.2..2.9).contains(&duration),
+                "container duration must exclude the ~2.2 s pause, got {duration}s"
+            );
+            // A/V stay within one second of each other (the sample-count
+            // clock and the pts-shifted wall clock measure the same
+            // recorded content — a discontinuity bug separates them).
+            // (Both streams' durations are the format duration here; the
+            // continuity evidence is the sane, non-inflated total.)
+        } else {
+            eprintln!("ffprobe unavailable — duration asserts only");
+        }
+
+        // Meters: the post-gain bars FALL during the pause — the audio
+        // worker stops refreshing liveness while paused, so the log's
+        // first live reading (pre-pause content recording) is eventually
+        // followed by fully-SILENT readings (2.2 decay past the hold).
+        // The only healthy-take path to silence after liveness is the
+        // pause gate; post-resume liveness returns, so this asserts the
+        // DECAY existed, not that the stream ended silent.
+        let meter_log = sink.meters();
+        let first_live = meter_log
+            .iter()
+            .position(|(mic, desk)| *mic != MeterReading::SILENT || *desk != MeterReading::SILENT)
+            .expect("live meters while recording");
+        assert!(
+            meter_log[first_live + 1..]
+                .iter()
+                .any(|(mic, desk)| *mic == MeterReading::SILENT && *desk == MeterReading::SILENT),
+            "meters decay to SILENT during the pause (post-gain law)"
+        );
     }
 }

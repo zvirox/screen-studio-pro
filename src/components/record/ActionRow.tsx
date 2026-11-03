@@ -49,12 +49,26 @@ export default function ActionRow() {
     <section aria-label="Recording controls" className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
         {recording ? (
-          <div
-            role="timer"
-            className="rounded-sm border border-subtle bg-solid px-2.5 py-1.5 font-mono text-mono-md tabular-nums text-ink"
-          >
-            {formatElapsed(session.elapsedMs)}
-          </div>
+          <>
+            <div
+              role="timer"
+              className="rounded-sm border border-subtle bg-solid px-2.5 py-1.5 font-mono text-mono-md tabular-nums text-ink"
+            >
+              {formatElapsed(session.elapsedMs)}
+            </div>
+            {/* §5.9 paused law: the timer freezes and the PAUSED `label`
+                chip sits beside it — text + placement carry the phase
+                (§7.8: never color-only). No pause/resume buttons here —
+                §5.9 reserves them for the 2.4 HUD window. */}
+            {session.paused ? (
+              <div
+                role="status"
+                className="rounded-xs bg-signal-muted px-2 py-1.5 text-label font-medium text-signal"
+              >
+                PAUSED
+              </div>
+            ) : null}
+          </>
         ) : null}
         <button
           type="button"

@@ -4,6 +4,8 @@ import {
   audioSetChannel,
   recordingStart,
   recordingStop,
+  recordingPause,
+  recordingResume,
   settingsGet,
   sourceSelect,
 } from "./ipc";
@@ -61,6 +63,9 @@ export interface SessionSlice {
   startedAt: string | null;
   /** Elapsed wall time of the take, pushed by `recording/tick` (1 Hz). */
   elapsedMs: number;
+  /** 2.3 sub-state from tick.state (API §3): a paused take is still a
+      live "recording" session — Stop & save stays enabled (§5.9). */
+  paused: boolean;
   /** Human copy of an asynchronous fault (API §3 1.4 note) or the
       authoritative stop-reply failure. Rendered once — §6.5 no-double-telling. */
   fault: IpcError | null;
@@ -72,6 +77,7 @@ export const INITIAL_SESSION: SessionSlice = {
   encoderBackend: null,
   startedAt: null,
   elapsedMs: 0,
+  paused: false,
   fault: null,
 };
 
@@ -179,6 +185,10 @@ interface SspState {
   startRecording: () => Promise<void>;
   /** `cmd://recording_stop` for the active take. */
   stopRecording: () => Promise<void>;
+  /** `cmd://recording_pause` / `cmd://recording_resume` (2.3) — phase
+      transitions under the same §5.6 error-toast law as the other commands. */
+  pauseRecording: () => Promise<void>;
+  resumeRecording: () => Promise<void>;
 
   /* Event reducers — subscribe exactly once (hooks/useRecordingState). */
   onTick: (evt: RecordingTickEvt) => void;
@@ -379,6 +389,7 @@ export const useSspStore = create<SspState>((set, get) => ({
           encoderBackend: reply.encoder.backend,
           startedAt: reply.startedAt,
           elapsedMs: 0,
+          paused: false,
           fault: null,
         },
       });
@@ -431,10 +442,60 @@ export const useSspStore = create<SspState>((set, get) => ({
     }
   },
 
+  async pauseRecording() {
+    const { session } = get();
+    // Guarded no-op outside a live, unpaused take — the Rust side owns the
+    // authoritative §2.3 bad_state matrix; the UI never double-asks.
+    if (session.status !== "recording" || !session.recordingId || session.paused)
+      return;
+    try {
+      await recordingPause(session.recordingId);
+      // The tick phase confirms at the next 1 Hz beat; the reply flips the
+      // chip immediately (no frozen-timer flash of the wrong phase).
+      set({ session: { ...get().session, paused: true } });
+    } catch (err) {
+      // The take is untouched by a refused pause (bad_state class) — toast
+      // the §7.9 copy, session stays as-is.
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async resumeRecording() {
+    const { session } = get();
+    if (session.status !== "recording" || !session.recordingId || !session.paused)
+      return;
+    try {
+      await recordingResume(session.recordingId);
+      set({ session: { ...get().session, paused: false } });
+    } catch (err) {
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
   onTick(evt) {
     const { session } = get();
     if (session.recordingId !== evt.recordingId) return;
-    set({ session: { ...session, elapsedMs: evt.elapsedMs } });
+    // 2.3: the phase rides every tick (API §3 `state`) — the projection
+    // NEVER invents the paused sub-state from elapsed time.
+    set({
+      session: {
+        ...session,
+        elapsedMs: evt.elapsedMs,
+        paused: evt.state === "paused",
+      },
+    });
   },
 
   onSessionError(err) {

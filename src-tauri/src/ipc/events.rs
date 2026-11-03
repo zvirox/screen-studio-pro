@@ -188,16 +188,21 @@ impl crate::pipeline::stats::EventSink for TauriEventSink {
             SessionEvent::Tick {
                 recording_id,
                 elapsed_ms,
+                paused,
             } => {
-                // §3: the phase is always `recording` until
-                // `recording_pause`/`recording_resume` land.
+                // 2.3: the phase rides the tick — gating from the session's
+                // pause state, not inferred from elapsed.
                 let _ = emit(
                     &self.app,
                     topic::RECORDING_TICK,
                     RecordingTick {
                         recording_id,
                         elapsed_ms,
-                        state: RecordingPhase::Recording,
+                        state: if paused {
+                            RecordingPhase::Paused
+                        } else {
+                            RecordingPhase::Recording
+                        },
                     },
                 );
             }

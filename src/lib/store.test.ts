@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   INITIAL_SESSION,
   INITIAL_SOURCE,
+  INITIAL_TOASTS,
   useSspStore,
 } from "./store";
 import type {
@@ -18,15 +19,19 @@ vi.mock("./ipc", async (importOriginal) => ({
   sourceSelect: vi.fn(),
   recordingStart: vi.fn(),
   recordingStop: vi.fn(),
+  recordingPause: vi.fn(),
+  recordingResume: vi.fn(),
   settingsGet: vi.fn(),
   audioSetChannel: vi.fn(),
   audioListDevices: vi.fn(),
 }));
 
-import { recordingStart, recordingStop, settingsGet, audioSetChannel, audioListDevices, sourceSelect } from "./ipc";
+import { recordingStart, recordingStop, recordingPause, recordingResume, settingsGet, audioSetChannel, audioListDevices, sourceSelect } from "./ipc";
 const mockedSelect = vi.mocked(sourceSelect);
 const mockedStart = vi.mocked(recordingStart);
 const mockedStop = vi.mocked(recordingStop);
+const mockedPause = vi.mocked(recordingPause);
+const mockedResume = vi.mocked(recordingResume);
 const mockedSettingsGet = vi.mocked(settingsGet);
 const mockedSetChannel = vi.mocked(audioSetChannel);
 const mockedAudioListDevices = vi.mocked(audioListDevices);
@@ -64,6 +69,15 @@ const STREAM_LOST: IpcError = {
   code: "pipewire.stream_lost",
   retryable: false,
   userMessage: "The capture stream ended unexpectedly.",
+  details: null,
+};
+
+/* 2.3: the §2.3 pause/resume bad_state class (API.md §2.3 error rows). */
+const BAD_STATE: IpcError = {
+  kind: "ipc",
+  code: "ipc.bad_state",
+  retryable: false,
+  userMessage: "The recording is already paused.",
   details: null,
 };
 
@@ -205,6 +219,26 @@ describe("session event projection (Rust truth, §4.1)", () => {
     expect(useSspStore.getState().session.elapsedMs).toBe(5400);
   });
 
+  it("onTick carries the 2.3 phase — `paused` flips with tick.state (Rust truth)", () => {
+    recordingSession();
+    // The frozen elapsed still updates from the tick (the Rust side sends
+    // the same frozen value for every paused beat; the UI never invents
+    // the freeze locally).
+    useSspStore.getState().onTick({
+      recordingId: "rec_01HV3",
+      elapsedMs: 1100,
+      state: "paused",
+    });
+    expect(useSspStore.getState().session.paused).toBe(true);
+    expect(useSspStore.getState().session.status).toBe("recording");
+    useSspStore.getState().onTick({
+      recordingId: "rec_01HV3",
+      elapsedMs: 1101,
+      state: "recording",
+    });
+    expect(useSspStore.getState().session.paused).toBe(false);
+  });
+
   it("onSessionError sets the fault copy without leaving recording state (take still ending)", () => {
     recordingSession();
     useSspStore.getState().onSessionError(STREAM_LOST);
@@ -266,6 +300,81 @@ describe("session event projection (Rust truth, §4.1)", () => {
     const s = useSspStore.getState();
     expect(s.session).toEqual(INITIAL_SESSION);
     expect(s.source.status).toBe("live");
+  });
+});
+
+describe("pause/resume (2.3, API §2.3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSspStore.setState({
+      source: INITIAL_SOURCE,
+      session: INITIAL_SESSION,
+      ...INITIAL_TOASTS,
+    });
+  });
+
+  it("pauseRecording invokes §2.3 with the take id and flips paused on the reply", async () => {
+    liveSource();
+    recordingSession();
+    mockedPause.mockResolvedValue({ status: "paused" });
+    await useSspStore.getState().pauseRecording();
+    expect(mockedPause).toHaveBeenCalledWith("rec_01HV3");
+    const s = useSspStore.getState().session;
+    // Paused is a sub-state of the take, not a status of its own — the
+    // session stays "recording" (Stop & save must stay live, §5.9).
+    expect(s.paused).toBe(true);
+    expect(s.status).toBe("recording");
+  });
+
+  it("pauseRecording outside a live take is a guarded no-op (no IPC)", async () => {
+    await useSspStore.getState().pauseRecording();
+    expect(mockedPause).not.toHaveBeenCalled();
+  });
+
+  it("pauseRecording rejection → §5.6 error toast; paused stays false", async () => {
+    liveSource();
+    recordingSession();
+    mockedPause.mockRejectedValue(BAD_STATE);
+    await useSspStore.getState().pauseRecording();
+    const s = useSspStore.getState();
+    expect(s.session.paused).toBe(false);
+    expect(
+      s.toasts.some((t) => t.kind === "error" && t.code === "ipc.bad_state"),
+    ).toBe(true);
+  });
+
+  it("resumeRecording invokes §2.3 and flips paused off", async () => {
+    liveSource();
+    recordingSession();
+    useSspStore.setState({
+      session: { ...useSspStore.getState().session, paused: true },
+    });
+    mockedResume.mockResolvedValue({ status: "recording" });
+    await useSspStore.getState().resumeRecording();
+    expect(mockedResume).toHaveBeenCalledWith("rec_01HV3");
+    expect(useSspStore.getState().session.paused).toBe(false);
+  });
+
+  it("resumeRecording when not paused is a guarded no-op (no IPC)", async () => {
+    liveSource();
+    recordingSession();
+    await useSspStore.getState().resumeRecording();
+    expect(mockedResume).not.toHaveBeenCalled();
+  });
+
+  it("resumeRecording rejection → §5.6 error toast; paused stays true", async () => {
+    liveSource();
+    recordingSession();
+    useSspStore.setState({
+      session: { ...useSspStore.getState().session, paused: true },
+    });
+    mockedResume.mockRejectedValue(BAD_STATE);
+    await useSspStore.getState().resumeRecording();
+    const s = useSspStore.getState();
+    expect(s.session.paused).toBe(true);
+    expect(
+      s.toasts.some((t) => t.kind === "error" && t.code === "ipc.bad_state"),
+    ).toBe(true);
   });
 });
 

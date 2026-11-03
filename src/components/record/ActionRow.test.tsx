@@ -26,6 +26,59 @@ const LIVE: SourceSlice = {
   capabilities: { fps: 60, width: 2560, height: 1440, cursor: true, region: true },
 };
 
+describe("ActionRow paused (§5.9 2.3)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    setState(INITIAL_SOURCE, INITIAL_SESSION);
+  });
+
+  it("paused: PAUSED label chip beside the frozen timer; Stop stays live", () => {
+    const stopRecording = vi.fn().mockResolvedValue(undefined);
+    useSspStore.setState({ stopRecording });
+    setState(LIVE, {
+      ...INITIAL_SESSION,
+      status: "recording",
+      recordingId: "rec_1",
+      elapsedMs: 4200,
+      paused: true,
+    });
+    render(<ActionRow />);
+    // The chip carries the phase word verbatim (§5.9: timer shows the
+    // frozen value, the PAUSED `label` chip sits beside it).
+    expect(screen.getByText("PAUSED")).toBeTruthy();
+    expect(screen.getByRole("timer")).toHaveTextContent("0:04");
+    // A paused take is still a running take — Stop & save stays enabled
+    // (stop-while-paused is legal per API §2.3).
+    expect(screen.getByRole("button", { name: /Stop & save/ })).toBeEnabled();
+  });
+
+  it("paused: no pause/resume buttons in the row — §5.9 reserves them for the 2.4 HUD", () => {
+    setState(LIVE, {
+      ...INITIAL_SESSION,
+      status: "recording",
+      recordingId: "rec_1",
+      elapsedMs: 4200,
+      paused: true,
+    });
+    render(<ActionRow />);
+    expect(screen.queryByRole("button", { name: /pause/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /resume/i })).toBeNull();
+    // Exactly one button lives in the row: Stop & save.
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("recording (not paused): no PAUSED chip", () => {
+    setState(LIVE, {
+      ...INITIAL_SESSION,
+      status: "recording",
+      recordingId: "rec_1",
+      elapsedMs: 4200,
+    });
+    render(<ActionRow />);
+    expect(screen.queryByText("PAUSED")).toBeNull();
+  });
+});
+
 describe("ActionRow (§5.1/§6.5)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();

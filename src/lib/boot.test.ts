@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./ipc", () => ({
   systemCapabilities: vi.fn(),
-  isContractMatch: (actual: string) => actual === "1.0.0",
+  isContractMatch: (actual: string) => actual === "1.1.0",
   asIpcError: (err: unknown) => ({
     kind: "ipc",
     code: "ipc.unknown_command",
@@ -25,10 +25,10 @@ const capsWith = (ipcContract: string) => ({
 
 describe("boot gate", () => {
   it("passes when the core reports the pinned contract", async () => {
-    vi.mocked(systemCapabilities).mockResolvedValue(capsWith("1.0.0"));
+    vi.mocked(systemCapabilities).mockResolvedValue(capsWith("1.1.0"));
     const result = await boot();
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.capabilities.version.ipcContract).toBe("1.0.0");
+    if (result.ok) expect(result.capabilities.version.ipcContract).toBe("1.1.0");
   });
 
   it("fails with ipc.contract_mismatch naming both versions", async () => {
@@ -37,7 +37,7 @@ describe("boot gate", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("ipc.contract_mismatch");
-      expect(result.expected).toBe("1.0.0");
+      expect(result.expected).toBe("1.1.0");
       expect(result.actual).toBe("2.0.0");
     }
   });
