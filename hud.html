@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScreenStudio HUD</title>
+    <!-- §5.9: the HUD window is transparent; tailwind.css's @layer base
+         paints bg-canvas, and unlayered styles override it. -->
+    <style>
+      body {
+        background: transparent;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/hud-main.tsx"></script>
+  </body>
+</html>

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import NavBar from "./components/chrome/NavBar";
 import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
+import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
 import { useSspStore, type ViewId } from "./lib/store";
 
@@ -9,6 +10,8 @@ import { useSspStore, type ViewId } from "./lib/store";
    Record is live (1.5 slice); Library/Settings remain stubs until their
    phases. The session-event hook mounts once here (§4.1: the event
    stream is the state sync, so projections keep updating on any view).
+   useHudWindow is the spawn side of the §5.9 HUD float: main hears
+   recording/started and opens the child (the HUD closes itself).
    ToastHost (§5.6, 1.7) sits above every view — faults and the saved
    toast are floatover-level surface, not view content. */
 
@@ -36,6 +39,7 @@ const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
 export default function App() {
   const view = useSspStore((s) => s.view);
   useRecordingState();
+  useHudWindow();
 
   return (
     <div className="flex h-screen flex-col bg-canvas text-ink">

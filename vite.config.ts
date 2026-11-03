@@ -9,6 +9,19 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
 
+  // Two entries: the main app shell (index.html) and the §5.9 HUD float
+  // window (hud.html), spawned at recording start (lib/hudWindow). Both
+  // share the same bundle graph; tauri.conf.json's devUrl/frontendDist
+  // serves this directory.
+  build: {
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        hud: "hud.html",
+      },
+    },
+  },
+
   // Vitest harness — TESTING.md §1 (frontend unit + component layers)
   test: {
     environment: "jsdom",
