@@ -180,6 +180,13 @@
   --shadow-elev-2: var(--ssp-elev-2);
   --shadow-float: var(--ssp-elev-float);
 
+  /* DESIGN.md v1.0 §4.6 — motion: named durations (m.fast/base/slow/settle)
+     join the ease tokens so components never write ms literals. */
+  --duration-fast: 140ms; /* m.fast */
+  --duration-base: 180ms; /* m.base */
+  --duration-slow: 240ms; /* m.slow */
+  --duration-settle: 90ms; /* m.settle */
+
   /* DESIGN.md v1.0 §4.6 — motion */
   --ease-fast: cubic-bezier(0.25, 1, 0.5, 1); /* 140ms */
   --ease-base: cubic-bezier(0.34, 1.56, 0.64, 1); /* ≈spring(300, 24) */

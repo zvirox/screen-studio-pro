@@ -213,6 +213,22 @@ impl crate::pipeline::stats::EventSink for TauriEventSink {
                     },
                 );
             }
+            SessionEvent::Meters { mic, desktop } => {
+                let _ = emit(
+                    &self.app,
+                    topic::RECORDING_METERS,
+                    RecordingMeters {
+                        mic: Meter {
+                            rms: mic.rms,
+                            peak: mic.peak,
+                        },
+                        desktop: Meter {
+                            rms: desktop.rms,
+                            peak: desktop.peak,
+                        },
+                    },
+                );
+            }
             SessionEvent::Error(err) => {
                 let _ = emit(&self.app, topic::RECORDING_ERROR, err);
             }

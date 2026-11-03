@@ -4,7 +4,13 @@ import {
   INITIAL_SOURCE,
   useSspStore,
 } from "./store";
-import type { IpcError, SourceCapabilities } from "../types/ipc";
+import type {
+  AudioListDevicesReply,
+  IpcError,
+  RecordingStartReply,
+  Settings,
+  SourceCapabilities,
+} from "../types/ipc";
 import type * as ipcModule from "./ipc";
 
 vi.mock("./ipc", async (importOriginal) => ({
@@ -12,12 +18,18 @@ vi.mock("./ipc", async (importOriginal) => ({
   sourceSelect: vi.fn(),
   recordingStart: vi.fn(),
   recordingStop: vi.fn(),
+  settingsGet: vi.fn(),
+  audioSetChannel: vi.fn(),
+  audioListDevices: vi.fn(),
 }));
 
-import { recordingStart, recordingStop, sourceSelect } from "./ipc";
+import { recordingStart, recordingStop, settingsGet, audioSetChannel, audioListDevices, sourceSelect } from "./ipc";
 const mockedSelect = vi.mocked(sourceSelect);
 const mockedStart = vi.mocked(recordingStart);
 const mockedStop = vi.mocked(recordingStop);
+const mockedSettingsGet = vi.mocked(settingsGet);
+const mockedSetChannel = vi.mocked(audioSetChannel);
+const mockedAudioListDevices = vi.mocked(audioListDevices);
 
 /* §4.1 state law: the store is a projection with a schema — recording
    session truth lives in Rust (events push reducers), source truth arrives
@@ -38,6 +50,13 @@ const PORTAL_DENIED: IpcError = {
   retryable: false,
   userMessage: "Screen capture was blocked.",
   details: null,
+};
+
+const START_REPLY: RecordingStartReply = {
+  recordingId: "rec_01HV3",
+  status: "recording",
+  encoder: { backend: "x264", isHardware: false },
+  startedAt: "2026-11-02T10:00:00Z",
 };
 
 const STREAM_LOST: IpcError = {
@@ -356,4 +375,220 @@ describe("toasts (§5.6 saved-file feedback; 1.7)", () => {
     expect(toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
   });
 });
+
+/* ---------- 2.2 audio strip (§6.1 #3; API §2.2 + §3 meters) ---------- */
+
+const AUDIO_SETTINGS: Settings["audio"] = {
+  micDeviceId: null,
+  desktopAudio: true,
+  echoCancel: false,
+  micEnabled: true,
+  micMuted: false,
+  micLevel: 80,
+  desktopDeviceId: null,
+  desktopMuted: false,
+  desktopLevel: 70,
+};
+
+const DEVICES: AudioListDevicesReply = {
+  mics: [
+    { id: "alsa:mic0", label: "Blue Yeti", isDefault: true },
+    { id: "alsa:mic1", label: "Webcam mic", isDefault: false },
+  ],
+  desktop: [{ id: "pwp:sink0", label: "Speakers (monitor)", isDefault: false }],
+};
+
+describe("audio slice (§6.1 #3 strip; 2.2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSspStore.setState({
+      source: INITIAL_SOURCE,
+      session: INITIAL_SESSION,
+      audio: {
+        status: "idle",
+        error: null,
+        mic: { enabled: false, muted: false, deviceId: null, level: 100 },
+        desktop: { enabled: false, muted: false, deviceId: null, level: 100 },
+        meters: null,
+        devices: null,
+        devicesLoading: false,
+      },
+      toasts: [],
+      nextToastId: 1,
+    });
+  });
+
+  function readyAudio() {
+    const current = useSspStore.getState().audio;
+    useSspStore.setState({
+      audio: {
+        ...current,
+        status: "ready",
+        mic: { enabled: true, muted: false, deviceId: null, level: 80 },
+        desktop: { enabled: true, muted: false, deviceId: null, level: 70 },
+      },
+    });
+  }
+
+  it("loads the §2.6 audio settings snapshot into per-channel state", async () => {
+    mockedSettingsGet.mockResolvedValue(AUDIO_SETTINGS);
+    await useSspStore.getState().loadAudio();
+    const a = useSspStore.getState().audio;
+    expect(a.status).toBe("ready");
+    expect(a.mic).toEqual({
+      enabled: true,
+      muted: false,
+      deviceId: null,
+      level: 80,
+    });
+    expect(a.desktop.enabled).toBe(true);
+  });
+
+  it("loadAudio failure lands in the slice error (the strip renders §5.5 error state)", async () => {
+    mockedSettingsGet.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().loadAudio();
+    expect(useSspStore.getState().audio.status).toBe("error");
+    expect(useSspStore.getState().audio.error).toEqual(PORTAL_DENIED);
+  });
+
+  it("toggling a channel persists through audio_set_channel and updates the slice", async () => {
+    readyAudio();
+    mockedSetChannel.mockResolvedValue({ ok: true });
+    await useSspStore.getState().setChannelEnabled("mic", false);
+    expect(mockedSetChannel).toHaveBeenCalledWith({
+      channel: "mic",
+      enabled: false,
+    });
+    expect(useSspStore.getState().audio.mic.enabled).toBe(false);
+    expect(useSspStore.getState().audio.status).toBe("ready");
+  });
+
+  it("a rejected channel toggle pushes the §1 copy as a toast, keeps prior state", async () => {
+    readyAudio();
+    mockedSetChannel.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().setChannelEnabled("desktop", false);
+    expect(useSspStore.getState().audio.desktop.enabled).toBe(true);
+    const toasts = useSspStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
+  });
+
+  it("picking a device persists deviceId (null = system default clears it)", async () => {
+    readyAudio();
+    mockedSetChannel.mockResolvedValue({ ok: true });
+    await useSspStore.getState().setChannelDevice("mic", "alsa:mic1");
+    expect(mockedSetChannel).toHaveBeenCalledWith({
+      channel: "mic",
+      deviceId: "alsa:mic1",
+    });
+    expect(useSspStore.getState().audio.mic.deviceId).toBe("alsa:mic1");
+    await useSspStore.getState().setChannelDevice("mic", null);
+    expect(useSspStore.getState().audio.mic.deviceId).toBe(null);
+  });
+
+  it("loadDevices fills the §2.2 snapshot once; a re-load reuses the cache", async () => {
+    mockedAudioListDevices.mockResolvedValue(DEVICES);
+    await useSspStore.getState().loadDevices();
+    expect(useSspStore.getState().audio.devices).toEqual(DEVICES);
+    await useSspStore.getState().loadDevices();
+    expect(mockedAudioListDevices).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed device enumeration leaves prior state and pushes the §1 toast", async () => {
+    useSspStore.setState({
+      audio: { ...useSspStore.getState().audio, devicesLoading: false },
+    });
+    mockedAudioListDevices.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().loadDevices();
+    expect(useSspStore.getState().audio.devicesLoading).toBe(false);
+    expect(useSspStore.getState().audio.devices).toBe(null);
+    const toasts = useSspStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
+  });
+
+  it("onMeters stores the latest two-key payload and startRecording sends the enabled channels", async () => {
+    readyAudio();
+    liveSource();
+    useSspStore
+      .getState()
+      .onMeters({ mic: { rms: 0.42, peak: 0.71 }, desktop: { rms: 0, peak: 0 } });
+    expect(useSspStore.getState().audio.meters).toEqual({
+      mic: { rms: 0.42, peak: 0.71 },
+      desktop: { rms: 0, peak: 0 },
+    });
+
+    mockedStart.mockResolvedValue(START_REPLY);
+    await useSspStore.getState().startRecording();
+    expect(mockedStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audio: [
+          { channel: "mic", deviceId: null },
+          { channel: "desktop", deviceId: null },
+        ],
+      }),
+    );
+  });
+
+  it("startRecording sends only ENABLED channels (disabled ones ride as nothing)", async () => {
+    readyAudio();
+    useSspStore.getState().onMeters({
+      mic: { rms: 0, peak: 0 },
+      desktop: { rms: 0, peak: 0 },
+    });
+    useSspStore.setState({
+      audio: {
+        ...useSspStore.getState().audio,
+        mic: { ...useSspStore.getState().audio.mic, enabled: false },
+      },
+    });
+    liveSource();
+    mockedStart.mockResolvedValue(START_REPLY);
+    await useSspStore.getState().startRecording();
+    expect(mockedStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audio: [{ channel: "desktop", deviceId: null }],
+      }),
+    );
+  });
+
+  it("meters keep the LAST payload when the take ends (strip decays visually, no stale crash)", () => {
+    readyAudio();
+    useSspStore
+      .getState()
+      .onMeters({ mic: { rms: 0.3, peak: 0.3 }, desktop: { rms: 0.1, peak: 0.1 } });
+    useSspStore.getState().onFinished({
+      recordingId: "rec_01HV3",
+      recording: {
+        id: 7,
+        path: "/tmp/a.mkv",
+        fileName: "a.mkv",
+        kind: "monitor",
+        container: "mkv",
+        status: "ready",
+        durationMs: 1000,
+        width: null,
+        height: null,
+        fps: null,
+        sizeBytes: 1,
+        encoder: "x264",
+        isHwEncoder: false,
+        audioJson: null,
+        chapterJson: null,
+        thumbPath: null,
+        deletedAt: null,
+        createdAt: "2026-11-02T10:00:00Z",
+        updatedAt: "2026-11-02T10:00:00Z",
+      },
+    });
+    // The strip is idle-visible: the last readings freeze on purpose at
+    // 29 Hz cadence end; the EDUCATION state keys off recording status,
+    // not meter silence (§6.3 pairs them in the component).
+    expect(useSspStore.getState().audio.meters).toEqual({
+      mic: { rms: 0.3, peak: 0.3 },
+      desktop: { rms: 0.1, peak: 0.1 },
+    });
+  });
+});
+
 

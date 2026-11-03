@@ -1,12 +1,18 @@
 import { create } from "zustand";
 import {
+  audioListDevices,
+  audioSetChannel,
   recordingStart,
   recordingStop,
+  settingsGet,
   sourceSelect,
 } from "./ipc";
 import type {
+  AudioChannelSpec,
+  AudioListDevicesReply,
   IpcError,
   RecordingFinishedEvt,
+  RecordingMetersEvt,
   RecordingTickEvt,
   SourceCapabilities,
 } from "../types/ipc";
@@ -69,6 +75,50 @@ export const INITIAL_SESSION: SessionSlice = {
   fault: null,
 };
 
+/* ---------- Audio projection (§6.1 #3 strip; API §2.2 + §3, task 2.2) ---------- */
+
+/** One channel card's truth — mirrored from the §2.6 audio settings
+    snapshot (loadAudio) and mutated ONLY through `audio_set_channel`
+    (the Rust settings snapshot is what recording_start consumes). */
+export interface AudioChannelState {
+  enabled: boolean;
+  muted: boolean;
+  /** null = system default (API §2.2). */
+  deviceId: string | null;
+  /** 0–100 — post-gain meter law reads through this (§3 meters note). */
+  level: number;
+}
+
+export type AudioStatus = "idle" | "loading" | "ready" | "error";
+
+/** State half of the audio wiring — the ACTIONS live top-level on the
+    store (house convention: slices are projections, actions sit beside
+    selectMonitor/onTick). */
+export interface AudioSlice {
+  status: AudioStatus;
+  error: IpcError | null;
+  mic: AudioChannelState;
+  desktop: AudioChannelState;
+  /** Latest `recording/meters` payload (≤30 Hz); null until a take
+      emits. Keys are ALWAYS present (API §3): a channel not in the take
+      reads rms/peak 0 — the strip renders that as its idle bar. */
+  meters: RecordingMetersEvt | null;
+  /** §2.2 device lists — loaded once on first popover open (the reply is
+      a snapshot; re-open re-checks). */
+  devices: AudioListDevicesReply | null;
+  devicesLoading: boolean;
+}
+
+export const INITIAL_AUDIO: AudioSlice = {
+  status: "idle",
+  error: null,
+  mic: { enabled: false, muted: false, deviceId: null, level: 100 },
+  desktop: { enabled: false, muted: false, deviceId: null, level: 100 },
+  meters: null,
+  devices: null,
+  devicesLoading: false,
+};
+
 /* ---------- Toasts (§5.6 saved-file feedback; PLAN 1.7) ---------- */
 
 export type ToastKind = "status" | "error";
@@ -112,6 +162,16 @@ interface SspState {
 
   source: SourceSlice;
   session: SessionSlice;
+  /** §6.1 #3 audio strip (2.2) — §2.6 settings projection + meters/events. */
+  audio: AudioSlice;
+
+  /* Audio actions (2.2) — audio_set_channel persists; ON ONE SUBSCRIPTION
+     through hooks/useRecordingState (onMeters). */
+  loadAudio: () => Promise<void>;
+  loadDevices: () => Promise<void>;
+  setChannelEnabled: (channel: "mic" | "desktop", enabled: boolean) => Promise<void>;
+  setChannelDevice: (channel: "mic" | "desktop", deviceId: string | null) => Promise<void>;
+  onMeters: (evt: RecordingMetersEvt) => void;
 
   /** `cmd://source_select("monitor")` — portal consent (§2.1). */
   selectMonitor: () => Promise<void>;
@@ -137,6 +197,118 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   source: INITIAL_SOURCE,
   session: INITIAL_SESSION,
+  audio: INITIAL_AUDIO,
+
+  async loadAudio() {
+    if (get().audio.status === "loading") return;
+    set({ audio: { ...get().audio, status: "loading", error: null } });
+    try {
+      const settings = await settingsGet("audio");
+      set({
+        audio: {
+          ...get().audio,
+          status: "ready",
+          mic: {
+            enabled: settings.micEnabled,
+            muted: settings.micMuted,
+            deviceId: settings.micDeviceId,
+            level: settings.micLevel,
+          },
+          desktop: {
+            enabled: settings.desktopAudio,
+            muted: settings.desktopMuted,
+            deviceId: settings.desktopDeviceId,
+            level: settings.desktopLevel,
+          },
+        },
+      });
+    } catch (err) {
+      // §5.5 error state lives in the slice; §5.6 toast carries the copy.
+      set({
+        audio: { ...get().audio, status: "error", error: err as IpcError },
+      });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async loadDevices() {
+    if (get().audio.devices || get().audio.devicesLoading) return;
+    set({ audio: { ...get().audio, devicesLoading: true } });
+    try {
+      const devices = await audioListDevices();
+      set({ audio: { ...get().audio, devices, devicesLoading: false } });
+    } catch (err) {
+      // §2.2 flag ⚠: enumeration failure — the popover renders the §1
+      // copy inline; the previously loaded state survives untouched.
+      set({ audio: { ...get().audio, devicesLoading: false } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setChannelEnabled(channel, enabled) {
+    const current = get().audio[channel];
+    if (current.enabled === enabled) return;
+    // Optimistic card flip (§5.1 press responsiveness); a rejection
+    // rolls the field back and its copy rides the §5.6 toast.
+    set({ audio: { ...get().audio, [channel]: { ...current, enabled } } });
+    try {
+      await audioSetChannel({ channel, enabled });
+    } catch (err) {
+      set((s) => {
+        const audio = { ...s.audio };
+        audio[channel] = current;
+        return { audio };
+      });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setChannelDevice(channel, deviceId) {
+    const current = get().audio[channel];
+    if (current.deviceId === deviceId) return;
+    set({ audio: { ...get().audio, [channel]: { ...current, deviceId } } });
+    try {
+      await audioSetChannel({ channel, deviceId });
+    } catch (err) {
+      set((s) => {
+        const audio = { ...s.audio };
+        audio[channel] = current;
+        return { audio };
+      });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  onMeters(evt) {
+    // ≤30 Hz pushes land here and nowhere else (hooks/useRecordingState);
+    // the strip reads the projection — never its own subscription.
+    set({ audio: { ...get().audio, meters: evt } });
+  },
+
   ...INITIAL_TOASTS,
 
   dismissToast(id) {
@@ -178,12 +350,24 @@ export const useSspStore = create<SspState>((set, get) => ({
     if (source.status !== "live" || !source.sourceId) return;
     set({ session: { ...INITIAL_SESSION, status: "starting" } });
     try {
+      // 2.2: the §2.3 audio array carries the strip's ENABLED channels.
+      // The Rust take consumes the settings snapshot (audio_set_channel
+      // already persisted it) — the array stays the contract-complete
+      // wire shape, never a second source of truth.
+      const { audio } = get();
+      const channels: AudioChannelSpec[] = [];
+      if (audio.mic.enabled) {
+        channels.push({ channel: "mic", deviceId: audio.mic.deviceId });
+      }
+      if (audio.desktop.enabled) {
+        channels.push({ channel: "desktop", deviceId: audio.desktop.deviceId });
+      }
       const reply = await recordingStart({
         sourceId: source.sourceId,
         // 1.3/1.5 scope: video-only monitor take — neutral values at their
-        // API §2.3 shapes until M3/M4/M5 light their fields up.
+        // API §2.3 shapes until M3/M5 light their fields up.
         regionRect: null,
-        audio: [],
+        audio: channels,
         cameraId: null,
         presetId: null,
         outputDir: null,

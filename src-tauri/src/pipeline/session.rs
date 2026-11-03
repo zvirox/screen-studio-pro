@@ -1,4 +1,4 @@
-use super::audio::{MIX_WINDOW_SAMPLES, MixSource};
+use super::audio::{MIX_WINDOW_SAMPLES, MeterReading, MixSource};
 use super::stats::{EventSink, SessionEvent, StatsMeter, Throttle};
 use crate::capture::audio::AudioProducer;
 use crate::encode::sw_aac::{self, SwAac};
@@ -56,6 +56,15 @@ const STATS_PERIOD: Duration = Duration::from_secs(2);
 /// all matroska requires.
 const AUDIO_ANCHOR_WAIT: Duration = Duration::from_secs(2);
 
+/// `recording/meters` period — API §3 rate law: ≤30 Hz, coalesced in
+/// Rust. 34 ms ≈ 29.4 Hz: under the ceiling even at peak window supply
+/// (the mixer produces windows at ~100 Hz; the gate keeps the latest).
+const METERS_PERIOD: Duration = Duration::from_millis(34);
+
+/// How long a live meter reading holds before the bars decay to zero
+/// once every ring runs dry (see the audio worker: flicker guard).
+const METER_HOLD: Duration = Duration::from_millis(250);
+
 /// The container's AAC stream opens with the composition shape every
 /// capture input is folded into (capture::audio: 48 kHz stereo f32;
 /// PRD M10). One pre-mixed stereo track — plan 2.1, never N tracks.
@@ -109,6 +118,21 @@ fn wall_us() -> u64 {
         .unwrap_or(0)
 }
 
+/// The emitted reading for one channel: the held value while its ring
+/// delivered a sample within `hold`, otherwise SILENT (2.2 decay law —
+/// bars fall to zero on a pause or a dead device, never freeze).
+fn effective_meter(
+    reading: MeterReading,
+    live: Option<Instant>,
+    now: Instant,
+    hold: Duration,
+) -> MeterReading {
+    match live {
+        Some(l) if now.duration_since(l) <= hold => reading,
+        _ => MeterReading::SILENT,
+    }
+}
+
 /// The audio worker: rings → 10 ms mix windows → AAC chunks → the video
 /// worker's mux loop. Laws implemented:
 /// - One PRE-MIXED stereo track (plan 2.1): fold happens here, before
@@ -124,10 +148,12 @@ fn wall_us() -> u64 {
 ///   worker's first-frame wall stamp, so audio can never lead video
 ///   (§5b). AAC chunks are stamped by their SAMPLE index over the
 ///   anchor — the exact rounded µs clock (`pts_us_to_samples` inverts).
+#[allow(clippy::too_many_arguments)]
 fn run_audio_worker(
     opened: ff::encoder::Audio,
     channels: Vec<MixSource>,
     video_base: Arc<AtomicU64>,
+    video_anchored: Arc<AtomicBool>,
     tx: mpsc::SyncSender<AudioMsg>,
     stop: Arc<AtomicBool>,
     events: Arc<dyn EventSink>,
@@ -148,6 +174,22 @@ fn run_audio_worker(
     let mut anchor: Option<i64> = None;
     let mut accum: Vec<f32> = Vec::new();
     let mut reported_gone = vec![false; channels.len()];
+    // 2.2 meters: the latest POST-gain reading per wire channel, merged
+    // into the fixed two-key payload and coalesced at the API §3 ceiling
+    // (≤30 Hz — 34 ms keeps every burst under the bound). Coalescing
+    // happens HERE: ARCHITECTURE §6 puts rate limits on the Rust side,
+    // never in the webview. Readings START silent and DECAY back to
+    // silent while the rings run dry (the loop-top gate keeps firing).
+    let mut meter_gate = Throttle::new(METERS_PERIOD);
+    // Per-channel meter state: held reading + the wall instant its ring
+    // last DELIVERED samples. Indexed 0 = mic, 1 = desktop (both keys are
+    // always on the wire, API §3).
+    // 2.2 flicker law: a pass over an EMPTY pop holds the reading — feed
+    // jitter (a 20 ms producer under a 10 ms drain) must not snap the bar
+    // to zero between deliveries. Decay past METER_HOLD happens at the
+    // gate, so a paused (or dead) channel's bar falls instead of freezing.
+    let mut state: [(MeterReading, Option<Instant>); 2] =
+        [(MeterReading::SILENT, None), (MeterReading::SILENT, None)];
 
     // Bounded send: the mux side drains faster than the AAC side
     // produces in every healthy path; a FULL channel gets a short retry
@@ -172,6 +214,16 @@ fn run_audio_worker(
         };
 
     loop {
+        // Cadence first: the meter gate fires on the wall clock, so the
+        // strip keeps its documented rate even when a channel goes
+        // quiet (the readings decay to SILENT — bars fall to zero).
+        let now = Instant::now();
+        if meter_gate.due(now) {
+            events.emit(SessionEvent::Meters {
+                mic: effective_meter(state[0].0, state[0].1, now, METER_HOLD),
+                desktop: effective_meter(state[1].0, state[1].1, now, METER_HOLD),
+            });
+        }
         // Device-lost events first: a disabled channel renders its ONE
         // event and the take goes on with that channel silent.
         for (i, channel) in channels.iter().enumerate() {
@@ -188,32 +240,64 @@ fn run_audio_worker(
         if stop.load(Ordering::Acquire) {
             break;
         }
-        let window = super::audio::mix_rings(&channels, MIX_WINDOW_SAMPLES);
-        if window.is_empty() {
-            // All rings dry: park briefly (never busy-loop, §6).
+        let pass = super::audio::mix_rings(&channels, MIX_WINDOW_SAMPLES);
+        if pass.samples.is_empty() {
+            // All rings dry: the gate above keeps decaying held readings
+            // past the hold, and parking here never spins (§6).
             std::thread::sleep(IDLE_POLL);
             continue;
         }
+        // Post-gain meter law (2.2): each reading reflects ONLY its own
+        // channel. A pop with samples refreshes the channel's liveness
+        // and takes the new reading (even a legitimately silent one — a
+        // muted-but-alive channel stays at zero while ringing the hold);
+        // an empty pop holds, per the flicker law at the state decl. A
+        // channel whose device died stops delivering, so its bar falls
+        // after the hold instead of freezing.
+        for ((source, reading), popped) in channels.iter().zip(&pass.meters).zip(&pass.popped) {
+            if *popped > 0 {
+                let slot = match source.channel {
+                    crate::capture::audio::AudioChannel::Mic => 0,
+                    crate::capture::audio::AudioChannel::Desktop => 1,
+                };
+                state[slot] = (*reading, Some(now));
+            }
+        }
+        accum.extend_from_slice(&pass.samples);
         if anchor.is_none() {
             // §5b: the audio clock may never lead the video clock — the
             // anchor is the first window minus the video's first-frame
             // wall stamp, waited for up to the bound (never spun on).
+            // The SENTINEL is the `video_anchored` flag, not a nonzero
+            // value: a producer's first frame can legitimately carry
+            // pt 0 (a 2.1 bug this 2.2 instrumentation exposed — base 0
+            // read as "not set", every take waited out the deadline and
+            // stamped audio against the absolute wall clock). A stop
+            // during the wait exits via the loop's stop check — the
+            // drain is never parked for the full bound.
             let content_wall = wall_us();
             let deadline = Instant::now() + AUDIO_ANCHOR_WAIT;
             let base = loop {
-                let base = video_base.load(Ordering::Acquire);
-                if base != 0 {
-                    break base;
+                if video_anchored.load(Ordering::Acquire) {
+                    break Some(video_base.load(Ordering::Acquire));
+                }
+                if stop.load(Ordering::Acquire) {
+                    break None; // take over — anchor 0 lets the tail flush
                 }
                 if Instant::now() >= deadline {
                     tracing::warn!("audio anchor waited out the video base; stamping from 0");
-                    break 0;
+                    break None;
                 }
                 std::thread::sleep(IDLE_POLL);
             };
-            anchor = Some(content_wall.saturating_sub(base) as i64);
+            anchor = Some(match base {
+                Some(base) if base != 0 => content_wall.saturating_sub(base) as i64,
+                // A 0 stamp from the producer clock (test harnesses can
+                // legitimately push pt 0) cannot anchor against the wall
+                // clock — relative-from-zero is the honest fallback.
+                _ => 0,
+            });
         }
-        accum.extend_from_slice(&window);
         while accum.len() >= chunk_samples {
             let chunk: Vec<f32> = accum.drain(..chunk_samples).collect();
             let pts = chunk_pts(i128::from(chunk_index), anchor.unwrap_or(0));
@@ -463,6 +547,9 @@ impl RecordingHandle {
         let stop = Arc::new(AtomicBool::new(false));
         let ended = Arc::new(AtomicBool::new(false));
         let video_base = Arc::new(AtomicU64::new(0));
+        // The anchor's SENTINEL flag — separate from the value because a
+        // first-frame pt of 0 is legal (see the audio worker's anchor law).
+        let video_anchored = Arc::new(AtomicBool::new(false));
         let (audio_tx, audio_rx) = mpsc::sync_channel::<AudioMsg>(64);
         let ctx = SessionContext {
             recording_id: recording_id.clone(),
@@ -478,6 +565,7 @@ impl RecordingHandle {
                 // Clone BEFORE the move-closure: the closure takes these
                 // by value and the slot below still needs its own copies.
                 let base_for_audio = video_base.clone();
+                let anchored_for_audio = video_anchored.clone();
                 let stop_for_audio = stop.clone();
                 let events_for_audio = events.clone();
                 let handle = std::thread::Builder::new()
@@ -487,6 +575,7 @@ impl RecordingHandle {
                             opened,
                             channels,
                             base_for_audio,
+                            anchored_for_audio,
                             audio_tx,
                             stop_for_audio,
                             events_for_audio,
@@ -513,9 +602,21 @@ impl RecordingHandle {
         };
         let worker_stop = stop.clone();
         let worker_base = video_base.clone();
+        let worker_anchored = video_anchored.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
-            .spawn(move || run_session(mux, encoder, bus, worker_stop, ctx, audio_leg, worker_base))
+            .spawn(move || {
+                run_session(
+                    mux,
+                    encoder,
+                    bus,
+                    worker_stop,
+                    ctx,
+                    audio_leg,
+                    worker_base,
+                    worker_anchored,
+                )
+            })
             .map_err(|err| {
                 // mux/encoder drop here unwinds the header-less file; the
                 // take never started, so one typed error surfaces (spawn
@@ -659,6 +760,7 @@ struct SessionContext {
 /// steps 4 + 7). A fault pushes the typed error to the UI at FAULT TIME
 /// — a HUD learns the take is over without waiting for the user to press
 /// stop — and the same error is returned by `recording_stop`.
+#[allow(clippy::too_many_arguments)]
 fn run_session(
     mux: Muxer,
     mut encoder: SwX264,
@@ -667,6 +769,7 @@ fn run_session(
     ctx: SessionContext,
     audio_leg: Option<AudioLeg>,
     video_base: Arc<AtomicU64>,
+    video_anchored: Arc<AtomicBool>,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
     let outcome = capture_take(
@@ -677,6 +780,7 @@ fn run_session(
         &ctx,
         &mut audio_leg,
         &video_base,
+        &video_anchored,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
     // reacts to the event can start the next take right away.
@@ -700,6 +804,7 @@ fn run_session(
 
 /// The take itself: drain → encode → mux until the stop latch, whose
 /// budget bounds the take at Stop time (see the loop body).
+#[allow(clippy::too_many_arguments)]
 fn capture_take(
     mut mux: Muxer,
     encoder: &mut SwX264,
@@ -708,6 +813,7 @@ fn capture_take(
     ctx: &SessionContext,
     audio_leg: &mut Option<AudioLeg>,
     video_base: &Arc<AtomicU64>,
+    video_anchored: &Arc<AtomicBool>,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
@@ -779,8 +885,10 @@ fn capture_take(
                         // §5b: publish the video clock (RAW wall µs) the
                         // moment the first frame exists — the audio
                         // worker anchors against this and must never see
-                        // a leading audio stream.
+                        // a leading audio stream. The FLAG is the
+                        // sentinel: pt 0 is a legal stamp.
                         video_base.store(frame.pts_us, Ordering::Release);
+                        video_anchored.store(true, Ordering::Release);
                         *first_pts.insert(frame.pts_us)
                     }
                 };
@@ -987,6 +1095,16 @@ mod tests {
                 .iter()
                 .filter_map(|event| match event {
                     SessionEvent::Stats(snapshot) => Some(*snapshot),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        fn meters(&self) -> Vec<(MeterReading, MeterReading)> {
+            self.all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Meters { mic, desktop } => Some((*mic, *desktop)),
                     _ => None,
                 })
                 .collect()
@@ -1523,10 +1641,12 @@ mod tests {
                 crate::pipeline::audio::MixSource {
                     ring: ring_mic.clone(),
                     gain: 1.0,
+                    channel: crate::capture::audio::AudioChannel::Mic,
                 },
                 crate::pipeline::audio::MixSource {
                     ring: ring_desktop.clone(),
                     gain: 0.5,
+                    channel: crate::capture::audio::AudioChannel::Desktop,
                 },
             ],
             row_note: Some(r#"{"source":"test","used":true}"#.into()),
@@ -1587,6 +1707,18 @@ mod tests {
             assert_eq!(streams[0]["codec_name"], "h264");
             assert_eq!(streams[1]["codec_name"], "aac");
             assert_eq!(streams[1]["sample_rate"], "48000");
+            // Socket guard for the anchor law (2.1 bug caught by 2.2's
+            // instrumentation): a take whose audio anchored against the
+            // RAW wall clock (video_base sentinel 0 bug) probes with a
+            // garbage multi-hour duration. ~900 ms take → sane bounds.
+            let duration: f64 = report["format"]["duration"]
+                .as_str()
+                .and_then(|d| d.parse().ok())
+                .expect("probed duration");
+            assert!(
+                (0.4..10.0).contains(&duration),
+                "audio anchor produced nonsense pts (duration {duration}s)"
+            );
         } else {
             eprintln!("ffprobe unavailable — two-stream probe skipped (disk asserts hold)");
         }
@@ -1596,6 +1728,34 @@ mod tests {
     /// renders EXACTLY ONE non-fatal `pipewire.audio_device_gone` event;
     /// the take itself survives and finishes clean with that channel
     /// silent (the pad law).
+    /// 2.2 decay law, unit-level: a held reading survives a starving
+    /// stretch inside the hold window and reads SILENT after it (bar
+    /// falls, never freezes) and when the channel never delivered.
+    #[test]
+    fn meter_hold_decays_after_quiet() {
+        let now = Instant::now();
+        let live = MeterReading {
+            rms: 0.3,
+            peak: 0.3,
+        };
+        let hold = Duration::from_millis(250);
+        assert_eq!(
+            effective_meter(live, Some(now - Duration::from_millis(100)), now, hold),
+            live,
+            "inside the hold the last reading stands"
+        );
+        assert_eq!(
+            effective_meter(live, Some(now - Duration::from_millis(300)), now, hold),
+            MeterReading::SILENT,
+            "past the hold the bar falls"
+        );
+        assert_eq!(
+            effective_meter(live, None, now, hold),
+            MeterReading::SILENT,
+            "a channel that never delivered is silent"
+        );
+    }
+
     #[test]
     fn device_gone_reports_once_and_the_take_survives() {
         let handle = RecordingHandle::new();
@@ -1611,6 +1771,7 @@ mod tests {
             channels: vec![crate::pipeline::audio::MixSource {
                 ring: ring.clone(),
                 gain: 1.0,
+                channel: crate::capture::audio::AudioChannel::Mic,
             }],
             row_note: Some(r#"{"source":"mic","used":true}"#.into()),
         };
@@ -1664,6 +1825,19 @@ mod tests {
             1,
             "the lost channel reports exactly once"
         );
+        // 2.2 payload law: the take carries NO desktop channel, so every
+        // meters event's desktop key reads SILENT — both keys are always
+        // present on the wire (API §3), the disabled mic reads live
+        // while its feeder ran and the LATEST one is back to zero.
+        let metered = sink.meters();
+        assert!(!metered.is_empty(), "meters flow during the take");
+        assert!(
+            metered
+                .iter()
+                .all(|(_, desktop)| *desktop == MeterReading::SILENT),
+            "an absent channel is always the silent key"
+        );
+        assert_eq!(metered.last().expect("latest").0, MeterReading::SILENT);
 
         // The take goes on and finishes CLEAN (silence padded).
         std::thread::sleep(Duration::from_millis(400));
@@ -1681,6 +1855,116 @@ mod tests {
         } else {
             eprintln!("ffprobe unavailable — two-stream probe skipped (disk asserts hold)");
         }
+    }
+
+    /// 2.2: meters ride the audio worker — post-gain readings coalesced
+    /// at ≤30 Hz (API §3). Feed two rings: the latest readings are live,
+    /// per-channel exact (DC-fed windows), and the EVENT COUNT respects
+    /// the ceiling over the fed span.
+    #[test]
+    fn meters_flow_at_the_contract_ceiling() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let ring_mic = Arc::new(crate::pipeline::audio::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let ring_desktop = Arc::new(crate::pipeline::audio::AudioRing::new(
+            crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+        ));
+        let plan = AudioPlan {
+            producers: Vec::new(),
+            channels: vec![
+                crate::pipeline::audio::MixSource {
+                    ring: ring_mic.clone(),
+                    gain: 1.0,
+                    channel: crate::capture::audio::AudioChannel::Mic,
+                },
+                crate::pipeline::audio::MixSource {
+                    ring: ring_desktop.clone(),
+                    gain: 0.5,
+                    channel: crate::capture::audio::AudioChannel::Desktop,
+                },
+            ],
+            row_note: None,
+        };
+        let started = Instant::now();
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .expect("recording starts");
+
+        let keep = Arc::new(AtomicBool::new(true));
+        let video_producer = {
+            let bus = bus.clone();
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let mut n = 0u64;
+                let t0 = Instant::now();
+                while keep.load(Ordering::Acquire) {
+                    let pts = t0.elapsed().as_micros() as u64;
+                    match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                        crate::pipeline::Push::Pushed => {}
+                        crate::pipeline::Push::Full(_) => bus.mark_dropped(),
+                    }
+                    n += 1;
+                    std::thread::sleep(Duration::from_millis(16));
+                }
+            })
+        };
+        let feed = |ring: Arc<crate::pipeline::audio::AudioRing>, level: f32| {
+            let keep = keep.clone();
+            std::thread::spawn(move || {
+                let window = [level; 960]; // 480 stereo frames = 20 ms
+                while keep.load(Ordering::Acquire) {
+                    let push_started = Instant::now();
+                    let _ = ring.try_push(&window);
+                    std::thread::sleep(
+                        Duration::from_millis(20).saturating_sub(push_started.elapsed()),
+                    );
+                }
+            })
+        };
+        let feeder_mic = feed(ring_mic, 0.25);
+        let feeder_desktop = feed(ring_desktop, 0.2);
+
+        std::thread::sleep(Duration::from_millis(700));
+        let elapsed = started.elapsed();
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("accepted")
+            .expect("clean take");
+        keep.store(false, Ordering::Release);
+        video_producer.join().expect("video producer");
+        feeder_mic.join().expect("mic feeder");
+        feeder_desktop.join().expect("desktop feeder");
+        assert!(outcome.path.exists());
+
+        let events = sink.meters();
+        assert!(!events.is_empty(), "the strip sees live bars");
+        // Post-gain law: mic at level 100 (gain 1.0) reads its DC 0.25;
+        // desktop at gain 0.5 reads 0.1 — independent, per-channel.
+        let (mic, desktop) = events.last().expect("latest reading");
+        assert!(
+            (mic.rms - 0.25).abs() < 0.06,
+            "mic reads its own post-gain level, got {mic:?}"
+        );
+        assert!(
+            (desktop.rms - 0.1).abs() < 0.06,
+            "desktop reads its own post-gain level, got {desktop:?}"
+        );
+        // Ceiling: the worker coalesces to ≤30 Hz (34 ms period ≈ 21
+        // events over this span). The small slack absorbs scheduler and
+        // stop-drain jitter; BOTH mutants die here — unthrottled supply
+        // (~50 Hz) and a 1 ms period land far above the line.
+        let ceiling = elapsed.as_millis() / 34 + 6;
+        assert!(
+            (events.len() as u128) <= ceiling,
+            "{} meter events in {} ms breaches the 30 Hz contract",
+            events.len(),
+            elapsed.as_millis()
+        );
     }
 
     /// PLAN 1.4: a faulted take must not block the next recording. The

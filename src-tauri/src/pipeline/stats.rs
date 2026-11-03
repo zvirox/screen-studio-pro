@@ -133,6 +133,14 @@ pub enum SessionEvent {
     },
     /// `recording/stats` — 0.5 Hz.
     Stats(StatsSnapshot),
+    /// `recording/meters` — ≤30 Hz POST-gain loudness per channel (2.2).
+    /// Both keys are ALWAYS present (the wire shape is fixed, API §3);
+    /// a take channel that is not enabled reads SILENT, and so does one
+    /// whose device died mid-take (§3 device-gone law).
+    Meters {
+        mic: super::audio::MeterReading,
+        desktop: super::audio::MeterReading,
+    },
     /// `recording/error` — the API §1 standard error shape.
     Error(IpcError),
 }

@@ -367,6 +367,7 @@ fn build_audio_plan(
             } else {
                 crate::capture::audio::channel_gain(audio.mic_level)
             },
+            channel: AudioChannel::Mic,
         });
     }
     if audio.desktop_audio {
@@ -386,6 +387,7 @@ fn build_audio_plan(
             } else {
                 crate::capture::audio::channel_gain(audio.desktop_level)
             },
+            channel: AudioChannel::Desktop,
         });
     }
 

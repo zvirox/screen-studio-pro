@@ -6,8 +6,9 @@ import { useSspStore } from "../lib/store";
    session events (API §3) into the store's reducers — components never
    subscribe on their own, and the store stays the single projection.
    tick → elapsed clock · error → fault copy · finished → teardown.
-   recording/meters + /stats join with the audio strip (M4) and the stats
-   display (3.5); source/lost joins with M2/M3 multi-source flows. */
+   2.2: recording/meters routes into the audio projection at its ≤30 Hz
+   cadence (still coalesced in Rust, API §3). stats joins with 3.5;
+   source/lost joins with M2/M3 multi-source flows. */
 
 export function useRecordingState() {
   useEffect(() => {
@@ -17,6 +18,7 @@ export function useRecordingState() {
 
     void Promise.all([
       listenEvent("recording/tick", store.getState().onTick),
+      listenEvent("recording/meters", store.getState().onMeters),
       listenEvent("recording/error", store.getState().onSessionError),
       listenEvent("recording/finished", store.getState().onFinished),
     ]).then((fns) => {

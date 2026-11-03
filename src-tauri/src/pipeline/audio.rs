@@ -282,11 +282,66 @@ mod tests {
 /// overhead is noise.
 pub const MIX_WINDOW_SAMPLES: usize = 960;
 
-/// One channel in the pre-mix fold: the ring its producer feeds and the
-/// linear gain (level/100) snapshotted from Settings at recording_start.
+/// One channel's loudness over one mix window — POST-gain (2.2 user
+/// call): the meter shows exactly what lands in the take (mute → dead
+/// bar, level slider shapes it). Clamped to ≤1.0: the bar's ceiling is
+/// 0 dBFS even when the fold clips.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MeterReading {
+    pub rms: f32,
+    pub peak: f32,
+}
+
+impl MeterReading {
+    pub const SILENT: Self = Self {
+        rms: 0.0,
+        peak: 0.0,
+    };
+}
+
+/// One mix pass's results: the folded samples, each source's post-gain
+/// reading, and each source's RAW pop length (samples actually pulled),
+/// in `sources` order. The pop length is the starvation signal: an empty
+/// pop must HOLD a channel's last reading (2.2 flicker law) while a fed
+/// one updates it — `measure_post_gain` reads SILENT for both an empty
+/// pop and a genuinely silent one, so the worker needs the count to
+/// tell them apart.
+pub struct MixPass {
+    pub samples: Vec<f32>,
+    pub meters: Vec<MeterReading>,
+    pub popped: Vec<usize>,
+}
+
+/// RMS + peak of one contribution AFTER applying its gain (pure helper —
+/// the worker folds windows, the meter law lives here so both sides of
+/// the fold/meter split stay in one file). `n == 0` (or zero gain)
+/// reads SILENT.
+fn measure_post_gain(gain: f32, samples: &[f32]) -> MeterReading {
+    if samples.is_empty() || gain == 0.0 {
+        return MeterReading::SILENT;
+    }
+    // f32 accumulator across a 960-sample window: error stacks in the
+    // 1e-5 range — far under anything a 4px bar can render.
+    let mut sum_squares = 0.0f32;
+    let mut peak = 0.0f32;
+    for &sample in samples {
+        let amplified = (sample * gain).clamp(-1.0, 1.0);
+        sum_squares += amplified * amplified;
+        peak = peak.max(amplified.abs());
+    }
+    MeterReading {
+        rms: (sum_squares / samples.len() as f32).sqrt().min(1.0),
+        peak: peak.min(1.0),
+    }
+}
+
+/// One channel in the pre-mix fold: the ring its producer feeds, the
+/// linear gain (level/100) snapshotted from Settings at recording_start,
+/// and which wire channel it is (2.2 meter payload keys).
 pub struct MixSource {
     pub ring: Arc<AudioRing>,
     pub gain: f32,
+    pub channel: crate::capture::audio::AudioChannel,
 }
 
 use std::sync::Arc;
@@ -300,8 +355,9 @@ use std::sync::Arc;
 /// Zero-gain sources are still POPPED (drained) even though they
 /// contribute nothing — skipping the pop would let a muted ring fill
 /// and record mutes as §6 data loss in the dropped counter.
-pub fn mix_rings(sources: &[MixSource], window_samples: usize) -> Vec<f32> {
+pub fn mix_rings(sources: &[MixSource], window_samples: usize) -> MixPass {
     let mut popped: Vec<Vec<f32>> = Vec::with_capacity(sources.len());
+    let mut pop_lens: Vec<usize> = Vec::with_capacity(sources.len());
     let mut max_len = 0usize;
     for source in sources {
         let mut buf = vec![0.0f32; window_samples];
@@ -309,24 +365,47 @@ pub fn mix_rings(sources: &[MixSource], window_samples: usize) -> Vec<f32> {
         buf.truncate(got);
         max_len = max_len.max(got);
         popped.push(buf);
+        pop_lens.push(got);
     }
+    let meters = popped
+        .iter()
+        .zip(sources.iter())
+        .map(|(samples, source)| measure_post_gain(source.gain, samples))
+        .collect();
     if max_len == 0 {
-        return Vec::new();
+        return MixPass {
+            samples: Vec::new(),
+            meters,
+            popped: pop_lens,
+        };
     }
     let contribs: Vec<crate::capture::audio::Contribution<'_>> = popped
         .iter()
         .zip(sources.iter())
         .map(|(samples, source)| (source.gain, samples.as_slice()))
         .collect();
-    crate::capture::audio::mix_chunks(&contribs, max_len)
+    MixPass {
+        samples: crate::capture::audio::mix_chunks(&contribs, max_len),
+        meters,
+        popped: pop_lens,
+    }
 }
 
 #[cfg(test)]
 mod mix_tests {
     use super::*;
+    use crate::capture::audio::AudioChannel;
 
     fn frames(values: &[f32]) -> Vec<f32> {
         values.iter().flat_map(|v| [*v, *v]).collect()
+    }
+
+    fn source(ring: Arc<AudioRing>, gain: f32, channel: AudioChannel) -> MixSource {
+        MixSource {
+            ring,
+            gain,
+            channel,
+        }
     }
 
     #[test]
@@ -340,18 +419,12 @@ mod mix_tests {
         ring_b.try_push(&frames(&[0.4, 0.4]));
         let mix = mix_rings(
             &[
-                MixSource {
-                    ring: ring_a.clone(),
-                    gain: 1.0,
-                },
-                MixSource {
-                    ring: ring_b.clone(),
-                    gain: 0.5,
-                },
+                source(ring_a.clone(), 1.0, AudioChannel::Mic),
+                source(ring_b.clone(), 0.5, AudioChannel::Desktop),
             ],
             window,
         );
-        assert_eq!(mix, vec![0.7, 0.7, 0.7, 0.7]);
+        assert_eq!(mix.samples, vec![0.7, 0.7, 0.7, 0.7]);
         // Both rings fully drained by the mix pass.
         assert!(ring_a.is_empty() && ring_b.is_empty());
     }
@@ -365,14 +438,8 @@ mod mix_tests {
         ring_b.try_push(&[1.0, 1.0]); // exactly ONE interleaved stereo frame
         let mix = mix_rings(
             &[
-                MixSource {
-                    ring: ring_a.clone(),
-                    gain: 1.0,
-                },
-                MixSource {
-                    ring: ring_b.clone(),
-                    gain: 1.0,
-                },
+                source(ring_a.clone(), 1.0, AudioChannel::Mic),
+                source(ring_b.clone(), 1.0, AudioChannel::Desktop),
             ],
             window,
         );
@@ -380,20 +447,23 @@ mod mix_tests {
         // law, not truncation (a channel that underruns this cycle
         // contributes zeros for the window it missed). Frame 1 sums to
         // 1.5 and clips at 0 dBFS.
-        assert_eq!(mix, vec![1.0, 1.0, 0.5, 0.5]);
+        assert_eq!(mix.samples, vec![1.0, 1.0, 0.5, 0.5]);
+        // Raw pop lengths per source: the worker's starvation signal
+        // (2.2 flicker law — B delivered, then starved).
+        assert_eq!(mix.popped, vec![4, 2]);
     }
 
     #[test]
     fn all_empty_rings_yield_no_window() {
         let ring_a = Arc::new(AudioRing::new(64));
         let mix = mix_rings(
-            &[MixSource {
-                ring: ring_a,
-                gain: 1.0,
-            }],
+            &[source(ring_a, 1.0, AudioChannel::Mic)],
             MIX_WINDOW_SAMPLES,
         );
-        assert!(mix.is_empty(), "an empty mix cycle produces NO chunk");
+        assert!(
+            mix.samples.is_empty(),
+            "an empty mix cycle produces NO chunk"
+        );
     }
 
     #[test]
@@ -404,20 +474,97 @@ mod mix_tests {
         ring_muted.try_push(&frames(&[0.9, 0.9]));
         let mix = mix_rings(
             &[
-                MixSource {
-                    ring: ring_a.clone(),
-                    gain: 1.0,
-                },
-                MixSource {
-                    ring: ring_muted.clone(),
-                    gain: 0.0,
-                },
+                source(ring_a, 1.0, AudioChannel::Mic),
+                source(ring_muted.clone(), 0.0, AudioChannel::Desktop),
             ],
             4,
         );
-        assert_eq!(mix, vec![0.5, 0.5, 0.5, 0.5]);
+        assert_eq!(mix.samples, vec![0.5, 0.5, 0.5, 0.5]);
         // Drained despite being muted — otherwise the ring would fill
         // and the dropped counter would record MUTES as data loss (§6).
         assert!(ring_muted.is_empty());
+    }
+
+    /* ---------- 2.2 meters (post-gain law) ---------- */
+
+    #[test]
+    fn meters_are_post_gain_rms_and_peak() {
+        // DC 0.5 @ gain 1.0: rms == peak == 0.5 exactly. At gain 0.5 the
+        // SAME capture reads 0.25 — the meter shows what is recorded
+        // (mute → dead bar), not the device's raw loudness.
+        let ring = Arc::new(AudioRing::new(64));
+        ring.try_push(&frames(&[0.5; 4]));
+        let mix = mix_rings(&[source(ring, 1.0, AudioChannel::Mic)], 8);
+        assert_eq!(
+            mix.meters,
+            vec![MeterReading {
+                rms: 0.5,
+                peak: 0.5
+            }]
+        );
+
+        let ring = Arc::new(AudioRing::new(64));
+        ring.try_push(&frames(&[0.5; 4]));
+        let mix = mix_rings(&[source(ring, 0.5, AudioChannel::Mic)], 8);
+        assert_eq!(
+            mix.meters,
+            vec![MeterReading {
+                rms: 0.25,
+                peak: 0.25
+            }]
+        );
+    }
+
+    #[test]
+    fn muted_channel_meters_are_silent_but_still_popped() {
+        // §6 zero-gain law keeps draining the ring; the meter law keeps
+        // its bar dead. Both behaviors in one pass.
+        let ring = Arc::new(AudioRing::new(64));
+        ring.try_push(&frames(&[0.9; 4]));
+        let mix = mix_rings(&[source(ring.clone(), 0.0, AudioChannel::Mic)], 8);
+        assert_eq!(mix.meters, vec![MeterReading::SILENT]);
+        assert!(ring.is_empty(), "still drained");
+    }
+    #[test]
+    fn mixed_window_meters_peak_between_channels() {
+        // A quiet mic + a loud desktop over one window: each meter reads
+        // ONLY its own channel (the strip renders two independent bars).
+        let ring_mic = Arc::new(AudioRing::new(64));
+        let ring_desk = Arc::new(AudioRing::new(64));
+        ring_mic.try_push(&frames(&[0.1; 4]));
+        ring_desk.try_push(&frames(&[0.8; 4]));
+        let mix = mix_rings(
+            &[
+                source(ring_mic, 1.0, AudioChannel::Mic),
+                source(ring_desk, 1.0, AudioChannel::Desktop),
+            ],
+            8,
+        );
+        assert_eq!(
+            mix.meters,
+            vec![
+                MeterReading {
+                    rms: 0.1,
+                    peak: 0.1
+                },
+                MeterReading {
+                    rms: 0.8,
+                    peak: 0.8
+                },
+            ]
+        );
+        // The fold still clips at 0 dBFS.
+        assert!(mix.samples.iter().all(|s| *s <= 1.0));
+    }
+
+    #[test]
+    fn peak_never_reads_above_zero_dbfs() {
+        // A clipped fold (sum 1.5) must not peg the per-channel meter
+        // past 1.0 — the bar's ceiling is 0 dBFS.
+        let ring = Arc::new(AudioRing::new(64));
+        ring.try_push(&frames(&[1.5; 4]));
+        let mix = mix_rings(&[source(ring, 1.0, AudioChannel::Mic)], 8);
+        assert!(mix.meters[0].peak <= 1.0);
+        assert!(mix.meters[0].rms <= 1.0);
     }
 }

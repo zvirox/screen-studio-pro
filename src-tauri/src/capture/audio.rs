@@ -12,12 +12,14 @@
 //!   push once, never block, never allocate beyond the staged copy.
 //!   Backpressure drops NEWEST and counts (the video-bus policy).
 
-/* The wiring note: the composition is live end-to-end as of 2.1 (F:
+/* The wiring note: the composition is live end-to-end as of 2.2 (F:
 `audio_list_devices` / `audio_set_channel` handlers, recording_start's
-plan builder). What stays pre-wired are the 2.2 seams —
-`AudioChannel::parse`/`as_str` (the `recording/meters` payload keys),
-`ChannelConfig::validate`, `mark_default`, and `AudioProducer::ring`
-— Rust sees those as dead until the meters/events task lands. */
+plan builder, and the `recording/meters` emissions the audio worker
+now produces from these rings). What stays pre-wired are the settings-
+surface seams — `AudioChannel::parse`/`as_str` (channel-filtered device
+queries), `ChannelConfig::validate`, `mark_default`, and
+`AudioProducer::ring` — Rust sees those as dead until the P3 settings
+view consumes them; the `#![allow(dead_code)]` covers exactly these. */
 #![allow(dead_code)]
 
 use crate::pipeline::AudioRing;
