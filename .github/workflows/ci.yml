@@ -47,7 +47,8 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
             libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
             libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
-            libswresample-dev libavdevice-dev libavfilter-dev libpostproc-dev
+            libswresample-dev libavdevice-dev libavfilter-dev libpostproc-dev \
+            libpipewire-0.3-dev libasound2-dev pkg-config
 
       - uses: dtolnay/rust-toolchain@stable
         with:
