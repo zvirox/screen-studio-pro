@@ -13,12 +13,19 @@ import {
    circle, pulse loop; paused = 22px square), the mono timer, and the
    pause/stop/flag icon-buttons. Drag everywhere; double-click pins.
    Pause/Resume/Stop ride the SAME store actions the ActionRow uses —
-   one take, one truth (§4.1). */
+   one take, one truth (§4.1). Flag now lands a chapter marker (2.5) and
+   flashes signal for 500 ms. */
 
 const getCurrentWindow = vi.fn();
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => getCurrentWindow(),
 }));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+}));
+import { invoke } from "@tauri-apps/api/core";
+const mockInvoke = vi.mocked(invoke);
 
 function setState(source: SourceSlice, session: SessionSlice) {
   useSspStore.setState({ source, session });
@@ -106,15 +113,20 @@ describe("HudBar (§5.9)", () => {
     expect(stop.getAttribute("title")).toBe("Stop & save");
   });
 
-  it("flag button is the 2.5 placeholder — disabled with education copy, no invocation", () => {
+  it("flag button invokes recording_flag with the live recording id", async () => {
+    mockInvoke.mockResolvedValue({ chapter: { offsetMs: 65250, label: "flag-1" } });
     setState(LIVE, recordingSession(false));
-    const actions = recordedActions();
     render(<HudBar />);
     const flag = screen.getByRole("button", { name: "Flag a chapter marker" });
-    expect(flag).toBeDisabled();
-    expect(flag.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.click(flag);
-    expect(actions.pauseRecording).not.toHaveBeenCalled();
+    expect(flag).toBeEnabled();
+    expect(flag).not.toHaveAttribute("aria-disabled");
+    await act(async () => {
+      fireEvent.click(flag);
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("recording_flag", {
+      recordingId: "rec_1",
+      label: undefined,
+    });
   });
 
   it("drag: pointerdown on the bar starts dragging the window; on a button it does not", () => {

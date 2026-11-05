@@ -3,16 +3,16 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Flag, Pause, Play, Square } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import { formatElapsed } from "../../lib/format";
+import { recordingFlag } from "../../lib/ipc";
 
 /* §5.9 HUD (recording toolbar) — the signature component. Lives in its own
    transparent always-on-top window (lib/hudWindow); Rendered surface only:
    timer + phase come from the tick stream via the shared store (ARCHITECTURE
    §3.2 step 5 — events are the state sync), and the pause/resume/stop
    buttons call the SAME store actions the ActionRow binds (one take, one
-   truth, §4.1). The flag button is rendered per the §5.9 anatomy but stays
-   a 2.5 placeholder (cmd://recording_flag has not landed). No toasts here:
-   §6.5 no-double-telling — a refused command self-heals through the tick
-   phase, the main window carries copy. */
+   truth, §4.1). The flag button is now live (2.5): each tap appends a
+   chapter marker and flashes a brief tick on the timer chip — DESIGN §6.5
+   silent, non-blocking; the main window surfaces persistent errors. */
 
 export default function HudBar() {
   const session = useSspStore((s) => s.session);
@@ -20,6 +20,7 @@ export default function HudBar() {
   const resumeRecording = useSspStore((s) => s.resumeRecording);
   const stopRecording = useSspStore((s) => s.stopRecording);
   const [pinned, setPinned] = useState(false);
+  const [flagged, setFlagged] = useState(false);
 
   if (session.status !== "recording") {
     return null;
@@ -93,12 +94,30 @@ export default function HudBar() {
         <button
           type="button"
           aria-label="Flag a chapter marker"
-          disabled
-          aria-disabled="true"
-          title="Chapter markers arrive with M-flow 7.2"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-disabled focus-visible:outline focus-visible:outline-accent"
+          disabled={!session.recordingId}
+          onClick={async () => {
+            if (!session.recordingId) return;
+            try {
+              await recordingFlag(session.recordingId, undefined);
+              // DESIGN §6.5: brief tick on timer chip — silent, non-blocking.
+              // HUD shows a 500ms pulse on the flag icon as local feedback.
+              setFlagged(true);
+              setTimeout(() => setFlagged(false), 500);
+            } catch {
+              // A refused flag (no live take / wrong id) is not an error —
+              // §6.5: the tick phase will disagree and the main window
+              // already shows the authoritative state. Other failures are
+              // surfaced by the main window via tick/error events.
+            }
+          }}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Flag size={16} strokeWidth={2} aria-hidden="true" />
+          <Flag
+            size={16}
+            strokeWidth={2}
+            aria-hidden="true"
+            className={flagged ? "text-signal" : ""}
+          />
         </button>
       </div>
     </div>

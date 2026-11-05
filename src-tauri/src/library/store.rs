@@ -144,6 +144,9 @@ pub struct FinalizedRecording {
     /// DATABASE §2.1 `audio_json` — the take's audio description, as the
     /// JSON array text (None = video-only take, column stays NULL).
     pub audio_json: Option<String>,
+    /// DATABASE §2.1 `chapter_json` — the take's chapter markers, as the
+    /// JSON array text (None = no flags on the take, column stays NULL).
+    pub chapter_json: Option<String>,
 }
 
 impl LibraryStore {
@@ -274,7 +277,8 @@ impl LibraryStore {
                 status = 'ready',
                 duration_ms = ?2, width = ?3, height = ?4, fps = ?5,
                 size_bytes = ?6, updated_at = ?7,
-                audio_json = COALESCE(?8, audio_json)
+                audio_json = COALESCE(?8, audio_json),
+                chapter_json = COALESCE(?9, chapter_json)
              WHERE path = ?1",
             rusqlite::params![
                 rec.path,
@@ -285,6 +289,7 @@ impl LibraryStore {
                 rec.size_bytes as i64,
                 rec.updated_at,
                 rec.audio_json,
+                rec.chapter_json,
             ],
         )
         .map_err(db_error)?;
@@ -480,6 +485,7 @@ mod tests {
             created_at: "2026-11-02T09:00:00Z".into(), // take started
             updated_at: "2026-11-02T09:00:02Z".into(), // trailer written
             audio_json: None,                          // 2.1: row tests stay video-only
+            chapter_json: None,                        // 2.5: chapter row tests added in 2.5
         }
     }
 

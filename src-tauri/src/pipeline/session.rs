@@ -15,6 +15,8 @@ use std::time::{Duration, Instant};
 
 use super::FrameBus;
 
+use serde::{Deserialize, Serialize};
+
 /* Recording session (PLAN 1.3) — the consumer half of the 1.2 FrameBus:
 bus → encoder → muxer on one dedicated worker thread. Laws implemented:
 - §6 "buses, not copies": the session OWNS its drain cursor alone; the
@@ -443,6 +445,9 @@ pub struct StopOutcome {
     /// `audio_json`), rendered by the ipc layer at start. `None` = a
     /// video-only take, row column stays NULL.
     pub audio_json: Option<String>,
+    /// 2.5: the take's chapter markers (flow 7.2), serialized at stop.
+    /// `None` = no flags on the take; row column stays NULL.
+    pub chapter_json: Option<String>,
 }
 
 /// Managed state: at most one active recording (the bad_state rule of
@@ -477,6 +482,20 @@ struct ActiveRecording {
     /// 2.3 pause gate — shared with both workers; transitions (pause/
     /// resume) happen HERE under the slot lock, workers only read.
     pause: PauseState,
+    /// 2.5 chapter/flag markers collected at flag time (flow 7.2). Held in-
+    /// memory for the take's life, serialized to the library row at stop.
+    chapters: Arc<Mutex<Vec<ChapterMarker>>>,
+}
+
+/// One flag marker on a take (API §3 `recording/flagged` chapter). The offset
+/// is the take's recording-relative time, i.e. `elapsed_ms` at flag time —
+/// the same recording clock the `recording/tick` `elapsedMs` carries.
+/// DATABASE.md §2.1 documents `offset_ms` (snake_case) in chapter_json.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ChapterMarker {
+    pub offset_ms: u64,
+    pub label: String,
 }
 
 /// The 2.3 pause gate (PLAN 2.3). Laws:
@@ -584,6 +603,21 @@ impl PauseState {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .total_wall_us
+    }
+}
+
+impl ActiveRecording {
+    /// Serialize the accumulated markers for the library row at stop
+    /// (DATABASE §2.1 `chapter_json`). Empty -> `None` (column stays NULL).
+    fn chapters_json(&self) -> Option<String> {
+        let chapters = self
+            .chapters
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if chapters.is_empty() {
+            return None;
+        }
+        serde_json::to_string(&*chapters).ok()
     }
 }
 
@@ -771,6 +805,7 @@ impl RecordingHandle {
             audio_producers: producers,
             audio_json: row_note,
             pause,
+            chapters: Arc::new(Mutex::new(Vec::new())),
         });
         Ok(info)
     }
@@ -853,6 +888,7 @@ impl RecordingHandle {
         active.stop.store(true, Ordering::Release);
         let info = active.info.clone();
         let audio_json = active.audio_json.clone();
+        let chapter_json = active.chapters_json();
         let worker = active.worker.take().expect("stop owns the only join");
         // The join happens with the slot STILL occupied: a concurrent
         // start must not spawn a second consumer on the same SPSC bus
@@ -875,6 +911,7 @@ impl RecordingHandle {
                 started_at: info.started_at,
                 finished_at: crate::util::time::rfc3339_now(),
                 audio_json,
+                chapter_json,
             })),
             Ok(Err(err)) => Ok(Err(err)),
             Err(panic) => {
@@ -886,6 +923,40 @@ impl RecordingHandle {
                 ))
             }
         }
+    }
+
+    /// 2.5 (API §2.3 / flow 7.2): append a chapter marker at the take's
+    /// current recording-relative time (the `recording/tick` `elapsedMs`).
+    /// The label defaults to `flag-N` (1-based count, matches the HUD
+    /// tick counter). Emits the marker and returns it for the reply + event.
+    pub fn flag(
+        &self,
+        recording_id: &str,
+        label: Option<String>,
+    ) -> Result<ChapterMarker, CoreError> {
+        let mut slot = self.locked();
+        self.reap_finished(&mut slot);
+        let Some(active) = slot.as_mut() else {
+            return Err(bad_state("No recording is running with that id."));
+        };
+        if active.recording_id != recording_id {
+            return Err(bad_state("No recording is running with that id."));
+        }
+        let offset_ms = active.pause.elapsed_ms(wall_us());
+        let chapters = active
+            .chapters
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let n = chapters.len() + 1;
+        let label = label.unwrap_or_else(|| format!("flag-{n}"));
+        drop(chapters);
+        let chapter = ChapterMarker { offset_ms, label };
+        active
+            .chapters
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(chapter.clone());
+        Ok(chapter)
     }
 
     fn locked(&self) -> std::sync::MutexGuard<'_, Option<ActiveRecording>> {
@@ -2740,5 +2811,99 @@ mod tests {
                 .any(|(mic, desk)| *mic == MeterReading::SILENT && *desk == MeterReading::SILENT),
             "meters decay to SILENT during the pause (post-gain law)"
         );
+    }
+
+    /// 2.5 chapter markers: three flags accumulate in memory, serialize
+    /// with snake_case `offset_ms` (DATABASE.md §2.1), and ride the
+    /// StopOutcome.chapter_json. Auto-named `flag-N` when label is None.
+    #[test]
+    fn flag_accumulates_chapters_and_serializes_at_stop() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .expect("recording starts");
+
+        // Produce ~1 s of content so elapsedMs has substance.
+        produce(&bus, 60, 1_000_000);
+        wait_drained(&bus);
+
+        // Flag 1: explicit label.
+        let c1 = handle
+            .flag(&info.recording_id, Some("intro".into()))
+            .expect("flag 1");
+        assert_eq!(c1.label, "intro");
+        assert!(c1.offset_ms > 0, "first flag has positive offset");
+
+        // Flag 2: auto-named.
+        let c2 = handle.flag(&info.recording_id, None).expect("flag 2");
+        assert_eq!(c2.label, "flag-2", "auto-name uses 1-based count");
+
+        // Flag 3: another auto-name.
+        let c3 = handle.flag(&info.recording_id, None).expect("flag 3");
+        assert_eq!(c3.label, "flag-3");
+
+        // Stop and verify the chapter_json is in the outcome.
+        let outcome = handle
+            .stop(&info.recording_id)
+            .expect("stop accepted")
+            .expect("clean take");
+
+        assert!(
+            outcome.chapter_json.is_some(),
+            "StopOutcome carries chapter_json"
+        );
+        let chapters: Vec<ChapterMarker> =
+            serde_json::from_str(outcome.chapter_json.as_ref().unwrap()).expect("valid JSON");
+        assert_eq!(chapters.len(), 3, "all three markers persisted");
+        assert_eq!(chapters[0].label, "intro");
+        assert_eq!(chapters[1].label, "flag-2");
+        assert_eq!(chapters[2].label, "flag-3");
+        // Offsets are monotonic (recording-relative clock never rewinds).
+        assert!(chapters[0].offset_ms <= chapters[1].offset_ms);
+        assert!(chapters[1].offset_ms <= chapters[2].offset_ms);
+        // Verify snake_case serialization (DATABASE.md §2.1).
+        let json = outcome.chapter_json.as_ref().unwrap();
+        assert!(
+            json.contains("offset_ms"),
+            "serialized with snake_case offset_ms"
+        );
+        assert!(!json.contains("offsetMs"), "no camelCase in stored JSON");
+    }
+
+    /// 2.5: flag on a non-existent recording id returns ipc.bad_state.
+    #[test]
+    fn flag_unknown_recording_id_is_bad_state() {
+        let handle = RecordingHandle::new();
+        let err = handle
+            .flag("rec_does_not_exist", Some("x".into()))
+            .unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
+    }
+
+    /// 2.5: flag after stop is bad_state (session is gone).
+    #[test]
+    fn flag_after_stop_is_bad_state() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let sink = TestSink::new();
+
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .expect("recording starts");
+        produce(&bus, 5, 0);
+        wait_drained(&bus);
+        handle
+            .stop(&info.recording_id)
+            .expect("stop")
+            .expect("clean");
+
+        // The session is cleared; flag must fail.
+        let err = handle.flag(&info.recording_id, None).unwrap_err();
+        assert_eq!(err.code(), "ipc.bad_state");
     }
 }

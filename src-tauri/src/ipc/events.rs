@@ -309,6 +309,7 @@ impl From<&crate::pipeline::session::StopOutcome> for crate::library::FinalizedR
             created_at: outcome.started_at.clone(),
             updated_at: outcome.finished_at.clone(),
             audio_json: outcome.audio_json.clone(),
+            chapter_json: outcome.chapter_json.clone(),
         }
     }
 }
@@ -349,9 +350,9 @@ pub fn library_recording(
         encoder: outcome.encoder.backend.to_string(),
         is_hw_encoder: outcome.encoder.is_hardware,
         // The JSON value columns: audio rides the take (2.1), chapters
-        // (flow 7.2) and thumbnails (5.1) are still later.
+        // (flow 7.2) and thumbnails (5.1) join later.
         audio_json: outcome.audio_json.clone(),
-        chapter_json: None,
+        chapter_json: outcome.chapter_json.clone(),
         thumb_path: None,
         deleted_at: None,
         created_at: outcome.started_at.clone(),
@@ -378,7 +379,8 @@ mod tests {
             },
             started_at: "2026-11-02T10:00:00Z".to_string(),
             finished_at: "2026-11-02T10:00:02Z".to_string(),
-            audio_json: None, // 2.1: projection tests stay video-only
+            audio_json: None,   // 2.1: projection tests stay video-only
+            chapter_json: None, // 2.5: chapter projection test added in 2.5
         }
     }
 

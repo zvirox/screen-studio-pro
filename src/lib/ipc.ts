@@ -4,6 +4,7 @@ import {
   type AudioListDevicesReply,
   type AudioSetChannelInput,
   type Capabilities,
+  type Chapter,
   type Hello,
   type IpcError,
   type PrefEntry,
@@ -140,6 +141,17 @@ export function recordingPause(recordingId: string): Promise<RecordingPhaseReply
 
 export function recordingResume(recordingId: string): Promise<RecordingPhaseReply> {
   return call<RecordingPhaseReply>("recording_resume", { recordingId });
+}
+
+/** `cmd://recording_flag` (API §2.3 / flow 7.2) — append a chapter marker
+    at the take's current recording-relative time; returns the marker. */
+export function recordingFlag(
+  recordingId: string,
+  label?: string
+): Promise<Chapter> {
+  return call<{ chapter: Chapter }>("recording_flag", { recordingId, label }).then(
+    (r) => r.chapter
+  );
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */

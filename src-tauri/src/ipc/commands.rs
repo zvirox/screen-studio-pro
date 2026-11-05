@@ -507,6 +507,51 @@ pub async fn recording_resume(
     Ok(serde_json::json!({ "status": "recording" }))
 }
 
+/// `cmd://recording_flag` (API §2.3 / flow 7.2) — append a chapter marker
+/// at the take's current recording-relative time. The label defaults to
+/// `flag-N` (N = 1-based marker count on this take). Emits `recording/flagged`
+/// at the same instant the marker lands so the HUD can react immediately.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub async fn recording_flag(
+    recording_id: String,
+    label: Option<String>,
+    recordings: tauri::State<'_, crate::pipeline::session::RecordingHandle>,
+    app: tauri::AppHandle,
+) -> Result<Value, IpcError> {
+    let chapter = recordings
+        .flag(&recording_id, label.clone())
+        .map_err(|err| err.to_ipc())?;
+    let label = chapter.label.clone();
+    // ARCHITECTURE §3.2: fire the event the instant the marker lands
+    // (API §3: `recording/flagged`, on user action).
+    super::events::emit(
+        &app,
+        super::events::topic::RECORDING_FLAGGED,
+        super::events::RecordingFlagged {
+            recording_id: recording_id.clone(),
+            chapter: super::events::Chapter {
+                offset_ms: chapter.offset_ms,
+                label: chapter.label,
+            },
+        },
+    )
+    .map_err(|err| {
+        tracing::error!(error = %err, "flag event could not be emitted");
+        CoreError::ipc(
+            "ipc.bad_state",
+            false,
+            "The recording flag could not be recorded.",
+        )
+    })?;
+    Ok(serde_json::json!({
+        "chapter": {
+            "offsetMs": chapter.offset_ms,
+            "label": label,
+        }
+    }))
+}
+
 /// `cmd://recording_stop` (API §2.3) — flush + trailer + join; the reply's
 /// `recording` object carries only the fields that exist before the
 /// library row (1.6). Contract errors: `ipc.bad_state`, `disk.*`.
