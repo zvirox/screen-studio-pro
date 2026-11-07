@@ -21,7 +21,7 @@ describe("lib/ipc", () => {
   });
 
   it("systemCapabilities calls the probe verb", async () => {
-    invokeMock.mockResolvedValue({ encoders: [], portal: {}, version: { app: "0.1.0", ipcContract: "1.0.0" } });
+    invokeMock.mockResolvedValue({ encoders: [], portal: {}, version: { app: "0.0.1-alpha.1", ipcContract: "1.0.0" } });
     await systemCapabilities();
     expect(invokeMock).toHaveBeenCalledWith("system_capabilities");
   });

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metainfo — installed as /app/share/metainfo by the flatpak
+     manifest and referenced by the deb/rpm descriptions later (PLAN 7.5).
+     The <release> entry is stamped with the tag + date by release.yml's
+     "Stamp the release entry" step at build time; the values below are
+     placeholders for local validation only. -->
+<component type="desktop-application">
+  <id>com.zvirox.screenstudiopro</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>ScreenStudio Pro</name>
+  <summary>Modern open-source screen recording for Linux</summary>
+  <description>
+    <p>
+      ScreenStudio Pro is a modern, open-source screen recorder built
+      Wayland-first for riced desktops (Hyprland, niri, MangoWC, KDE).
+      Capture a monitor, a window, or a region with mic and desktop audio,
+      a webcam picture-in-picture, and hardware encoding (VAAPI/NVENC) with
+      an x264 fallback.
+    </p>
+    <p>Highlights in this prerelease (MVP scope — recording only):</p>
+    <ul>
+      <li>Monitor / window / region capture via the desktop portals</li>
+      <li>Mic and desktop audio meters with per-channel control</li>
+      <li>Pause / resume on a live take, and chapter-marker flags</li>
+      <li>Hardware encoders (VAAPI, NVENC) with x264 fallback</li>
+      <li>MKV capture with optional MP4 remux; library of recent takes</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">com.zvirox.screenstudiopro.desktop</launchable>
+  <developer id="com.zvirox">
+    <name>Zvirox</name>
+  </developer>
+  <url type="homepage">https://github.com/zvirox/screen-studio-pro</url>
+  <url type="bugtracker">https://github.com/zvirox/screen-studio-pro/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <!-- STAMPED BY CI: release.yml replaces version/date with the pushed tag. -->
+    <release version="0.0.1-alpha.1" date="2026-11-07">
+      <description>
+        <p>First public prerelease: recording core (capture, audio, encoders, library).</p>
+      </description>
+    </release>
+  </releases>
+</component>

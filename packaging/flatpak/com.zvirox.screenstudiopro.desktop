@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ScreenStudio Pro
+GenericName=Screen Recorder
+Comment=Modern open-source screen recording for Linux (Wayland-first)
+Exec=screen-studio-pro
+Icon=com.zvirox.screenstudiopro
+Terminal=false
+Categories=AudioVideo;Video;Recorder;
+Keywords=screen;record;capture;screencast;video;
+StartupNotify=true
+StartupWMClass=ScreenStudio Pro
+Actions=Record;
+
+[Desktop Action Record]
+Name=Start Recording
+Exec=screen-studio-pro

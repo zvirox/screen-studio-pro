@@ -1,0 +1,135 @@
+name: Release
+
+# PLAN 7.5 (pipeline part pulled forward for the v0.0.1-alpha.1 prerelease).
+# Trigger: pushing a `v*` tag. Two jobs run in parallel and attach to the same
+# GitHub Release:
+#   1. tauri-action  → .deb, .rpm, AppImage  (Tauri 2 CLI 2.12.4 has no
+#      `flatpak` bundle target, verified locally — hence job 2)
+#   2. flatpak-builder → single-file .flatpak bundle
+# A hyphen in the tag (v0.0.1-alpha.1) marks the Release as Pre-release;
+# clean vX.Y.Z tags publish as full releases. No secrets beyond GITHUB_TOKEN.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  tauri-bundles:
+    name: Linux bundles (.deb · .rpm · AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Same proven dependency set as ci.yml's rust job (CI green with it),
+      # plus libfuse2t64 — the AppImage tooling needs a FUSE runtime present
+      # on ubuntu-24.04-based runners.
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libswresample-dev libavdevice-dev libavfilter-dev libpostproc-dev \
+            libpipewire-0.3-dev libasound2-dev pkg-config ffmpeg \
+            libfuse2t64
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "ScreenStudio Pro ${{ github.ref_name }}"
+          releaseBody: "See the assets below to download and install this build."
+          releaseDraft: false
+          # v0.0.1-alpha.1 → prerelease; vX.Y.Z → full release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          args: --bundles deb,rpm,appimage
+
+  flatpak:
+    name: Flatpak (.flatpak bundle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # GNOME 48 runtime: ships webkit2gtk-4.1 (Tauri's webview) and the
+      # PipeWire/ALSA headers the capture core builds against. ffmpeg is NOT
+      # in the runtime — the manifest builds nasm/x264/ffmpeg self-contained
+      # into /app. If the branch needs bumping (e.g. 49), it changes in
+      # packaging/flatpak/com.zvirox.screenstudiopro.json only.
+      - name: Install flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive \
+            org.gnome.Platform//48 org.gnome.Sdk//48 \
+            org.freedesktop.Sdk.Extension.rust-stable//24.08
+
+      # The frontend is built OUTSIDE the sandbox: the app module is a `dir`
+      # source (this checkout) and node/npm do not exist inside it. Tauri 2
+      # embeds ../dist into the binary at cargo build time. node_modules is
+      # dropped so the sandbox copy stays lean.
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+          rm -rf node_modules
+
+      # Keep the AppStream entry truthful: stamp THIS tag + today's date into
+      # the <release> element before the bundle is built.
+      - name: Stamp the release entry into metainfo
+        run: |
+          sed -i \
+            -e "s/<release version=\"[^\"]*\"/<release version=\"${GITHUB_REF_NAME}\"/" \
+            -e "s/ date=\"[^\"]*\"/ date=\"$(date +%F)\"/" \
+            packaging/flatpak/com.zvirox.screenstudiopro.metainfo.xml
+
+      - name: Build flatpak
+        run: |
+          flatpak-builder --user --force-clean --install-deps-from=flathub \
+            --repo=.flatpak-repo .flatpak-build \
+            packaging/flatpak/com.zvirox.screenstudiopro.json
+
+      - name: Create single-file bundle
+        run: |
+          flatpak build-bundle .flatpak-repo \
+            "ScreenStudio-Pro-${GITHUB_REF_NAME}-x86_64.flatpak" \
+            com.zvirox.screenstudiopro
+
+      # Fallback create: the tauri-bundles job usually makes the Release
+      # first; if this job wins the race (or that job failed), create it so
+      # the bundle is never orphaned.
+      - name: Attach bundle to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUNDLE: ScreenStudio-Pro-${{ github.ref_name }}-x86_64.flatpak
+        run: |
+          gh release upload "$GITHUB_REF_NAME" "$BUNDLE" --clobber || \
+            gh release create "$GITHUB_REF_NAME" "$BUNDLE" \
+              --prerelease \
+              --title "ScreenStudio Pro $GITHUB_REF_NAME" \
+              --notes "Prerelease build. See assets."

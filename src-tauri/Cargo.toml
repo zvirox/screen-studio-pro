@@ -1,6 +1,6 @@
 [package]
 name = "screen-studio-pro"
-version = "0.1.0"
+version = "0.0.1-alpha.1"
 description = "A modern open-source screen recording app for Linux"
 authors = ["zvirox"]
 edition = "2024"

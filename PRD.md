@@ -47,7 +47,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 - **G2.** A UI users screenshot on its own: glass panels, springs, expressive motion — built on Tauri 2 + React as decided in stack selection.
 - **G3.** Time-to-first-recording under 60 seconds from install, with zero manual portal/permission ceremony beyond the OS prompt.
 - **G4.** Recording core is pure Rust: PipeWire capture, VAAPI/NVENC when available, x264 fallback.
-- **G5.** Ship toward distro packaging users can install with `pacman`/`dnf`/`apt` (or AUR); later expandable to Flatpak.
+- **G5.** Ship toward distro packaging users can install with `apt`/`dnf` (`.deb`/`.rpm`/AppImage via GitHub Releases) plus Flatpak; AUR (`pacman`) as a follow-up.
 - **G6.** Architecture leaves clean seams for V2 streaming (RTMP), scene compositor (dnd-kit canvas), and replay buffer.
 
 ### Non-Goals (MVP)

@@ -18,7 +18,7 @@ import { systemCapabilities } from "./ipc";
 const capsWith = (ipcContract: string) => ({
   encoders: [],
   portal: { screencast: true, globalShortcuts: "partial", compositor: "kde" },
-  version: { app: "0.1.0", ipcContract },
+  version: { app: "0.0.1-alpha.1", ipcContract },
 });
 
 /* API §5.1: the boot gate decides between app shell and boot-error screen. */

@@ -205,7 +205,7 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
                { "backend": "nvenc", "isHardware": true, "available": false },
                { "backend": "x264", "isHardware": false, "available": true }],
   "portal": { "screencast": true, "globalShortcuts": "partial", "compositor": "hyprland" },
-  "version": { "app": "0.1.0", "ipcContract": "1.1.0" } }
+  "version": { "app": "0.0.1-alpha.1", "ipcContract": "1.1.0" } }
 ```
 
 ### 2.6 Settings & preferences
