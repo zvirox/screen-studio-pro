@@ -33,7 +33,10 @@ impl Encoder for NvencEncoder {
         }
     }
 
-    fn encode(&mut self, _frame: &crate::pipeline::Frame) -> Result<Vec<super::EncodedPacket>, CoreError> {
+    fn encode(
+        &mut self,
+        _frame: &crate::pipeline::Frame,
+    ) -> Result<Vec<super::EncodedPacket>, CoreError> {
         unreachable!("NvencEncoder::from_open always returns an error")
     }
 

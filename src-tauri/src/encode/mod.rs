@@ -11,9 +11,9 @@ use crate::util::error::CoreError;
 `cargo test` covers the recording core; `--no-default-features` still
 builds capture/settings/library paths for header-less sandboxes. */
 
-pub mod sw_x264;
-pub mod hw_vaapi;
 pub mod hw_nvenc;
+pub mod hw_vaapi;
+pub mod sw_x264;
 
 /// Static facts about a backend — the `encoder` object of API §2.3
 /// `recording_start` (`backend`, `isHardware`) and the §6.1 chip.

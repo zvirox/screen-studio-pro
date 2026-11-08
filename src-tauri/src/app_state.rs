@@ -304,8 +304,15 @@ fn start(
         .map(std::path::PathBuf::from)
         .unwrap_or_else(crate::util::paths::videos_dir);
     let sink = std::sync::Arc::new(events::TauriEventSink::new(app.clone()));
-    app.state::<RecordingHandle>()
-        .start(bus, source.geometry, &dir, sink, audio, region_rect, Some(app))
+    app.state::<RecordingHandle>().start(
+        bus,
+        source.geometry,
+        &dir,
+        sink,
+        audio,
+        region_rect,
+        Some(app),
+    )
 }
 
 impl Snapshot {

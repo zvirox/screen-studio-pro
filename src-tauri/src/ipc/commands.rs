@@ -108,7 +108,16 @@ fn probe_capabilities() -> Capabilities {
     let vaapi = std::path::Path::new("/dev/dri/renderD128").exists()
         || std::fs::read_dir("/dev/dri")
             .ok()
-            .and_then(|mut dir| Some(dir.find(|e| e.as_ref().map(|e| e.file_name().to_string_lossy().starts_with("renderD")).unwrap_or(false)).is_some()))
+            .and_then(|mut dir| {
+                Some(
+                    dir.find(|e| {
+                        e.as_ref()
+                            .map(|e| e.file_name().to_string_lossy().starts_with("renderD"))
+                            .unwrap_or(false)
+                    })
+                    .is_some(),
+                )
+            })
             .unwrap_or(false);
 
     // NVENC: probe libavcodec for h264_nvenc codec availability.

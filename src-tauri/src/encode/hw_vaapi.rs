@@ -16,7 +16,11 @@ pub struct VaapiEncoder;
 impl VaapiEncoder {
     /// Creates a new VAAPI encoder instance. Currently returns unavailable
     /// as the full VAAPI hardware frame management is not yet implemented.
-    pub fn from_open(_device_path: &str, _dims: (u32, u32), _opts: &[(String, String)]) -> Result<Self, CoreError> {
+    pub fn from_open(
+        _device_path: &str,
+        _dims: (u32, u32),
+        _opts: &[(String, String)],
+    ) -> Result<Self, CoreError> {
         Err(CoreError::encoder(
             "encoder.unavailable",
             false,
@@ -33,7 +37,10 @@ impl Encoder for VaapiEncoder {
         }
     }
 
-    fn encode(&mut self, _frame: &crate::pipeline::Frame) -> Result<Vec<super::EncodedPacket>, CoreError> {
+    fn encode(
+        &mut self,
+        _frame: &crate::pipeline::Frame,
+    ) -> Result<Vec<super::EncodedPacket>, CoreError> {
         unreachable!("VaapiEncoder::from_open always returns an error")
     }
 
