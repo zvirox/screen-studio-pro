@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useEffect } from "react";
 import NavBar from "./components/chrome/NavBar";
 import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
@@ -40,8 +41,13 @@ const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
 
 export default function App() {
   const view = useSspStore((s) => s.view);
+  const loadCapabilities = useSspStore((s) => s.loadCapabilities);
   useRecordingState();
   useHudWindow();
+
+  useEffect(() => {
+    void loadCapabilities();
+  }, [loadCapabilities]);
 
   return (
     <div className="flex h-screen flex-col bg-canvas text-ink">

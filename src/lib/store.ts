@@ -8,10 +8,12 @@ import {
   recordingResume,
   settingsGet,
   sourceSelect,
+  systemCapabilities,
 } from "./ipc";
 import type {
   AudioChannelSpec,
   AudioListDevicesReply,
+  Capabilities,
   IpcError,
   RecordingFinishedEvt,
   RecordingMetersEvt,
@@ -35,6 +37,9 @@ export type ViewId = "record" | "library" | "settings";
 
 export type SourceStatus = "idle" | "selecting" | "live" | "error";
 
+/** Which source kind is currently in the portal selection flow (M2). */
+export type SelectingKind = "monitor" | "window" | null;
+
 export interface SourceSlice {
   status: SourceStatus;
   sourceId: string | null;
@@ -42,6 +47,8 @@ export interface SourceSlice {
   capabilities: SourceCapabilities | null;
   /** §1 error from the last failed selection (drives the §6.3 slot copy). */
   error: IpcError | null;
+  /** M2: which chip is currently in the selecting state. */
+  selectingKind: SelectingKind;
 }
 
 export const INITIAL_SOURCE: SourceSlice = {
@@ -50,6 +57,7 @@ export const INITIAL_SOURCE: SourceSlice = {
   label: null,
   capabilities: null,
   error: null,
+  selectingKind: null,
 };
 
 /* ---------- Session projection (§6.5 flow; API §2.3 + §3) ---------- */
@@ -180,6 +188,8 @@ interface SspState {
 
   /** `cmd://source_select("monitor")` — portal consent (§2.1). */
   selectMonitor: () => Promise<void>;
+  /** `cmd://source_select("window")` — portal window picker (M2). */
+  selectWindow: () => Promise<void>;
   /** `cmd://recording_start` with §2.3 neutral fields (1.3 scope). */
   startRecording: () => Promise<void>;
   /** `cmd://recording_stop` for the active take. */
@@ -197,6 +207,10 @@ interface SspState {
   onSessionError: (err: IpcError) => void;
   onFinished: (evt: RecordingFinishedEvt) => void;
 
+  /** Capabilities probe (§2.5) — loaded once at boot. */
+  capabilities: Capabilities | null;
+  loadCapabilities: () => Promise<void>;
+
   /* Toasts (§5.6) — ToastHost renders; dismissToast is the user's ✕. */
   toasts: Toast[];
   nextToastId: number;
@@ -210,6 +224,18 @@ export const useSspStore = create<SspState>((set, get) => ({
   source: INITIAL_SOURCE,
   session: INITIAL_SESSION,
   audio: INITIAL_AUDIO,
+  capabilities: null,
+
+  async loadCapabilities() {
+    if (get().capabilities) return;
+    try {
+      const caps = await systemCapabilities();
+      set({ capabilities: caps });
+    } catch (err) {
+      // Non-fatal: the UI will simply not know about window capture support.
+      console.warn("[store] capabilities probe failed:", err);
+    }
+  },
 
   async loadAudio() {
     if (get().audio.status === "loading") return;
@@ -329,7 +355,7 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   async selectMonitor() {
     if (get().source.status === "selecting") return;
-    set({ source: { ...INITIAL_SOURCE, status: "selecting" } });
+    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "monitor" } });
     try {
       const src = await sourceSelect("monitor");
       set({
@@ -339,12 +365,38 @@ export const useSspStore = create<SspState>((set, get) => ({
           label: src.label,
           capabilities: src.capabilities,
           error: null,
+          selectingKind: null,
         },
       });
     } catch (err) {
-      // errors.ts already normalized the throw into the §1 shape (lib/ipc).
-      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError } });
-      // §5.6: with ToastHost live (1.7), faults surface at floatover level.
+      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async selectWindow() {
+    if (get().source.status === "selecting") return;
+    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "window" } });
+    try {
+      const src = await sourceSelect("window");
+      set({
+        source: {
+          status: "live",
+          sourceId: src.sourceId,
+          label: src.label,
+          capabilities: src.capabilities,
+          error: null,
+          selectingKind: null,
+        },
+      });
+    } catch (err) {
+      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null } });
       set((s) =>
         pushToast(s, {
           kind: "error",

@@ -49,7 +49,7 @@ describe("SourceDeck (§6.1/§6.3)", () => {
   });
 
   it("selecting: chip shows the §5.1 loading state and is disabled", () => {
-    setState({ ...INITIAL_SOURCE, status: "selecting" });
+    setState({ ...INITIAL_SOURCE, status: "selecting", selectingKind: "monitor" });
     render(<SourceDeck />);
     const chip = screen.getByRole("button", { name: /Working…/ });
     expect(chip).toBeDisabled();

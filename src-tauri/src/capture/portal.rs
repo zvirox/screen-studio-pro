@@ -238,6 +238,143 @@ pub async fn select_monitor(
     ))
 }
 
+/// Orchestrate one window capture session. Uses the portal's window
+/// picker (SourceType::Window) so the user chooses a specific window.
+/// Returns `portal.unavailable` if the compositor doesn't offer window
+/// capture — callers should treat that as "not supported on this desktop"
+/// and hide the Window chip gracefully.
+pub async fn select_window(
+    source_id: String,
+    on_lost: impl FnOnce(&str) + Send + 'static,
+) -> Result<(MonitorSession, SourceSelected), CoreError> {
+    let screencast = Screencast::new().await.map_err(portal_unavailable)?;
+
+    // Cursor handling mirrors monitor capture — embedded when available.
+    let modes = screencast
+        .available_cursor_modes()
+        .await
+        .map_err(portal_unavailable)?;
+    let (cursor_mode, cursor_capable) = if modes.contains(CursorMode::Embedded) {
+        (CursorMode::Embedded, true)
+    } else if modes.contains(CursorMode::Metadata) {
+        (CursorMode::Metadata, true)
+    } else {
+        (CursorMode::Hidden, false)
+    };
+
+    let session = screencast
+        .create_session(CreateSessionOptions::default())
+        .await
+        .map_err(portal_unavailable)?;
+
+    screencast
+        .select_sources(
+            &session,
+            SelectSourcesOptions::default()
+                .set_sources(BitFlags::from(SourceType::Window))
+                .set_cursor_mode(cursor_mode)
+                .set_multiple(false)
+                .set_persist_mode(PersistMode::Application),
+        )
+        .await
+        .map_err(portal_unavailable)?;
+
+    let streams = tokio::time::timeout(
+        CONSENT_TIMEOUT,
+        screencast.start(
+            &session,
+            Option::<&WindowIdentifier>::None,
+            StartCastOptions::default(),
+        ),
+    )
+    .await
+    .map_err(|_| {
+        CoreError::portal(
+            "portal.timeout",
+            true,
+            "The capture dialog timed out while waiting for a choice. Click a window to try again.",
+        )
+    })?
+    .and_then(|request| request.response())
+    .map_err(portal_error)?;
+
+    let stream = streams.streams().first().ok_or_else(|| {
+        CoreError::portal(
+            "portal.unavailable",
+            true,
+            "The portal returned no window stream. Click a window to try again.",
+        )
+    })?;
+    let node_id = stream.pipe_wire_node_id();
+    let (width, height) = stream.size().ok_or_else(|| {
+        CoreError::portal(
+            "portal.unavailable",
+            true,
+            "The portal didn't report the window's size. Click a window to try again.",
+        )
+    })?;
+    let (width, height) = (width.max(0) as u32, height.max(0) as u32);
+
+    let remote_fd: OwnedFd = screencast
+        .open_pipe_wire_remote(&session, OpenPipeWireRemoteOptions {})
+        .await
+        .map_err(portal_error)?;
+
+    #[cfg(feature = "encode")]
+    let frame_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
+    #[cfg(feature = "encode")]
+    let stream_guard = pipewire::start(
+        node_id,
+        (width, height),
+        remote_fd,
+        Some(frame_bus.clone()),
+        Box::new(on_lost),
+    )?;
+    #[cfg(not(feature = "encode"))]
+    let stream_guard =
+        pipewire::start(node_id, (width, height), remote_fd, None, Box::new(on_lost))?;
+
+    tracing::info!(
+        %source_id,
+        node_id,
+        width,
+        height,
+        "window portal session started"
+    );
+
+    let reply = SourceSelected {
+        source_id: source_id.clone(),
+        kind: SourceKind::Window.as_str(),
+        label: format!("Window ({width}×{height})"),
+        capabilities: SourceCapabilities {
+            fps: 60,
+            width,
+            height,
+            cursor: cursor_capable,
+            region: true,
+        },
+        preview: SourcePreview {
+            mode: "stills_jpeg",
+            fps: 8,
+        },
+    };
+
+    Ok((
+        MonitorSession {
+            source_id,
+            session,
+            stream: stream_guard,
+            #[cfg(feature = "encode")]
+            frame_bus,
+            #[cfg(feature = "encode")]
+            width,
+            #[cfg(feature = "encode")]
+            height,
+        },
+        reply,
+    ))
+}
+
 /// ashpd → CoreError: the user said no, or the portal is unusable.
 fn portal_error(err: PortalError) -> CoreError {
     match err {

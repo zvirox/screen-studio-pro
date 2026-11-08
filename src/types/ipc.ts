@@ -6,7 +6,7 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.2.0";
+export const IPC_CONTRACT_VERSION = "1.3.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
@@ -43,6 +43,8 @@ export interface PortalStatus {
   /** Literal set narrows via a contract MINOR bump when M12 probes it. */
   globalShortcuts: string;
   compositor: string;
+  /** M2: whether the compositor's portal offers window capture (SourceType::Window). */
+  windowCapture: boolean;
 }
 
 export interface VersionInfo {

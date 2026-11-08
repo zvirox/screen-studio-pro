@@ -1,6 +1,6 @@
 # API.md — ScreenStudio Pro IPC Contract
 
-**Version:** 1.2.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+**Version:** 1.3.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
 
 **Contract nature (read first):** ScreenStudio Pro has **no HTTP server and no network API** — PRD non-goal N6 and ARCHITECTURE §3.3 forbid it. The app's entire API surface is the **Tauri IPC**: *commands* (request/response, like REST) and *events* (push, like webhooks in reverse). This file documents that surface in REST-style conventions so it can be reviewed the same way: every command has a purpose, payload schema, success shape, and every error code the frontend may receive.
 
@@ -44,6 +44,11 @@ Quit drains the take and commits its library row before exit. Failed index
 writes retain the finalized outcome for retry by Stop or Quit and prevent a
 new take from replacing it. Existing command/event payloads keep their shapes.
 
+**v1.3.0 (task 3.1, MINOR):** `cmd://source_select` now accepts `kind: "window"`
+(M2) alongside `"monitor"` — the portal's `SourceType::Window` picker is used.
+Unsupported compositors hide the Window chip; `portal.windowCapture` in
+`system_capabilities` reports availability. No existing payload shapes change.
+
 ---
 
 ## 2. Commands by Resource
@@ -61,7 +66,7 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 { "kind": "monitor", "target": "output-1" }
 ```
 `kind ∈ monitor | window | region`; `target` is monitor id / window handle / null (region overlays the chosen monitor).
-*(Task 1.1 note: `monitor` is live; `window`/`region` return `capture.invalid_kind` until M2/M3 portal flavours land. For `monitor`, `target` is accepted but deferred — the portal picker owns output choice until the restore-token flow.)*
+*(Task 1.1 note: `monitor` is live; `window` is live since M2 (task 3.1); `region` returns `capture.invalid_kind` until M3 portal flavour lands. For `monitor`/`window`, `target` is accepted but deferred — the portal picker owns output choice until the restore-token flow.)*
 - **Success 200:**
 ```json
 {

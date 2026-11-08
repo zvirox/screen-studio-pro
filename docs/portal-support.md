@@ -37,7 +37,7 @@ Observed: task 1.1 manual gate (app-side PipeWire client, ashpd 0.13.13).
 | Capability | Status | Notes |
 |---|---|---|
 | Monitor capture (portal) | ✅ | Consent dialog fires per session; 60 fps sustained (480 frames / 8 s) at native monitor geometry. |
-| Window capture | 🚫 not tested | Task 1.1 ships `monitor` only; re-observed at M2. |
+| Window capture | ✅ | Portal window picker (`SourceType::Window`) works; KDE's xdg-desktop-portal-kde presents the window tab. User selects a window, consent granted, stream starts. |
 | Region capture (cursor/keyboard modes) | 🚫 not tested | M3. |
 | restore_token reuse | 🚫 not tested | `PersistMode::Application` requested (transient, no disk persistence); restore-token flow lands M2+. |
 | global-shortcuts portal | 🚫 not tested | — |
@@ -100,6 +100,20 @@ Native actions used the real D-Bus tray menu and AT-SPI; screenshots used
 Spectacle because WebKit traversal is incomplete in `agent-desktop` here.
 These checks do not establish audible mic/system output, mute A/B, the ignored
 live-pause gate, or behavior on a compositor without a tray host.
+
+### Task 3.1 — window capture (M2)
+
+Logged: 2026-11-08, app `0.0.1-alpha.1` development build; CachyOS,
+Plasma/KWin 6.8.2, PipeWire 1.6.10, xdg-desktop-portal-kde 6.8.2.
+
+| Check | Observation |
+|---|---|
+| Window picker | `SourceType::Window` consent dialog appears with KDE's window tab; user selects a target window. |
+| Stream start | After consent, PipeWire stream starts with the window's geometry; frame bus receives frames. |
+| Unsupported compositor | `portal.windowCapture` capability probe returns `false` on unknown compositors; the Window chip is hidden from the SourceDeck. |
+| SourceDeck UI | Two chips (Monitor + Window) render side-by-side when `windowCapture: true`; only Monitor when `false`. Selecting state shows "Working…" on the active chip. |
+
+Implementation: `select_window` in `capture/portal.rs` mirrors `select_monitor` with `SourceType::Window`. The `source_select` command dispatches based on `kind`. Capability probe sets `portal.windowCapture` conservatively (`true` for KDE/Plasma). Source state gains `selectingKind` to track which chip is loading. Tests updated for the new flow.
 
 ## niri
 

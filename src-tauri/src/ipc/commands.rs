@@ -14,7 +14,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.2.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.3.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -79,6 +79,9 @@ pub struct PortalStatus {
     pub screencast: bool,
     pub global_shortcuts: &'static str,
     pub compositor: String,
+    /// M2: whether the compositor's portal offers window capture (SourceType::Window).
+    /// Set conservatively at cold start; the UI hides the Window chip when false.
+    pub window_capture: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -130,7 +133,10 @@ fn probe_capabilities() -> Capabilities {
             screencast: true,
             // M12 probes the GlobalShortcuts portal; "partial" is the conservative default.
             global_shortcuts: "partial",
-            compositor,
+            compositor: compositor.clone(),
+            // M2: window capture via portal's SourceType::Window.
+            // Known-supported: KDE Plasma (xdg-desktop-portal-kde).
+            window_capture: compositor.contains("kde") || compositor.contains("plasma"),
         },
         version: VersionInfo {
             app: env!("CARGO_PKG_VERSION"),
@@ -207,7 +213,7 @@ pub fn prefs_set(
 }
 
 /// `cmd://source_select` (API §2.1) — begin a portal session; monitor
-/// flavour is live in 1.1 (PRD M1), window/region join with M2/M3. The
+/// flavour is live in 1.1 (PRD M1), window joins with M2. The
 /// caller-paced consent dialog means this command legitimately runs for
 /// minutes; concurrent selects return `portal.busy` from the slot.
 #[tauri::command]
@@ -218,14 +224,8 @@ pub async fn source_select(
     capture_state: State<'_, CaptureHandle>,
 ) -> Result<Value, IpcError> {
     let parsed = crate::capture::SourceKind::parse(&kind).ok_or_else(capture_invalid_kind)?;
-    // M2/M3: window/region reuse this command with their own portal flavours.
-    if parsed != crate::capture::SourceKind::Monitor {
-        return Err(capture_invalid_kind().into());
-    }
     if let Some(hint) = &target {
-        // The portal picker owns output choice until the restore-token flow
-        // (M2+); a monitor hint is recorded, not honoured, in 1.1.
-        tracing::debug!(hint = %hint, "monitor target hint deferred to portal picker");
+        tracing::debug!(hint = %hint, "target hint deferred to portal picker");
     }
 
     let source_id = crate::capture::new_source_id();
@@ -245,7 +245,16 @@ pub async fn source_select(
     };
 
     capture_state.begin().map_err(|err| err.to_ipc())?;
-    match crate::capture::portal::select_monitor(source_id, on_lost).await {
+    let result = match parsed {
+        crate::capture::SourceKind::Monitor => {
+            crate::capture::portal::select_monitor(source_id, on_lost).await
+        }
+        crate::capture::SourceKind::Window => {
+            crate::capture::portal::select_window(source_id, on_lost).await
+        }
+        crate::capture::SourceKind::Region => Err(capture_invalid_kind()),
+    };
+    match result {
         Ok((session, reply)) => {
             let reply = serde_json::to_value(&reply).expect("§2.1 reply is plain JSON");
             capture_state.commit(Box::new(session));
@@ -477,7 +486,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.2.0");
+        assert_eq!(v["ipcContract"], "1.3.0");
     }
 
     #[test]
@@ -490,7 +499,7 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["vaapi", "nvenc", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.2.0");
+        assert_eq!(v["version"]["ipcContract"], "1.3.0");
         assert_eq!(v["version"]["app"], "0.0.1-alpha.1");
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());
