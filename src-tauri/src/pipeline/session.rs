@@ -1158,8 +1158,8 @@ fn capture_take(
             Some(mut frame) => {
                 // M3: apply region crop if set.
                 if let Some(region) = region_rect {
-                    frame = crate::pipeline::apply_region_crop(frame, Some(region))
-                        .map_err(|err| {
+                    frame =
+                        crate::pipeline::apply_region_crop(frame, Some(region)).map_err(|err| {
                             tracing::error!(%err, "region crop failed");
                             err
                         })?;
@@ -1699,7 +1699,14 @@ mod tests {
             row_note: None,
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), Some(plan), None)
+            .start(
+                bus.clone(),
+                (W, H),
+                dir.path(),
+                TestSink::new(),
+                Some(plan),
+                None,
+            )
             .unwrap();
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -2060,7 +2067,14 @@ mod tests {
             row_note: Some(r#"{"source":"test","used":true}"#.into()),
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
+            .start(
+                bus.clone(),
+                (W, H),
+                dir.path(),
+                sink.clone(),
+                Some(plan),
+                None,
+            )
             .expect("recording starts");
 
         // Live video (the §5b anchor needs a first frame) + two audio
@@ -2186,7 +2200,14 @@ mod tests {
             row_note: Some(r#"{"source":"mic","used":true}"#.into()),
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
+            .start(
+                bus.clone(),
+                (W, H),
+                dir.path(),
+                sink.clone(),
+                Some(plan),
+                None,
+            )
             .expect("recording starts");
 
         // Live video + a feeder that pushes ~100 ms then drops out the
@@ -2302,7 +2323,14 @@ mod tests {
         };
         let started = Instant::now();
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
+            .start(
+                bus.clone(),
+                (W, H),
+                dir.path(),
+                sink.clone(),
+                Some(plan),
+                None,
+            )
             .expect("recording starts");
 
         let keep = Arc::new(AtomicBool::new(true));
@@ -2812,7 +2840,14 @@ mod tests {
             row_note: None,
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
+            .start(
+                bus.clone(),
+                (W, H),
+                dir.path(),
+                sink.clone(),
+                Some(plan),
+                None,
+            )
             .expect("recording starts");
 
         let keep = Arc::new(AtomicBool::new(true));

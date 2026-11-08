@@ -267,7 +267,10 @@ pub async fn source_select(
             // For region, override the reply kind to "region" so the UI knows.
             if parsed == crate::capture::SourceKind::Region {
                 reply.kind = "region";
-                reply.label = format!("Region ({}×{})", reply.capabilities.width, reply.capabilities.height);
+                reply.label = format!(
+                    "Region ({}×{})",
+                    reply.capabilities.width, reply.capabilities.height
+                );
             }
             let reply = serde_json::to_value(&reply).expect("§2.1 reply is plain JSON");
             capture_state.commit(Box::new(session));
@@ -319,7 +322,13 @@ pub async fn source_region_set(
     }
     let geometry = capture_state
         .active_geometry_if_matches(&source_id)
-        .ok_or_else(|| CoreError::capture("capture.region_invalid", false, "Source geometry not available."))?;
+        .ok_or_else(|| {
+            CoreError::capture(
+                "capture.region_invalid",
+                false,
+                "Source geometry not available.",
+            )
+        })?;
     if rect.x + rect.w > geometry.0 || rect.y + rect.h > geometry.1 {
         return Err(CoreError::capture(
             "capture.region_invalid",

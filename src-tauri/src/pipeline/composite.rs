@@ -74,7 +74,12 @@ mod tests {
     #[test]
     fn crop_to_region() {
         let frame = make_frame(1920, 1080, 0x7f);
-        let region = RegionRect { x: 100, y: 50, w: 640, h: 480 };
+        let region = RegionRect {
+            x: 100,
+            y: 50,
+            w: 640,
+            h: 480,
+        };
         let result = apply_region_crop(frame, Some(region)).unwrap();
         assert_eq!(result.width, 640);
         assert_eq!(result.height, 480);
@@ -87,7 +92,12 @@ mod tests {
     #[test]
     fn crop_rejects_out_of_bounds() {
         let frame = make_frame(1920, 1080, 0x7f);
-        let region = RegionRect { x: 1500, y: 50, w: 640, h: 480 }; // x+w > 1920
+        let region = RegionRect {
+            x: 1500,
+            y: 50,
+            w: 640,
+            h: 480,
+        }; // x+w > 1920
         let result = apply_region_crop(frame, Some(region));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), "capture.region_invalid");
