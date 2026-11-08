@@ -213,9 +213,10 @@ pub fn prefs_set(
 }
 
 /// `cmd://source_select` (API §2.1) — begin a portal session; monitor
-/// flavour is live in 1.1 (PRD M1), window joins with M2. The
-/// caller-paced consent dialog means this command legitimately runs for
-/// minutes; concurrent selects return `portal.busy` from the slot.
+/// flavour is live in 1.1 (PRD M1), window joins with M2, region (M3)
+/// reuses the monitor session with a crop overlay. The caller-paced
+/// consent dialog means this command legitimately runs for minutes;
+/// concurrent selects return `portal.busy` from the slot.
 #[tauri::command]
 pub async fn source_select(
     kind: String,
@@ -245,17 +246,29 @@ pub async fn source_select(
     };
 
     capture_state.begin().map_err(|err| err.to_ipc())?;
-    let result = match parsed {
+    // Region reuses the monitor portal session; the crop rect is set
+    // separately via `source_region_set` (M3).
+    let portal_kind = if parsed == crate::capture::SourceKind::Region {
+        crate::capture::SourceKind::Monitor
+    } else {
+        parsed
+    };
+    let result = match portal_kind {
         crate::capture::SourceKind::Monitor => {
             crate::capture::portal::select_monitor(source_id, on_lost).await
         }
         crate::capture::SourceKind::Window => {
             crate::capture::portal::select_window(source_id, on_lost).await
         }
-        crate::capture::SourceKind::Region => Err(capture_invalid_kind()),
+        _ => Err(capture_invalid_kind()),
     };
     match result {
-        Ok((session, reply)) => {
+        Ok((session, mut reply)) => {
+            // For region, override the reply kind to "region" so the UI knows.
+            if parsed == crate::capture::SourceKind::Region {
+                reply.kind = "region";
+                reply.label = format!("Region ({}×{})", reply.capabilities.width, reply.capabilities.height);
+            }
             let reply = serde_json::to_value(&reply).expect("§2.1 reply is plain JSON");
             capture_state.commit(Box::new(session));
             crate::app_state::dispatch(&app, crate::app_state::Action::Refresh);
@@ -277,6 +290,79 @@ pub async fn source_release(source_id: String, app: tauri::AppHandle) -> Result<
     crate::app_state::run(app, crate::app_state::Action::Release(source_id), false)
         .await
         .map_err(Into::into)
+}
+
+/// `cmd://source_region_set` (API §2.1) — set/adjust the crop rect for
+/// region mode (M3). The rect is in the source's native coordinate space
+/// (the monitor's geometry). Arrow-key adjustable per DESIGN §7.4.
+#[tauri::command]
+pub async fn source_region_set(
+    source_id: String,
+    rect: RegionRectInput,
+    capture_state: State<'_, CaptureHandle>,
+) -> Result<Value, IpcError> {
+    if !capture_state.is_active_source(&source_id) {
+        return Err(CoreError::capture(
+            "capture.region_invalid",
+            false,
+            "No active capture session for that source id.",
+        )
+        .into());
+    }
+    if rect.w == 0 || rect.h == 0 {
+        return Err(CoreError::capture(
+            "capture.region_invalid",
+            false,
+            "Region width and height must be positive.",
+        )
+        .into());
+    }
+    let geometry = capture_state
+        .active_geometry_if_matches(&source_id)
+        .ok_or_else(|| CoreError::capture("capture.region_invalid", false, "Source geometry not available."))?;
+    if rect.x + rect.w > geometry.0 || rect.y + rect.h > geometry.1 {
+        return Err(CoreError::capture(
+            "capture.region_invalid",
+            false,
+            "Region rect exceeds source bounds.",
+        )
+        .into());
+    }
+    capture_state.set_region_rect(Some(crate::capture::RegionRect {
+        x: rect.x,
+        y: rect.y,
+        w: rect.w,
+        h: rect.h,
+    }));
+    Ok(serde_json::json!({ "ok": true }))
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionRectInput {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
+
+/// `cmd://source_region_clear` (API §2.1) — clear the region crop rect,
+/// returning to full-source capture.
+#[tauri::command]
+pub async fn source_region_clear(
+    source_id: String,
+    capture_state: State<'_, CaptureHandle>,
+) -> Result<Value, IpcError> {
+    if !capture_state.is_active_source(&source_id) {
+        return Err(CoreError::capture(
+            "capture.region_invalid",
+            false,
+            "No active capture session for that source id.",
+        )
+        .into());
+    }
+    capture_state.set_region_rect(None);
+    Ok(serde_json::json!({ "ok": true }))
 }
 
 fn capture_invalid_kind() -> CoreError {
@@ -356,19 +442,20 @@ pub fn audio_set_channel(
 #[tauri::command]
 pub async fn recording_start(
     source_id: String,
-    region_rect: Option<Value>,
+    region_rect: Option<crate::capture::RegionRect>,
     audio: Option<Vec<Value>>,
     camera_id: Option<String>,
     preset_id: Option<String>,
     output_dir: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<Value, IpcError> {
-    let _ = (region_rect, audio, camera_id, preset_id); // 1.3 scope note
+    let _ = (audio, camera_id, preset_id); // 1.3 scope note
     crate::app_state::run(
         app,
         crate::app_state::Action::Start {
             source_id: Some(source_id),
             output_dir,
+            region_rect,
         },
         false,
     )

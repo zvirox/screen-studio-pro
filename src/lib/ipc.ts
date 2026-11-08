@@ -15,6 +15,7 @@ import {
   type RecordingStartInput,
   type RecordingStartReply,
   type RecordingStopReply,
+  type RegionRect,
   type Settings,
   type SettingsPatch,
   type SettingsSection,
@@ -149,6 +150,16 @@ export function recordingFlag(recordingId: string, label?: string): Promise<Chap
   return call<{ chapter: Chapter }>("recording_flag", { recordingId, label }).then(
     (r) => r.chapter,
   );
+}
+
+/** `cmd://source_region_set` (M3) — set the region crop rect. */
+export function sourceRegionSet(sourceId: string, rect: RegionRect): Promise<{ ok: boolean }> {
+  return call("source_region_set", { sourceId, rect });
+}
+
+/** `cmd://source_region_clear` (M3) — clear the region crop rect. */
+export function sourceRegionClear(sourceId: string): Promise<{ ok: boolean }> {
+  return call("source_region_clear", { sourceId });
 }
 
 /** API §5.1 boot gate: the webview pins the expected contract version. */

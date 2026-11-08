@@ -11,8 +11,8 @@ consumption stays on the Rust side of the IPC boundary (API §6: frames
 never travel as IPC payloads — previews are stills at a documented
 cadence, landing with the Record view in 1.5). */
 
-/// §2.1 source kinds. `monitor` is live in 1.1; `window`/`region` join
-/// with M2/M3 and are rejected until then (`capture.invalid_kind`).
+/// §2.1 source kinds. `monitor` is live in 1.1; `window` joins with M2;
+/// `region` joins with M3 (crop overlay on monitor).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceKind {
     Monitor,
@@ -114,6 +114,18 @@ pub struct ActiveCaptureInfo {
 /// `source_select` sees `portal.busy` instead of racing two dialogs.
 pub struct CaptureHandle {
     slot: Mutex<Slot>,
+    /// M3: region crop rect in source coordinates. Applied in the pipeline
+    /// composite stage (pipeline/composite.rs). None = full source.
+    region_rect: Mutex<Option<RegionRect>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionRect {
+    pub x: u32,
+    pub y: u32,
+    pub w: u32,
+    pub h: u32,
 }
 
 enum Slot {
@@ -137,6 +149,35 @@ impl CaptureHandle {
     pub fn new() -> Self {
         Self {
             slot: Mutex::new(Slot::Free),
+            region_rect: Mutex::new(None),
+        }
+    }
+
+    /// M3: get the current region crop rect.
+    pub fn region_rect(&self) -> Option<RegionRect> {
+        *self.region_rect.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// M3: set the region crop rect (validated by caller).
+    pub fn set_region_rect(&self, rect: Option<RegionRect>) {
+        *self.region_rect.lock().unwrap_or_else(|p| p.into_inner()) = rect;
+    }
+
+    /// M3: check if the active source matches the given id.
+    pub fn is_active_source(&self, source_id: &str) -> bool {
+        let slot = self.locked();
+        match &*slot {
+            Slot::Active(source) => source.source_id() == source_id,
+            _ => false,
+        }
+    }
+
+    /// M3: get the active source's geometry if the id matches.
+    pub fn active_geometry_if_matches(&self, source_id: &str) -> Option<(u32, u32)> {
+        let slot = self.locked();
+        match &*slot {
+            Slot::Active(source) if source.source_id() == source_id => Some(source.geometry()),
+            _ => None,
         }
     }
 

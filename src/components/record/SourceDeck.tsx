@@ -1,7 +1,9 @@
-import { Check, LoaderCircle, Monitor, AppWindow } from "lucide-react";
+import { Check, LoaderCircle, Monitor, AppWindow, Crop } from "lucide-react";
+import { useState, useCallback } from "react";
 import { useSspStore } from "../../lib/store";
+import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 
-/* §6.1 #2 source deck — Monitor + Window (M2) chips; Region (M3) joins later.
+/* §6.1 #2 source deck — Monitor + Window (M2) + Region (M3) chips.
    Dead controls never render (§6.3). The preview frame is the only place
    video frames may ever render. Whenever capture is not live, the §6.3
    education slot shows the neutral invitation copy — a denied session
@@ -73,11 +75,82 @@ function SourceChip({
   );
 }
 
+/** Drag handle for the region rect — keyboard + pointer accessible. */
+function RegionDragHandle({
+  rect,
+  onDragEnd,
+  previewWidth,
+  previewHeight,
+}: {
+  rect: { x: number; y: number; w: number; h: number };
+  onDragEnd: (rect: { x: number; y: number; w: number; h: number }) => void;
+  previewWidth: number;
+  previewHeight: number;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: (event) => {
+        const step = event.shiftKey ? 10 : 1; // DESIGN §7: 1px / shift 10px
+        switch (event.key) {
+          case "ArrowLeft":
+            return { x: -step, y: 0 };
+          case "ArrowRight":
+            return { x: step, y: 0 };
+          case "ArrowUp":
+            return { x: 0, y: -step };
+          case "ArrowDown":
+            return { x: 0, y: step };
+          default:
+            return { x: 0, y: 0 };
+        }
+      },
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { delta } = event;
+    const newX = Math.max(0, Math.min(previewWidth - rect.w, rect.x + delta.x));
+    const newY = Math.max(0, Math.min(previewHeight - rect.h, rect.y + delta.y));
+    onDragEnd({ ...rect, x: Math.round(newX), y: Math.round(newY) });
+  };
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragEnd={handleDragEnd}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: rect.x,
+          top: rect.y,
+          width: rect.w,
+          height: rect.h,
+          border: "2px solid",
+          borderColor: "var(--ssp-accent)",
+          borderRadius: "var(--ssp-r-sm)",
+          boxShadow: "0 0 0 1px var(--ssp-bg-canvas), 0 0 0 3px var(--ssp-accent)",
+          cursor: "move",
+          zIndex: 10,
+        }}
+        role="graphics-document"
+        aria-label="Region selection rectangle"
+        aria-roledescription="Draggable crop rectangle"
+      />
+    </DndContext>
+  );
+}
+
 export default function SourceDeck() {
   const source = useSspStore((s) => s.source);
   const sessionStatus = useSspStore((s) => s.session.status);
   const selectMonitor = useSspStore((s) => s.selectMonitor);
   const selectWindow = useSspStore((s) => s.selectWindow);
+  const selectRegion = useSspStore((s) => s.selectRegion);
+  const setRegionRect = useSspStore((s) => s.setRegionRect);
   const capabilities = useSspStore((s) => s.capabilities);
 
   const capsText = capabilityLine(source.capabilities);
@@ -91,6 +164,35 @@ export default function SourceDeck() {
   const isMonitorSelecting = source.status === "selecting" && source.selectingKind === "monitor";
   const isWindowActive = (source.status === "live" && source.label?.startsWith("Window")) ?? false;
   const isWindowSelecting = source.status === "selecting" && source.selectingKind === "window";
+  const isRegionActive = (source.status === "live" && source.label?.startsWith("Region")) ?? false;
+  const isRegionSelecting = source.status === "selecting" && source.selectingKind === "region";
+
+  // Region rect state — preview coordinates (scaled from source coordinates).
+  const [regionRect, setRegionRectLocal] = useState<{ x: number; y: number; w: number; h: number } | null>(() => {
+    if (source.regionRect) {
+      return { x: source.regionRect.x, y: source.regionRect.y, w: source.regionRect.w, h: source.regionRect.h };
+    }
+    // Default to center 720p rect if no rect set.
+    const w = 1280;
+    const h = 720;
+    return { x: Math.round((1920 - w) / 2), y: Math.round((1080 - h) / 2), w, h };
+  });
+
+  const handleRegionDragEnd = (newRect: { x: number; y: number; w: number; h: number }) => {
+    setRegionRectLocal(newRect);
+    if (source.sourceId) {
+      void setRegionRect(source.sourceId, newRect);
+    }
+  };
+
+  const handleRegionSelect = useCallback(async () => {
+    if (!selectable) return;
+    try {
+      await selectRegion();
+    } catch {
+      // Error is handled by the selectRegion action itself (toast + state)
+    }
+  }, [selectable, selectRegion]);
 
   return (
     <section aria-label="Source" className="pane rounded-md p-4">
@@ -115,26 +217,47 @@ export default function SourceDeck() {
             capsText={isWindowActive ? capsText : null}
           />
         )}
+        <SourceChip
+          label="Region"
+          icon={<Crop size={16} strokeWidth={1.5} aria-hidden="true" />}
+          selectAction={handleRegionSelect}
+          isActive={isRegionActive}
+          isSelecting={isRegionSelecting}
+          disabled={!selectable}
+          capsText={isRegionActive ? capsText : null}
+        />
       </div>
 
       <div
         aria-label="Source preview"
-        className="mt-3 flex aspect-video w-full items-center justify-center rounded-sm bg-solid"
+        className="mt-3 flex aspect-video w-full items-center justify-center rounded-sm bg-solid relative"
       >
         {slotVisible ? (
-          <div className="flex flex-col items-center gap-2 p-4 text-center">
+          <div className="flex flex-col items-center gap-2 p-4 text-center w-full h-full">
             {isWindowActive ? (
               <AppWindow size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
+            ) : isRegionActive ? (
+              <Crop size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
             ) : (
               <Monitor size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
             )}
             <p className="text-body-sm text-ink-secondary">
-              {isWindowActive
+              {isRegionActive
+                ? "Drag to select region; arrow keys to nudge (Shift = 10px)"
+                : isWindowActive
                 ? "Click Window to select a window to capture"
                 : "Click Monitor to allow capture through your compositor"}
             </p>
           </div>
         ) : null}
+        {isRegionActive && regionRect && source.capabilities && (
+          <RegionDragHandle
+            rect={regionRect}
+            onDragEnd={handleRegionDragEnd}
+            previewWidth={source.capabilities.width}
+            previewHeight={source.capabilities.height}
+          />
+        )}
       </div>
     </section>
   );

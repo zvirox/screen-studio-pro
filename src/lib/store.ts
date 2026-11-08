@@ -8,6 +8,8 @@ import {
   recordingResume,
   settingsGet,
   sourceSelect,
+  sourceRegionSet,
+  sourceRegionClear,
   systemCapabilities,
 } from "./ipc";
 import type {
@@ -37,8 +39,8 @@ export type ViewId = "record" | "library" | "settings";
 
 export type SourceStatus = "idle" | "selecting" | "live" | "error";
 
-/** Which source kind is currently in the portal selection flow (M2). */
-export type SelectingKind = "monitor" | "window" | null;
+/** Which source kind is currently in the portal selection flow (M2/M3). */
+export type SelectingKind = "monitor" | "window" | "region" | null;
 
 export interface SourceSlice {
   status: SourceStatus;
@@ -49,6 +51,8 @@ export interface SourceSlice {
   error: IpcError | null;
   /** M2: which chip is currently in the selecting state. */
   selectingKind: SelectingKind;
+  /** M3: region crop rect in source coordinates. */
+  regionRect: { x: number; y: number; w: number; h: number } | null;
 }
 
 export const INITIAL_SOURCE: SourceSlice = {
@@ -58,6 +62,7 @@ export const INITIAL_SOURCE: SourceSlice = {
   capabilities: null,
   error: null,
   selectingKind: null,
+  regionRect: null,
 };
 
 /* ---------- Session projection (§6.5 flow; API §2.3 + §3) ---------- */
@@ -190,6 +195,12 @@ interface SspState {
   selectMonitor: () => Promise<void>;
   /** `cmd://source_select("window")` — portal window picker (M2). */
   selectWindow: () => Promise<void>;
+  /** `cmd://source_select("region")` — portal monitor picker + crop rect (M3). */
+  selectRegion: () => Promise<void>;
+  /** `cmd://source_region_set` — set the region crop rect (M3). */
+  setRegionRect: (sourceId: string, rect: { x: number; y: number; w: number; h: number }) => Promise<void>;
+  /** `cmd://source_region_clear` — clear the region crop rect (M3). */
+  clearRegionRect: (sourceId: string) => Promise<void>;
   /** `cmd://recording_start` with §2.3 neutral fields (1.3 scope). */
   startRecording: () => Promise<void>;
   /** `cmd://recording_stop` for the active take. */
@@ -355,7 +366,7 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   async selectMonitor() {
     if (get().source.status === "selecting") return;
-    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "monitor" } });
+    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "monitor", regionRect: null } });
     try {
       const src = await sourceSelect("monitor");
       set({
@@ -366,10 +377,11 @@ export const useSspStore = create<SspState>((set, get) => ({
           capabilities: src.capabilities,
           error: null,
           selectingKind: null,
+          regionRect: null,
         },
       });
     } catch (err) {
-      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null } });
+      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null, regionRect: null } });
       set((s) =>
         pushToast(s, {
           kind: "error",
@@ -382,7 +394,7 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   async selectWindow() {
     if (get().source.status === "selecting") return;
-    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "window" } });
+    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "window", regionRect: null } });
     try {
       const src = await sourceSelect("window");
       set({
@@ -393,10 +405,11 @@ export const useSspStore = create<SspState>((set, get) => ({
           capabilities: src.capabilities,
           error: null,
           selectingKind: null,
+          regionRect: null,
         },
       });
     } catch (err) {
-      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null } });
+      set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null, regionRect: null } });
       set((s) =>
         pushToast(s, {
           kind: "error",
@@ -407,7 +420,86 @@ export const useSspStore = create<SspState>((set, get) => ({
     }
   },
 
-  async startRecording() {
+  async selectRegion() {
+    if (get().source.status === "selecting") return;
+    set({ source: { ...INITIAL_SOURCE, status: "selecting", selectingKind: "region", regionRect: null } });
+    try {
+      const src = await sourceSelect("region");
+      set({
+        source: {
+          status: "live",
+          sourceId: src.sourceId,
+          label: src.label,
+          capabilities: src.capabilities,
+          error: null,
+          selectingKind: null,
+          regionRect: null,
+        },
+      });
+      } catch (err) {
+        set({ source: { ...INITIAL_SOURCE, status: "error", error: err as IpcError, selectingKind: null } });
+        set((s) =>
+          pushToast(s, {
+            kind: "error",
+            title: (err as IpcError).userMessage,
+            code: (err as IpcError).code,
+          }),
+        );
+      }
+    },
+
+    async setRegionRect(sourceId, rect) {
+      try {
+        await sourceRegionSet(sourceId, rect);
+        // Update local state with the new rect
+        set((state) => {
+          if (state.source.sourceId === sourceId) {
+            return {
+              source: {
+                ...state.source,
+                regionRect: rect,
+              },
+            };
+          }
+          return state;
+        });
+      } catch (err) {
+        set((s) =>
+          pushToast(s, {
+            kind: "error",
+            title: (err as IpcError).userMessage,
+            code: (err as IpcError).code,
+          }),
+        );
+      }
+    },
+
+    async clearRegionRect(sourceId) {
+      try {
+        await sourceRegionClear(sourceId);
+        set((state) => {
+          if (state.source.sourceId === sourceId) {
+            return {
+              source: {
+                ...state.source,
+                regionRect: null,
+              },
+            };
+          }
+          return state;
+        });
+      } catch (err) {
+        set((s) =>
+          pushToast(s, {
+            kind: "error",
+            title: (err as IpcError).userMessage,
+            code: (err as IpcError).code,
+          }),
+        );
+      }
+    },
+
+    async startRecording() {
     const { source } = get();
     // Guard matches the ActionRow's disabled logic — the button gates the
     // click, the store gates everything else (keyboard, rapid re-click).

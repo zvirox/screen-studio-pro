@@ -648,6 +648,7 @@ impl RecordingHandle {
         dir: &Path,
         events: Arc<dyn EventSink>,
         audio: Option<AudioPlan>,
+        region_rect: Option<crate::capture::RegionRect>,
     ) -> Result<StartInfo, CoreError> {
         let mut slot = self.locked();
         // A worker that ended on its own (a mid-take fault) must not
@@ -776,6 +777,7 @@ impl RecordingHandle {
         let worker_base = video_base.clone();
         let worker_anchored = video_anchored.clone();
         let worker_pause = pause.clone();
+        let worker_region_rect = region_rect;
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
@@ -789,6 +791,7 @@ impl RecordingHandle {
                     worker_base,
                     worker_anchored,
                     worker_pause,
+                    worker_region_rect,
                 )
             })
             .map_err(|err| {
@@ -1031,6 +1034,7 @@ fn run_session(
     video_base: Arc<AtomicU64>,
     video_anchored: Arc<AtomicBool>,
     pause: PauseState,
+    region_rect: Option<crate::capture::RegionRect>,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
     let outcome = capture_take(
@@ -1043,6 +1047,7 @@ fn run_session(
         &video_base,
         &video_anchored,
         &pause,
+        region_rect,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
     // reacts to the event can start the next take right away.
@@ -1077,6 +1082,7 @@ fn capture_take(
     video_base: &Arc<AtomicU64>,
     video_anchored: &Arc<AtomicBool>,
     pause: &PauseState,
+    region_rect: Option<crate::capture::RegionRect>,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
@@ -1150,6 +1156,14 @@ fn capture_take(
         }
         match bus.try_pop() {
             Some(mut frame) => {
+                // M3: apply region crop if set.
+                if let Some(region) = region_rect {
+                    frame = crate::pipeline::apply_region_crop(frame, Some(region))
+                        .map_err(|err| {
+                            tracing::error!(%err, "region crop failed");
+                            err
+                        })?;
+                }
                 let take_last = match &mut drain_budget {
                     Some(budget) => {
                         *budget -= 1;
@@ -1561,7 +1575,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("recording starts");
         assert_eq!(info.encoder.backend, "x264");
         assert!(!info.encoder.is_hardware);
@@ -1617,13 +1631,13 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("first start");
         produce(&bus, 5, 0);
 
         // Second start while active → ipc.bad_state (API §2.3).
         let err = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .unwrap_err();
         assert_eq!(err.code(), "ipc.bad_state");
 
@@ -1654,7 +1668,7 @@ mod tests {
             let base = 1_000_000 + take * 120_000_000;
             produce(&bus, 8, base);
             let info = handle
-                .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+                .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
                 .unwrap();
             produce(&bus, 5, base + 60_000_000);
             wait_drained(&bus);
@@ -1685,7 +1699,7 @@ mod tests {
             row_note: None,
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), Some(plan))
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), Some(plan), None)
             .unwrap();
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -1716,7 +1730,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let first = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("first");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -1727,7 +1741,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let second = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("second");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -1752,7 +1766,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(4));
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("clean start");
         // No frames are ever produced: the bus stays empty the whole take.
         let err = handle
@@ -1770,7 +1784,7 @@ mod tests {
         // And the session is reusable afterwards (slot released cleanly).
         let bus = Arc::new(FrameBus::new(4));
         let next = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("session reuses the slot after a failed take");
         produce(&bus, 3, 0);
         wait_drained(&bus);
@@ -1793,7 +1807,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(8));
         let dir = tempfile::tempdir().expect("tmp dir");
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("start");
 
         // Live-source simulation: the producer runs through the whole
@@ -1916,7 +1930,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("recording starts");
 
         // Live producer: one frame every 16 ms (60 fps), like the capture.
@@ -1985,7 +1999,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("recording starts");
 
         // A frame whose size does not match the opened encoder is a
@@ -2046,7 +2060,7 @@ mod tests {
             row_note: Some(r#"{"source":"test","used":true}"#.into()),
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
             .expect("recording starts");
 
         // Live video (the §5b anchor needs a first frame) + two audio
@@ -2172,7 +2186,7 @@ mod tests {
             row_note: Some(r#"{"source":"mic","used":true}"#.into()),
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
             .expect("recording starts");
 
         // Live video + a feeder that pushes ~100 ms then drops out the
@@ -2288,7 +2302,7 @@ mod tests {
         };
         let started = Instant::now();
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
             .expect("recording starts");
 
         let keep = Arc::new(AtomicBool::new(true));
@@ -2374,7 +2388,7 @@ mod tests {
         let sink = TestSink::new();
 
         handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("recording starts");
         assert!(matches!(
             bus.try_push(synthetic_frame_dims(0, 0, W * 2, H * 2)),
@@ -2389,7 +2403,7 @@ mod tests {
 
         // The next take starts — the faulted worker was reaped.
         let next = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("the faulted take freed the slot");
         // Real frames: the zero-frame guard (capture.no_frames) must not
         // be what this test exercises — it is about slot recovery.
@@ -2434,7 +2448,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("recording starts");
 
         // Segment 1: ~1.1 s of content on the WALL clock (60 fps real
@@ -2596,7 +2610,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("recording starts");
         // Raw pts jump forward, then step BACK (a producer clock stepping
         // under NTP, or any reordered-clock pathology).
@@ -2668,6 +2682,7 @@ mod tests {
                 dir.path(),
                 sink.clone(),
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2726,7 +2741,7 @@ mod tests {
         assert_eq!(err.code(), "ipc.bad_state");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
             .expect("recording starts");
         produce(&bus, 10, 0);
 
@@ -2797,7 +2812,7 @@ mod tests {
             row_note: None,
         };
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan))
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), Some(plan), None)
             .expect("recording starts");
 
         let keep = Arc::new(AtomicBool::new(true));
@@ -2908,7 +2923,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("recording starts");
 
         // Produce ~1 s of content so elapsedMs has substance.
@@ -2977,7 +2992,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
             .expect("recording starts");
         produce(&bus, 5, 0);
         wait_drained(&bus);

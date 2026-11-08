@@ -63,6 +63,7 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
                 Action::Start {
                     source_id: None,
                     output_dir: None,
+                    region_rect: None,
                 },
             ),
             #[cfg(feature = "encode")]

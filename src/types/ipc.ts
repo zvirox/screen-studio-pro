@@ -313,6 +313,14 @@ export interface DeviceChangedEvt {
   camera: boolean;
 }
 
+/** M3: region crop rect in source coordinates. */
+export interface RegionRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /* ---------- §2.1 Sources ---------- */
 
 export type SourceKind = "monitor" | "window" | "region";
