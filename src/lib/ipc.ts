@@ -32,12 +32,7 @@ import {
     (capability rejection, unknown command) becomes the ipc fallback so
     consumers never branch on two shapes. */
 export function asIpcError(err: unknown): IpcError {
-  if (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    "userMessage" in err
-  ) {
+  if (typeof err === "object" && err !== null && "code" in err && "userMessage" in err) {
     return err as IpcError;
   }
   // Non-§1 shape — keep the cause under details for the log, copy stays human.
@@ -62,6 +57,11 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 /** `cmd://ipc_hello` — minimal handshake ping. */
 export function ipcHello(): Promise<Hello> {
   return call<Hello>("ipc_hello");
+}
+
+/** `cmd://window_hide` — guarded minimize-to-tray (API §4.1). */
+export function windowHide(recordingId?: string): Promise<{ ok: boolean }> {
+  return call("window_hide", { recordingId });
 }
 
 /** `cmd://system_capabilities` — cold-start probe (API §2.5). */
@@ -145,12 +145,9 @@ export function recordingResume(recordingId: string): Promise<RecordingPhaseRepl
 
 /** `cmd://recording_flag` (API §2.3 / flow 7.2) — append a chapter marker
     at the take's current recording-relative time; returns the marker. */
-export function recordingFlag(
-  recordingId: string,
-  label?: string
-): Promise<Chapter> {
+export function recordingFlag(recordingId: string, label?: string): Promise<Chapter> {
   return call<{ chapter: Chapter }>("recording_flag", { recordingId, label }).then(
-    (r) => r.chapter
+    (r) => r.chapter,
   );
 }
 

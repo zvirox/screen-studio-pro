@@ -1,6 +1,6 @@
 # portal-support.md — compositor quirks matrix
 
-**Status: placeholder** — populated from the first real capture runs (PLAN task 1.1+),
+**Status: partial observations** — populated from real capture runs (PLAN task 1.1+),
 growing per manual QA pass (TESTING.md §7). Manifest format: one section per
 compositor, updated in the session where the observation was made.
 
@@ -52,6 +52,54 @@ Known quirks:
 Repro of any anomaly: run 1.1's ignored manual gate (`cargo test --manifest-path src-tauri/Cargo.toml manual_consent_frame_floor -- --ignored --nocapture`) + `pw-dump --monitor` during the session; the negotiations are all in the JSON.
 
 Logged: 2026-11-01, app build 0.1.0 (task 1.1), host plasma 6 / PipeWire 1.6.11.
+
+### Task 2.6 — native tray and session lifecycle
+
+Logged: 2026-11-08, app `0.0.1-alpha.1` development build; CachyOS,
+Plasma/KWin 6.8.2, PipeWire 1.6.10, xdg-desktop-portal-kde 6.8.2.
+
+| Check | Observation |
+|---|---|
+| Titlebar hide / tray Show | Main window hides and restores. KDE exposes the labeled AppIndicator menu; `Stop & save` renders with its ampersand. |
+| Tray Start / Pause / HUD Resume | Start creates the HUD and hides main; Pause changes the menu to Resume; HUD Resume returns the running phase. |
+| Tray Stop | Main restores, HUD closes, saved toast shows `0:10`. `first-rec-4.mkv`: SQLite row 2, `ready`, 10412 ms, 1149141 bytes; ffprobe H.264 1920×1080 + AAC, 10.449 s against measured Start→Stop 10.486 s. |
+| Second take on the same source → Quit | `first-rec-5.mkv`: row 3, `ready`, 9526 ms, 533906 bytes; ffprobe H.264 1920×1080 + AAC, 9.871 s against measured Start→Quit 10.122 s. Process exited 5.870 s after Quit. |
+| Lost source while idle | Destroying only the app-owned `screen-studio-capture` PipeWire node disables tray Start. Pressing main Record is rejected with “Select a capture source before recording (or the source id changed).” No new file/index row was produced. |
+| Quit after source loss | One run exited in 0.288 s. Another, after a rejected main Record action, exceeded the 15 s exit gate and later exited on its own before a debugger attached. Replaying source loss → rejected Record → Quit under GDB exited normally in 0.049 s. Both paths removed their PipeWire client and portal source; the library remained at three rows. The earlier shutdown delay remains unresolved; the fast replay does not establish a reliable timing bound. |
+
+Two recording defects found during these checks were reproduced in Rust tests
+and fixed in `pipeline/session.rs`:
+
+- **Idle frame backlog contaminated new takes:** a short synthetic take reported
+  60066 ms because queued frames predated Start. Start now discards the bounded
+  idle backlog before handing the consumer to the recording worker. Regression
+  coverage includes first and repeated takes on the same source.
+- **Quiet video starved audio muxing:** the AAC queue was drained only when a
+  video frame arrived. Native Quit failed with “Audio writing fell too far behind
+  the recording.” Audio now drains independently of video arrivals; a synthetic
+  four-second PCM tail exceeding the bounded AAC hop verifies complete output.
+
+Earlier `first-rec-2.mkv` has an inflated 60.135 s duration and is **not** timing
+success evidence. Failed pre-fix Quit kept the app open with visible error copy.
+
+An earlier portal stream disappeared; a later graph showed a link to webcam
+node 82 (MJPG/YUY2), incompatible with the screen consumer's BGRx/BGRA offer.
+A fresh monitor selection succeeded without format changes. The cause of that
+link/session anomaly is unresolved; runtime node IDs must always be rediscovered.
+
+Evidence retained locally under `/tmp/opencode/`: `task26-fixed-live.png`,
+`task26-fixed-save.png`, `task26-lost-start-rejected.png`,
+`task26-quit-audio-error.png`, `task26-session-red.log`,
+`task26-rust-final.log`, `task26-loss-before-final.json`,
+`task26-loss-debug-before.json`, `task26-lost-start-debug.png`, and
+`task26-quit-debug-replay.log`. The replay log records the inferior exiting
+normally; GDB's exit status 1 came from its subsequent `continue` after exit.
+The earlier attach attempt (`task26-quit-hang-stacks.txt`) found no process,
+so no stack trace of the delayed shutdown was captured.
+Native actions used the real D-Bus tray menu and AT-SPI; screenshots used
+Spectacle because WebKit traversal is incomplete in `agent-desktop` here.
+These checks do not establish audible mic/system output, mute A/B, the ignored
+live-pause gate, or behavior on a compositor without a tray host.
 
 ## niri
 

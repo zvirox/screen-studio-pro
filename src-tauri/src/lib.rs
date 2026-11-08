@@ -1,3 +1,4 @@
+mod app_state;
 mod capture;
 #[cfg(feature = "encode")]
 mod encode;
@@ -5,6 +6,7 @@ mod ipc;
 mod library;
 mod pipeline;
 mod settings;
+mod tray;
 mod util;
 
 use tauri::Manager;
@@ -105,6 +107,7 @@ pub fn run() {
     #[cfg(feature = "encode")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         ipc::commands::ipc_hello,
+        ipc::commands::window_hide,
         ipc::commands::system_capabilities,
         ipc::commands::settings_get,
         ipc::commands::settings_set,
@@ -123,6 +126,7 @@ pub fn run() {
     #[cfg(not(feature = "encode"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         ipc::commands::ipc_hello,
+        ipc::commands::window_hide,
         ipc::commands::system_capabilities,
         ipc::commands::settings_get,
         ipc::commands::settings_set,
@@ -135,12 +139,32 @@ pub fn run() {
     ]);
 
     builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_window_event(|window, event| {
+            if window.label() == "main"
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+            {
+                api.prevent_close();
+                tray::close_to_tray(window.app_handle());
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event
+                && !app
+                    .state::<app_state::AppState>()
+                    .exit_allowed
+                    .load(std::sync::atomic::Ordering::Acquire)
+            {
+                api.prevent_exit();
+                app_state::dispatch(app, app_state::Action::Quit);
+            }
+        });
 }
 
 /// The `.setup` body — app-managed singletons (ARCHITECTURE §4.1).
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    app.manage(app_state::AppState::default());
     // ARCHITECTURE §4.1: settings cached in Rust at boot. A corrupt
     // or unwritable TOML must not kill the boot — fall back to
     // in-memory defaults; the Settings UI (M10) surfaces recovery.
@@ -160,6 +184,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // §2.3: the single active recording session (task 1.3).
     #[cfg(feature = "encode")]
     app.manage(pipeline::session::RecordingHandle::new());
+    if let Err(err) = tray::setup(app) {
+        // Hiding re-checks tray availability and returns typed human copy.
+        tracing::warn!(error = %err, "tray unavailable; keeping window controls reachable");
+    }
     Ok(())
 }
 

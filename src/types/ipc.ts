@@ -1,4 +1,4 @@
-/* Contract mirror of API.md v1.0.0 — the webview half of ARCHITECTURE §2's
+/* Contract mirror of API.md v1.2.0 — the webview half of ARCHITECTURE §2's
    `types/ipc.ts` ↔ `src-tauri/ipc/` pairing (TESTING §1 P1: #1 breakage risk).
    JSON-projection law (API §5.2): Rust truth is a superset — consumers must
    tolerate unknown/additional fields; this file pins the webview's subset.
@@ -6,18 +6,11 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.1.0";
+export const IPC_CONTRACT_VERSION = "1.2.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
-export type ErrorKind =
-  | "portal"
-  | "encoder"
-  | "pipewire"
-  | "capture"
-  | "disk"
-  | "settings"
-  | "ipc";
+export type ErrorKind = "portal" | "encoder" | "pipewire" | "capture" | "disk" | "settings" | "ipc";
 
 /** Serialized shape of every command failure and `*`/error event payload. */
 export interface IpcError {
@@ -30,6 +23,12 @@ export interface IpcError {
 }
 
 /* ---------- §2.5 system_capabilities / ipc_hello ---------- */
+
+/** API §4.1 — native actions report to the main window. */
+export interface ShellErrorEvt {
+  error: IpcError;
+  recordingActive: boolean;
+}
 
 export type EncoderBackend = "vaapi" | "nvenc" | "x264";
 

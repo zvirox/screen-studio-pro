@@ -11,7 +11,7 @@ import { useSspStore, type ViewId } from "./lib/store";
    phases. The session-event hook mounts once here (§4.1: the event
    stream is the state sync, so projections keep updating on any view).
    useHudWindow is the spawn side of the §5.9 HUD float: main hears
-   recording/started and opens the child (the HUD closes itself).
+   recording/started and owns the child through Stop, including late creation.
    ToastHost (§5.6, 1.7) sits above every view — faults and the saved
    toast are floatover-level surface, not view content. */
 
@@ -32,8 +32,10 @@ function ViewStub({ title, note }: { title: string; note: string }) {
 }
 
 const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
-  library: "The recordings grid lands with the library feature — seeded from the SQLite index (task 0.8).",
-  settings: "Settings panes (capture, audio, camera, files, shortcuts, about) arrive with the settings store (task 0.7).",
+  library:
+    "The recordings grid lands with the library feature — seeded from the SQLite index (task 0.8).",
+  settings:
+    "Settings panes (capture, audio, camera, files, shortcuts, about) arrive with the settings store (task 0.7).",
 };
 
 export default function App() {

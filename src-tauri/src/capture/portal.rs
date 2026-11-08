@@ -57,6 +57,10 @@ impl LiveSource for MonitorSession {
         &self.source_id
     }
 
+    fn is_live(&self) -> bool {
+        self.stream.is_live()
+    }
+
     fn stop_frames(&mut self) {
         // Stop consuming BEFORE closing the portal session so the
         // stream-error path can't race `source/lost` with a deliberate

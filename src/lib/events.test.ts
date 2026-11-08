@@ -14,6 +14,7 @@ import { EVENT_TOPICS, listenEvent } from "./events";
    `topic::` constants. */
 
 const API_MD_3_TOPICS = [
+  "shell/error",
   "recording/started",
   "recording/tick",
   "recording/meters",
@@ -45,15 +46,10 @@ describe("lib/events", () => {
   it("forwards the event payload to the handler", async () => {
     const seen: unknown[] = [];
     await listenEvent("recording/tick", (payload) => seen.push(payload));
-    const [, handler] = listenMock.mock.calls[0] as [
-      string,
-      (event: { payload: unknown }) => void,
-    ];
+    const [, handler] = listenMock.mock.calls[0] as [string, (event: { payload: unknown }) => void];
     handler({
       payload: { recordingId: "rec_01hv4", elapsedMs: 1000, state: "recording" },
     });
-    expect(seen).toEqual([
-      { recordingId: "rec_01hv4", elapsedMs: 1000, state: "recording" },
-    ]);
+    expect(seen).toEqual([{ recordingId: "rec_01hv4", elapsedMs: 1000, state: "recording" }]);
   });
 });

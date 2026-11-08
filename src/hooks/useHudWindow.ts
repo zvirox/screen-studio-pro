@@ -1,30 +1,52 @@
 import { useEffect } from "react";
-import { listenEvent } from "../lib/events";
-import { openHud } from "../lib/hudWindow";
+import { closeHud, openHud } from "../lib/hudWindow";
+import { asIpcError, windowHide } from "../lib/ipc";
+import { useSspStore } from "../lib/store";
 
-/* ARCHITECTURE §3.2 step 5 + PRD 7.1: the HUD child window is born with
-   the take. Main window owns the SPAWN (it is the app shell that starts
-   takes); the HUD owns its own death (finished/error self-close in
-   src/hud-main.tsx). Windows are app-shell, not projected state — the
-   store stays untouched. */
+/* API §4.1: one start subscription initializes the store; this hook owns
+   the child lifetime. A late spawn is destroyed instead of hiding saved
+   feedback. Rust repeats the active-id check atomically with hiding. */
 
 export function useHudWindow() {
+  const id = useSspStore((s) => s.session.recordingId);
+  const fault = useSspStore((s) => s.session.fault);
   useEffect(() => {
+    if (!id || fault) return;
     let disposed = false;
-    let un: (() => void) | undefined;
-    void listenEvent("recording/started", (evt) => {
-      void openHud(evt.recordingId);
-    }).then((fn) => {
-      // A fast unmount must not leak the subscription (§4.1 discipline).
-      if (disposed) {
-        fn();
-      } else {
-        un = fn;
-      }
-    });
+    void openHud(id)
+      .then(async () => {
+        if (!disposed && useSspStore.getState().session.recordingId === id) {
+          await windowHide(id);
+        }
+      })
+      .catch((err: unknown) => {
+        if (disposed) return;
+        const error = asIpcError(err);
+        useSspStore.getState().showError(
+          error.code === "ipc.unknown_command"
+            ? {
+                kind: "ipc",
+                code: "ipc.window_failed",
+                retryable: true,
+                userMessage:
+                  "The recording toolbar could not open. Use this window or the tray to control recording.",
+                details: null,
+              }
+            : error,
+        );
+      });
     return () => {
       disposed = true;
-      un?.();
+      void closeHud(id).catch(() =>
+        useSspStore.getState().showError({
+          kind: "ipc",
+          code: "ipc.window_failed",
+          retryable: true,
+          userMessage:
+            "The recording toolbar could not close. Use the main window or tray to continue.",
+          details: null,
+        }),
+      );
     };
-  }, []);
+  }, [id, fault]);
 }

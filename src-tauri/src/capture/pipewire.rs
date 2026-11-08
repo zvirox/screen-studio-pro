@@ -32,8 +32,10 @@ type OnLost = Box<dyn FnOnce(&str) + Send>;
 type LostSlot = Arc<std::sync::Mutex<Option<OnLost>>>;
 
 fn report_lost(slot: &LostSlot, reason: &str) {
-    let mut slot = slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(callback) = slot.take() {
+    // Publish loss before notifying readers (ARCHITECTURE §4.1). Release
+    // the lock so the callback can inspect liveness without deadlocking.
+    let callback = slot.lock().unwrap_or_else(|p| p.into_inner()).take();
+    if let Some(callback) = callback {
         callback(reason);
     }
 }
@@ -214,10 +216,18 @@ impl FrameCounting {
 pub struct StreamGuard {
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
+    lost_slot: LostSlot,
     thread: Option<JoinHandle<()>>,
 }
 
 impl StreamGuard {
+    pub fn is_live(&self) -> bool {
+        self.lost_slot
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_some()
+    }
+
     /// Frames received so far — the manual-gate hook (PLAN 1.1 verify:
     /// ≥ 1 fps). Task 1.2's frame bus becomes the real consumer, which is
     /// why the reader may look dead until then.
@@ -274,6 +284,7 @@ pub fn start(
     Ok(StreamGuard {
         stop,
         frames,
+        lost_slot,
         thread: Some(thread),
     })
 }
@@ -527,6 +538,21 @@ fn run_loop(
 mod tests {
     use super::*;
     use pw::spa::param::format::FormatProperties;
+
+    #[test]
+    fn loss_is_visible_before_the_callback_and_notified_once() {
+        let slot: LostSlot = Arc::new(std::sync::Mutex::new(None));
+        let calls = Arc::new(AtomicU64::new(0));
+        let observed = slot.clone();
+        let counted = calls.clone();
+        *slot.lock().unwrap() = Some(Box::new(move |_| {
+            assert!(observed.lock().unwrap().is_none());
+            counted.fetch_add(1, Ordering::Relaxed);
+        }));
+        report_lost(&slot, "stream failed");
+        report_lost(&slot, "disconnected");
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+    }
 
     /// The SHM contract (task 1.5, zero-frame take fix): KWin's
     /// screencast negotiation allocates DMABUF buffers whenever the

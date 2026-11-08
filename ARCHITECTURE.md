@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — ScreenStudio Pro
 
-**Version:** 1.0 · **Authority chain:** PRD.md (scope) → ARCHITECTURE.md (structure) → DESIGN.md (UI law)
+**Version:** 1.1 · **Authority chain:** PRD.md (scope) → ARCHITECTURE.md (structure) → DESIGN.md (UI law)
 **Rules applied:** simple, popular, well-documented tools only. No code in this file. MVP scope only (recording), with named seams for V2 streaming and the scene compositor — seams, not scaffolding.
 
 ---
@@ -70,6 +70,7 @@ screen-studio-pro/
     └── src/
         ├── main.rs                 # binary entry: builds Tauri app, binds commands
         ├── app_state.rs            # Owned AppState (recording controller handle, settings cache)
+        ├── tray.rs                 # Native tray menu + main-window visibility; delegates lifecycle to app_state
         ├── settings/
         │   ├── mod.rs              # load/save TOML config, Zod-equivalent validation
         │   └── defaults.rs         # first-run defaults (PRD G3: 60s-to-first-recording)
@@ -199,6 +200,21 @@ None of the network kind. "Third-party" for MVP = **system services**: xdg-deskt
 | Ephemeral UI (panel open, PiP position, popover open, drag ghosts) | **React/Zustand** | Never round-trips to Rust; persisted only where DESIGN.md says (PiP position) via `invoke("set_ui_pref")` |
 
 Principles: Rust is the single source of truth for anything hardware-related; the webview store is a **projection with a schema**, not a peer. Events are the only crossing for streaming data; commands are the only crossing for mutations. No shared mutable state over IPC.
+
+Task 2.6: `app_state.rs` serializes recording actions from IPC, the native tray,
+and Quit on a blocking worker (never the GUI thread). Stop and Quit share the
+same flush → library upsert → finished-event path. A failed index write retains
+the finalized take for retry; Quit reports failure and keeps the app open.
+`tray.rs` owns native menu handles. Hiding requires an available tray host;
+automatic hiding additionally follows successful HUD creation for the current
+take. Stop/failure restores the main window. Closing the main window hides it;
+explicit Quit finalizes before exiting. `recording/started` initializes the
+frontend projection even when the tray initiated the recording.
+Main owns HUD teardown as well as creation, so Stop cannot leave a late-created
+toolbar orphaned. Source release uses the same lifecycle lock as tray Start.
+Stream loss invalidates Start readiness before notifying the tray; the source
+handle remains owned for release/Quit cleanup, including loss before selection
+finishes committing.
 
 ### 4.2 Error-handling strategy (layered)
 1. **Rust:** every module returns typed `CoreError` (thiserror): `Portal{...}`, `Encoder{...}`, `PipeWire{...}`, `Disk{...}`, `Settings{...}`. Bubble to command boundary; never `.unwrap()` outside tests; tracing captures full context (`span`s per session).

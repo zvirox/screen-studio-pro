@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  INITIAL_SESSION,
-  INITIAL_SOURCE,
-  INITIAL_TOASTS,
-  useSspStore,
-} from "./store";
+import { INITIAL_SESSION, INITIAL_SOURCE, INITIAL_TOASTS, useSspStore } from "./store";
 import type {
   AudioListDevicesReply,
   IpcError,
@@ -26,7 +21,16 @@ vi.mock("./ipc", async (importOriginal) => ({
   audioListDevices: vi.fn(),
 }));
 
-import { recordingStart, recordingStop, recordingPause, recordingResume, settingsGet, audioSetChannel, audioListDevices, sourceSelect } from "./ipc";
+import {
+  recordingStart,
+  recordingStop,
+  recordingPause,
+  recordingResume,
+  settingsGet,
+  audioSetChannel,
+  audioListDevices,
+  sourceSelect,
+} from "./ipc";
 const mockedSelect = vi.mocked(sourceSelect);
 const mockedStart = vi.mocked(recordingStart);
 const mockedStop = vi.mocked(recordingStop);
@@ -105,6 +109,55 @@ function recordingSession() {
     },
   });
 }
+
+describe("tray and IPC ordering (API §4.1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSspStore.setState({ source: INITIAL_SOURCE, session: INITIAL_SESSION, ...INITIAL_TOASTS });
+  });
+
+  const started = { ...START_REPLY, encoder: "x264" };
+
+  it("projects tray start without a command and ignores duplicate start resets", () => {
+    useSspStore.getState().onStarted(started);
+    useSspStore
+      .getState()
+      .onTick({ recordingId: started.recordingId, elapsedMs: 2000, state: "paused" });
+    useSspStore.getState().onStarted(started);
+    expect(useSspStore.getState().session).toMatchObject({
+      recordingId: started.recordingId,
+      elapsedMs: 2000,
+      paused: true,
+    });
+    expect(mockedStart).not.toHaveBeenCalled();
+  });
+
+  it("does not resurrect a stopped take from a late start reply", async () => {
+    liveSource();
+    let resolve!: (reply: RecordingStartReply) => void;
+    mockedStart.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    const pending = useSspStore.getState().startRecording();
+    useSspStore.getState().onStarted(started);
+    useSspStore.getState().onShellError({ error: STREAM_LOST, recordingActive: false });
+    resolve(START_REPLY);
+    await pending;
+    expect(useSspStore.getState().session).toEqual(INITIAL_SESSION);
+  });
+
+  it("preserves live native failures and deduplicates stop fault feedback", () => {
+    recordingSession();
+    useSspStore.getState().onSessionError(STREAM_LOST);
+    useSspStore.getState().onShellError({ error: STREAM_LOST, recordingActive: true });
+    expect(useSspStore.getState().session.recordingId).toBe(START_REPLY.recordingId);
+    useSspStore.getState().onShellError({ error: STREAM_LOST, recordingActive: false });
+    expect(useSspStore.getState().session).toEqual(INITIAL_SESSION);
+    expect(useSspStore.getState().toasts).toHaveLength(1);
+  });
+});
 
 describe("source slice (§6.1 monitor chip)", () => {
   beforeEach(() => {
@@ -338,9 +391,7 @@ describe("pause/resume (2.3, API §2.3)", () => {
     await useSspStore.getState().pauseRecording();
     const s = useSspStore.getState();
     expect(s.session.paused).toBe(false);
-    expect(
-      s.toasts.some((t) => t.kind === "error" && t.code === "ipc.bad_state"),
-    ).toBe(true);
+    expect(s.toasts.some((t) => t.kind === "error" && t.code === "ipc.bad_state")).toBe(true);
   });
 
   it("resumeRecording invokes §2.3 and flips paused off", async () => {
@@ -372,9 +423,7 @@ describe("pause/resume (2.3, API §2.3)", () => {
     await useSspStore.getState().resumeRecording();
     const s = useSspStore.getState();
     expect(s.session.paused).toBe(true);
-    expect(
-      s.toasts.some((t) => t.kind === "error" && t.code === "ipc.bad_state"),
-    ).toBe(true);
+    expect(s.toasts.some((t) => t.kind === "error" && t.code === "ipc.bad_state")).toBe(true);
   });
 });
 
@@ -699,5 +748,3 @@ describe("audio slice (§6.1 #3 strip; 2.2)", () => {
     });
   });
 });
-
-

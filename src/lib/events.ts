@@ -11,16 +11,18 @@ import type {
   RecordingStatsEvt,
   RecordingTickEvt,
   SourceLostEvt,
+  ShellErrorEvt,
 } from "../types/ipc";
 
 /* Typed listeners for Tauri events — the single subscription source
    (ARCHITECTURE §2; API §3: the webview subscribes through here exactly
    once per topic). Topic→payload map mirrors src-tauri/ipc/events.rs. */
 
-/** The ten API.md §3 topics — the runtime twin of the Rust
+/** The API.md topics — the runtime twin of the Rust
     `src-tauri/ipc/events.rs::topic` constants (bare `domain/verb` names:
     the `evt://` prefix is documentation addressing). */
 export const EVENT_TOPICS = [
+  "shell/error",
   "recording/started",
   "recording/tick",
   "recording/meters",
@@ -34,6 +36,7 @@ export const EVENT_TOPICS = [
 ] as const;
 
 export interface EventMap {
+  "shell/error": ShellErrorEvt;
   "recording/started": RecordingStartedEvt;
   "recording/tick": RecordingTickEvt;
   "recording/meters": RecordingMetersEvt;
@@ -51,12 +54,13 @@ export interface EventMap {
     webview would never hear about it. The symmetric difference must be
     empty; on a mismatch this type is `never` and the guard below fails
     to compile. */
-export type EventTopicsInSync = Exclude<
-  (typeof EVENT_TOPICS)[number] | keyof EventMap,
-  (typeof EVENT_TOPICS)[number] & keyof EventMap
-> extends never
-  ? true
-  : never;
+export type EventTopicsInSync =
+  Exclude<
+    (typeof EVENT_TOPICS)[number] | keyof EventMap,
+    (typeof EVENT_TOPICS)[number] & keyof EventMap
+  > extends never
+    ? true
+    : never;
 
 /** `true` when the runtime topic list and the typed map name exactly the
     same topics — see `EventTopicsInSync`. */

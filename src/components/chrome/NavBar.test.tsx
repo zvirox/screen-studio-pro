@@ -1,18 +1,39 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NavBar from "./NavBar";
 import { useSspStore } from "../../lib/store";
+import type * as ipcModule from "../../lib/ipc";
 
-vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ minimize: vi.fn().mockResolvedValue(undefined) }),
+vi.mock("../../lib/ipc", async (original) => ({
+  ...(await original<typeof ipcModule>()),
+  windowHide: vi.fn(),
 }));
+import { windowHide } from "../../lib/ipc";
 
 /* §5.8 NavBar contract: segmented pill switches views · Stream permanently
    disabled with V2 badge · §7.3 arrow-key roving skips disabled pills. */
 
 describe("NavBar (§5.8)", () => {
   beforeEach(() => {
-    useSspStore.setState({ view: "record" });
+    vi.clearAllMocks();
+    useSspStore.setState({ view: "record", toasts: [] });
+  });
+
+  it("routes X through guarded hide and renders a tray failure", async () => {
+    vi.mocked(windowHide).mockRejectedValue({
+      kind: "ipc",
+      code: "ipc.tray_unavailable",
+      retryable: true,
+      userMessage: "Keep this window open.",
+      details: null,
+    });
+    render(<NavBar />);
+    const button = screen.getByRole("button", { name: "Minimize" });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    await waitFor(() => expect(button).not.toBeDisabled());
+    expect(windowHide).toHaveBeenCalledWith();
+    expect(useSspStore.getState().toasts[0].title).toBe("Keep this window open.");
   });
 
   it("renders the four segments with roles and labels", () => {
@@ -23,10 +44,7 @@ describe("NavBar (§5.8)", () => {
 
   it("marks Record active by default and Stream never active", () => {
     render(<NavBar />);
-    expect(screen.getByRole("tab", { name: "Record" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Record" })).toHaveAttribute("aria-selected", "true");
     const stream = screen.getByRole("tab", { name: /Stream/ });
     expect(stream).toBeDisabled();
     expect(stream).toHaveAttribute("aria-selected", "false");

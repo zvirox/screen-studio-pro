@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import HudBar from "./components/huds/HudBar";
 import { listenEvent } from "./lib/events";
 import { useSspStore } from "./lib/store";
@@ -24,19 +23,12 @@ if (recordingId) {
   }));
 }
 
-/* The HUD subscribes to the tick stream itself (it is a second projection
-   surface, hooks/useRecordingState's routing duplicated for a child
-   window) plus its own death subscription: finished/error close the
-   window — the spawn is main-side (hooks/useHudWindow), the death is
-   HUD-side; windows never reach across to close each other. */
+/* Main owns the HUD lifetime, including Stop during webview creation.
+   This window consumes ticks as a second projection surface only. */
 let disposed = false;
 const unlistens: Array<() => void> = [];
 
-void Promise.all([
-  listenEvent("recording/tick", useSspStore.getState().onTick),
-  listenEvent("recording/finished", () => void getCurrentWindow().close()),
-  listenEvent("recording/error", () => void getCurrentWindow().close()),
-]).then((fns) => {
+void Promise.all([listenEvent("recording/tick", useSspStore.getState().onTick)]).then((fns) => {
   // A fast close must not leak listeners subscribed after disposal.
   if (disposed) {
     for (const fn of fns) fn();

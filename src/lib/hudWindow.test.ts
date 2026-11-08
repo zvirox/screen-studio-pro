@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /* Mock BEFORE the import: the harness never talks to a real webview
    (§1: frontend unit layer drives fakes, never Tauri). */
 const constructed: Array<{ label: string; opts?: Record<string, unknown> }> = [];
-const existingWindows = new Map<string, { close: () => Promise<void> }>();
+const existingWindows = new Map<string, { destroy: () => Promise<void> }>();
+const handlers = new Map<string, () => void>();
+let autoCreate = true;
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   WebviewWindow: class {
@@ -16,8 +18,14 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
     static async getByLabel(label: string) {
       return existingWindows.get(label) ?? null;
     }
-    once() {
-      return this;
+    async destroy() {
+      existingWindows.delete("hud");
+      handlers.get("tauri://destroyed")?.();
+    }
+    async once(event: string, handler: () => void) {
+      handlers.set(event, handler);
+      if (event === "tauri://created" && autoCreate) queueMicrotask(handler);
+      return () => {};
     }
   },
 }));
@@ -26,7 +34,7 @@ vi.mock("@tauri-apps/api/window", () => ({
   currentMonitor: vi.fn(),
 }));
 
-import { openHud, _resetLiveForTests } from "./hudWindow";
+import { openHud, closeHud, _resetLiveForTests } from "./hudWindow";
 import { currentMonitor, type Monitor } from "@tauri-apps/api/window";
 const mockedMonitor = vi.mocked(currentMonitor);
 
@@ -38,6 +46,8 @@ describe("openHud (lib/hudWindow)", () => {
     vi.clearAllMocks();
     constructed.length = 0;
     existingWindows.clear();
+    handlers.clear();
+    autoCreate = true;
     _resetLiveForTests();
     mockedMonitor.mockResolvedValue({
       name: null,
@@ -81,15 +91,45 @@ describe("openHud (lib/hudWindow)", () => {
     expect(constructed[0].opts?.x).toBeUndefined();
   });
 
-  it("is a no-op while a hud window already exists", async () => {
-    existingWindows.set("hud", { close: async () => {} });
+  it("replaces an orphan from a previous take", async () => {
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    existingWindows.set("hud", { destroy });
     await openHud("rec_01HV3");
-    expect(constructed).toHaveLength(0);
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(constructed).toHaveLength(1);
   });
 
   it("serializes concurrent spawns — React's dev double-effect cannot race two windows", async () => {
-    await Promise.all([openHud("rec_01"), openHud("rec_02")]);
+    await Promise.all([openHud("rec_01"), openHud("rec_01")]);
     expect(constructed).toHaveLength(1);
     expect(constructed[0].label).toBe("hud");
+  });
+
+  it("waits for created and serializes Stop behind pending creation", async () => {
+    autoCreate = false;
+    const opened = vi.fn();
+    const opening = openHud("rec_1").then(opened);
+    await vi.waitFor(() => expect(handlers.has("tauri://created")).toBe(true));
+    const closing = closeHud("rec_1");
+    expect(opened).not.toHaveBeenCalled();
+    handlers.get("tauri://created")?.();
+    await Promise.all([opening, closing]);
+    expect(existingWindows.size).toBe(0);
+  });
+
+  it("rejects creation errors and lets the next take create a HUD", async () => {
+    autoCreate = false;
+    const opening = openHud("rec_1");
+    const rejected = expect(opening).rejects.toThrow("HUD creation failed");
+    await vi.waitFor(() => expect(handlers.has("tauri://error")).toBe(true));
+    existingWindows.clear();
+    handlers.get("tauri://error")?.();
+    await rejected;
+    autoCreate = true;
+    await openHud("rec_2");
+    await closeHud("rec_1");
+    expect(existingWindows.size).toBe(1);
+    await closeHud("rec_2");
+    expect(existingWindows.size).toBe(0);
   });
 });

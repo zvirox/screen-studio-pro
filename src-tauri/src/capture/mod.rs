@@ -77,6 +77,8 @@ pub struct SourceSelected {
 #[async_trait::async_trait]
 pub trait LiveSource: Send {
     fn source_id(&self) -> &str;
+    /// A lost stream retains its teardown handle, but cannot start a take.
+    fn is_live(&self) -> bool;
     /// End frame consumption (sync — joins the PipeWire data thread).
     fn stop_frames(&mut self);
     /// Close the portal session itself (async, best-effort).
@@ -121,6 +123,17 @@ enum Slot {
 }
 
 impl CaptureHandle {
+    pub fn is_ready(&self) -> bool {
+        matches!(&*self.locked(), Slot::Active(source) if source.is_live())
+    }
+
+    pub fn active_id(&self) -> Option<String> {
+        match &*self.locked() {
+            Slot::Active(source) => Some(source.source_id().to_string()),
+            _ => None,
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             slot: Mutex::new(Slot::Free),
@@ -195,7 +208,7 @@ impl CaptureHandle {
     pub fn active_info(&self) -> Option<ActiveCaptureInfo> {
         let slot = self.locked();
         match &*slot {
-            Slot::Active(source) => Some(ActiveCaptureInfo {
+            Slot::Active(source) if source.is_live() => Some(ActiveCaptureInfo {
                 source_id: source.source_id().to_owned(),
                 frame_bus: source.frame_bus(),
                 geometry: source.geometry(),
@@ -255,6 +268,9 @@ mod tests {
         fn source_id(&self) -> &str {
             &self.id
         }
+        fn is_live(&self) -> bool {
+            !self.stopped.load(Ordering::Relaxed)
+        }
         fn stop_frames(&mut self) {
             self.stopped.store(true, Ordering::Relaxed);
         }
@@ -270,6 +286,29 @@ mod tests {
             },
             stopped,
         )
+    }
+
+    #[test]
+    fn lost_sources_are_not_ready_but_remain_releasable() {
+        for lost_before_commit in [false, true] {
+            let handle = CaptureHandle::new();
+            assert!(!handle.is_ready());
+            handle.begin().unwrap();
+            assert!(!handle.is_ready());
+            let (source, lost) = fake("src_lost");
+            lost.store(lost_before_commit, Ordering::Relaxed);
+            handle.commit(Box::new(source));
+            assert_eq!(handle.is_ready(), !lost_before_commit);
+            lost.store(true, Ordering::Relaxed);
+            assert!(!handle.is_ready());
+            #[cfg(feature = "encode")]
+            assert!(handle.active_info().is_none());
+            assert_eq!(handle.active_id().as_deref(), Some("src_lost"));
+            assert!(handle.take("src_lost").unwrap().is_some());
+            handle
+                .begin()
+                .expect("a new selection is possible after release");
+        }
     }
 
     #[test]

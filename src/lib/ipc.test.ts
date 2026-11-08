@@ -5,7 +5,20 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
-import { asIpcError, ipcHello, isContractMatch, prefsGet, prefsSet, recordingStart, recordingStop, settingsGet, settingsSet, sourceRelease, sourceSelect, systemCapabilities } from "./ipc";
+import {
+  asIpcError,
+  ipcHello,
+  isContractMatch,
+  prefsGet,
+  prefsSet,
+  recordingStart,
+  recordingStop,
+  settingsGet,
+  settingsSet,
+  sourceRelease,
+  sourceSelect,
+  systemCapabilities,
+} from "./ipc";
 import { IPC_CONTRACT_VERSION } from "../types/ipc";
 
 /* Contract tests against mock IPC (TESTING §1 P1) — the lib/ipc.ts ↔
@@ -21,7 +34,11 @@ describe("lib/ipc", () => {
   });
 
   it("systemCapabilities calls the probe verb", async () => {
-    invokeMock.mockResolvedValue({ encoders: [], portal: {}, version: { app: "0.0.1-alpha.1", ipcContract: "1.0.0" } });
+    invokeMock.mockResolvedValue({
+      encoders: [],
+      portal: {},
+      version: { app: "0.0.1-alpha.1", ipcContract: "1.0.0" },
+    });
     await systemCapabilities();
     expect(invokeMock).toHaveBeenCalledWith("system_capabilities");
   });
@@ -47,7 +64,10 @@ describe("lib/ipc", () => {
   });
 
   it("prefsGet/prefsSet address the ui_prefs verbs (API §2.6)", async () => {
-    invokeMock.mockResolvedValueOnce({ key: "pip.position", value: "corner:bottom-right,margin:24" });
+    invokeMock.mockResolvedValueOnce({
+      key: "pip.position",
+      value: "corner:bottom-right,margin:24",
+    });
     await expect(prefsGet("pip.position")).resolves.toEqual({
       key: "pip.position",
       value: "corner:bottom-right,margin:24",
@@ -78,7 +98,13 @@ describe("lib/ipc", () => {
   });
 
   it("sourceSelect forwards a monitor label target as the hint", async () => {
-    invokeMock.mockResolvedValueOnce({ sourceId: "src_x", kind: "monitor", label: "Monitor (1920×1080)", capabilities: { fps: 60, width: 1920, height: 1080, cursor: true, region: true }, preview: { mode: "stills_jpeg", fps: 8 } });
+    invokeMock.mockResolvedValueOnce({
+      sourceId: "src_x",
+      kind: "monitor",
+      label: "Monitor (1920×1080)",
+      capabilities: { fps: 60, width: 1920, height: 1080, cursor: true, region: true },
+      preview: { mode: "stills_jpeg", fps: 8 },
+    });
     await sourceSelect("monitor", "DP-1");
     expect(invokeMock).toHaveBeenCalledWith("source_select", { kind: "monitor", target: "DP-1" });
   });
@@ -155,8 +181,8 @@ describe("lib/ipc", () => {
   });
 
   it("pins the webview contract version (API §5.1)", () => {
-    expect(IPC_CONTRACT_VERSION).toBe("1.1.0");
-    expect(isContractMatch("1.1.0")).toBe(true);
+    expect(IPC_CONTRACT_VERSION).toBe("1.2.0");
+    expect(isContractMatch("1.2.0")).toBe(true);
     expect(isContractMatch("1.0.0")).toBe(false);
     expect(isContractMatch("2.0.0")).toBe(false);
   });

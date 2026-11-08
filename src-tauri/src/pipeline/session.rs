@@ -713,6 +713,13 @@ impl RecordingHandle {
         // 2.3: the pause gate is born with the take; the ipc layer holds
         // a clone on ActiveRecording, both workers hold their own.
         let pause = PauseState::new(wall_us());
+        // ARCHITECTURE §6: the portal keeps producing between takes. Drop
+        // the bounded idle backlog before handing this sole consumer slot
+        // to the new worker, or old frames anchor the new A/V clock in the
+        // previous take. Never drain-until-empty against a live producer.
+        for _ in 0..bus.len() {
+            let _ = bus.try_pop();
+        }
         let (audio_tx, audio_rx) = mpsc::sync_channel::<AudioMsg>(64);
         let ctx = SessionContext {
             recording_id: recording_id.clone(),
@@ -852,6 +859,17 @@ impl RecordingHandle {
             return Err(bad_state("The recording is already paused."));
         }
         Ok(())
+    }
+
+    /// Shell snapshot, read on the serialized lifecycle worker; no UI polling.
+    pub fn snapshot(&self) -> Option<(String, bool, bool)> {
+        self.locked().as_ref().map(|active| {
+            (
+                active.recording_id.clone(),
+                active.pause.active.load(Ordering::Acquire),
+                active.ended.load(Ordering::Acquire),
+            )
+        })
     }
 
     /// 2.3 (API §2.3): leave the pause. `ipc.bad_state` when nothing is
@@ -1101,6 +1119,19 @@ fn capture_take(
             stats_window = Instant::now();
             ctx.events.emit(SessionEvent::Stats(snapshot));
         }
+        // ARCHITECTURE §6: a quiet/paused video source must not starve the
+        // bounded audio hop. Per-stream monotonic PTS permits independent
+        // writes; the post-loop drain still includes the codec's tail.
+        if let Some(leg) = audio_leg.as_mut() {
+            while let Ok(msg) = leg.packets.try_recv() {
+                match msg {
+                    AudioMsg::Packets(audio_packets) => mux.write(&audio_packets)?,
+                    AudioMsg::Fault(err) => {
+                        audio_fault.get_or_insert(err);
+                    }
+                }
+            }
+        }
         // Latch FIRST, every iteration: the take ends when Stop was
         // pressed (bounded stop latency), NOT whenever the encoder
         // catches up — with a live producer the ring refills faster
@@ -1179,21 +1210,6 @@ fn capture_take(
                 let encode_time = encode_started.elapsed();
                 let encoded_bytes: usize = packets.iter().map(|packet| packet.data.len()).sum();
                 mux.write(&packets)?;
-                // The audio hop rides along: non-blocking pull of what
-                // has arrived since the last frame. Matroska needs only
-                // PER-STREAM monotonic pts, so AAC landing slightly
-                // behind the video writes is harmless; the post-loop
-                // drain catches the tail (§5b, one pre-mixed track).
-                if let Some(leg) = audio_leg.as_mut() {
-                    while let Ok(msg) = leg.packets.try_recv() {
-                        match msg {
-                            AudioMsg::Packets(audio_packets) => mux.write(&audio_packets)?,
-                            AudioMsg::Fault(err) => {
-                                audio_fault.get_or_insert(err);
-                            }
-                        }
-                    }
-                }
                 meter.record_frame(encoded_bytes, encode_time);
                 frames += 1;
                 info_frames += 1;
@@ -1628,6 +1644,72 @@ mod tests {
     }
 
     #[test]
+    fn idle_frames_do_not_extend_first_or_repeated_takes() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().unwrap();
+        for take in 0..2 {
+            // The live portal fills this same bus between takes. Those
+            // frames predate Start and must not become the new A/V anchor.
+            let base = 1_000_000 + take * 120_000_000;
+            produce(&bus, 8, base);
+            let info = handle
+                .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None)
+                .unwrap();
+            produce(&bus, 5, base + 60_000_000);
+            wait_drained(&bus);
+            let outcome = handle.stop(&info.recording_id).unwrap().unwrap();
+            assert!(
+                (60..=80).contains(&outcome.duration_ms),
+                "idle frames extended take {take}: {} ms",
+                outcome.duration_ms
+            );
+            let mut input = ff::format::input(&outcome.path).unwrap();
+            assert_eq!(input.packets().count(), 5, "only post-Start frames belong");
+        }
+    }
+
+    #[test]
+    fn audio_keeps_muxing_when_the_video_source_is_quiet() {
+        let handle = RecordingHandle::new();
+        let bus = Arc::new(FrameBus::new(8));
+        let dir = tempfile::tempdir().unwrap();
+        let ring = Arc::new(crate::pipeline::AudioRing::new(1 << 19));
+        let plan = AudioPlan {
+            producers: vec![],
+            channels: vec![MixSource {
+                ring: ring.clone(),
+                gain: 1.0,
+                channel: crate::capture::audio::AudioChannel::Mic,
+            }],
+            row_note: None,
+        };
+        let info = handle
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), Some(plan))
+            .unwrap();
+        produce(&bus, 5, 0);
+        wait_drained(&bus);
+        // Four seconds of PCM exceeds the 64-message AAC hop. A static
+        // desktop delivers no more video, but audio still needs muxing.
+        let samples = vec![0.25; 48_000 * 2 * 4];
+        assert_eq!(ring.try_push(&samples), samples.len() / 2);
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !ring.is_empty() && Instant::now() < deadline {
+            std::thread::sleep(IDLE_POLL);
+        }
+        let outcome = handle
+            .stop(&info.recording_id)
+            .unwrap()
+            .expect("audio must not backlog waiting for a video frame");
+        let mut input = ff::format::input(&outcome.path).unwrap();
+        let audio_packets = input
+            .packets()
+            .filter(|(stream, _)| stream.parameters().medium() == ff::media::Type::Audio)
+            .count();
+        assert!(audio_packets >= 188, "the complete AAC tail must survive");
+    }
+
+    #[test]
     fn second_take_gets_first_rec_2_not_an_overwrite() {
         let handle = RecordingHandle::new();
         let dir = tempfile::tempdir().expect("tmp dir");
@@ -1975,9 +2057,11 @@ mod tests {
             let keep = keep.clone();
             std::thread::spawn(move || {
                 let mut n = 0u64;
-                let t0 = Instant::now();
                 while keep.load(Ordering::Acquire) {
-                    let pts = t0.elapsed().as_micros() as u64;
+                    // Match the real capture clock. An elapsed first PTS
+                    // happened to be 0 on fast runs, but 1 µs on others
+                    // was incorrectly compared with epoch-based audio.
+                    let pts = wall_us();
                     match bus.try_push(synthetic_frame(n % 1_000, pts)) {
                         crate::pipeline::Push::Pushed => {}
                         crate::pipeline::Push::Full(_) => bus.mark_dropped(),

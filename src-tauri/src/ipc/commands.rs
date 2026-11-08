@@ -14,7 +14,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.1.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.2.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -28,6 +28,31 @@ pub fn ipc_hello() -> Hello {
     Hello {
         ipc_contract: IPC_CONTRACT_VERSION,
     }
+}
+
+/// API §4.1: automatic hiding is guarded against stale HUD creation.
+#[tauri::command]
+pub async fn window_hide(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    recording_id: Option<String>,
+) -> Result<Value, IpcError> {
+    if window.label() != "main" {
+        return Err(CoreError::ipc(
+            "ipc.bad_state",
+            false,
+            "Only the main window can hide itself.",
+        )
+        .into());
+    }
+    let host = crate::tray::host_available().await;
+    crate::app_state::run(
+        app,
+        crate::app_state::Action::Hide { recording_id, host },
+        false,
+    )
+    .await
+    .map_err(Into::into)
 }
 
 /* ---------- system_capabilities (API §2.5) ---------- */
@@ -208,6 +233,7 @@ pub async fn source_select(
     let app_for_lost = app.clone();
     let on_lost = move |reason: &str| {
         tracing::error!(source = %lost_id, reason, "capture source lost");
+        crate::app_state::dispatch(&app_for_lost, crate::app_state::Action::Refresh);
         let _ = super::events::emit(
             &app_for_lost,
             super::events::topic::SOURCE_LOST,
@@ -223,6 +249,7 @@ pub async fn source_select(
         Ok((session, reply)) => {
             let reply = serde_json::to_value(&reply).expect("§2.1 reply is plain JSON");
             capture_state.commit(Box::new(session));
+            crate::app_state::dispatch(&app, crate::app_state::Action::Refresh);
             Ok(reply)
         }
         Err(err) => {
@@ -237,15 +264,10 @@ pub async fn source_select(
 /// for a still-starting or different active session (the recording-active
 /// check joins with task 1.4's session guard).
 #[tauri::command]
-pub async fn source_release(
-    source_id: String,
-    capture_state: State<'_, CaptureHandle>,
-) -> Result<Value, IpcError> {
-    if let Some(mut session) = capture_state.take(&source_id).map_err(|err| err.to_ipc())? {
-        session.stop_frames();
-        session.close().await;
-    }
-    Ok(serde_json::json!({ "ok": true }))
+pub async fn source_release(source_id: String, app: tauri::AppHandle) -> Result<Value, IpcError> {
+    crate::app_state::run(app, crate::app_state::Action::Release(source_id), false)
+        .await
+        .map_err(Into::into)
 }
 
 fn capture_invalid_kind() -> CoreError {
@@ -312,102 +334,6 @@ pub fn audio_set_channel(
 
 /* ---------- recording session (API §2.3, task 1.3) ---------- */
 
-/// The canonical `ipc.bad_state` producer — 409-class conflicts of the
-/// recording/session state machine (codes are add-only, API §1).
-#[cfg(feature = "encode")]
-fn bad_state(message: &'static str) -> CoreError {
-    CoreError::ipc("ipc.bad_state", false, message)
-}
-
-/// The take's audio plan from the SETTINGS SNAPSHOT (2.1): every enabled
-/// channel becomes one capture producer + one mix source, gains snapped
-/// at `recording_start` (the config-snapshot law — a mid-take settings
-/// change cannot reshape a running take; live retune is a deferred PLAN
-/// task). `None` = video-only take. A capture start failure is fatal
-/// for the start (typed, before any media flows).
-///
-/// Zero-gain law: a MUTED channel still captures (and drains) but mixes
-/// at gain 0 — dropping the capture would lose the device handshake and
-/// turn unmute into a mid-take reconnection problem; §6 counts every
-/// dropped sample as data loss.
-#[cfg(feature = "encode")]
-fn build_audio_plan(
-    audio: &crate::settings::Audio,
-) -> Result<Option<crate::pipeline::session::AudioPlan>, CoreError> {
-    use crate::capture::audio::{AudioChannel, ChannelConfig, OnLost, start_desktop, start_mic};
-    use crate::pipeline::audio::{AudioRing, DEFAULT_RING_CAPACITY, MixSource};
-
-    // Device-lost law (API §3): the ring's disable IS the lost signal —
-    // the audio worker's is_disabled() poll renders the ONE non-fatal
-    // event. This callback only logs; the user-facing copy lives in the
-    // worker's typed event. OnLost is FnOnce → a fresh closure per start.
-    let on_lost = || -> OnLost {
-        Box::new(|reason: &str| {
-            tracing::error!(reason, "audio capture source lost");
-        })
-    };
-
-    let mut producers = Vec::new();
-    let mut channels = Vec::new();
-
-    if audio.mic_enabled {
-        let config = ChannelConfig {
-            channel: AudioChannel::Mic,
-            enabled: true,
-            muted: audio.mic_muted,
-            device_id: audio.mic_device_id.clone(),
-            level: audio.mic_level,
-        };
-        let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
-        producers.push(start_mic(&config, ring.clone(), on_lost())?);
-        channels.push(MixSource {
-            ring,
-            gain: if audio.mic_muted {
-                0.0
-            } else {
-                crate::capture::audio::channel_gain(audio.mic_level)
-            },
-            channel: AudioChannel::Mic,
-        });
-    }
-    if audio.desktop_audio {
-        let config = ChannelConfig {
-            channel: AudioChannel::Desktop,
-            enabled: true,
-            muted: audio.desktop_muted,
-            device_id: audio.desktop_device_id.clone(),
-            level: audio.desktop_level,
-        };
-        let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
-        producers.push(start_desktop(&config, ring.clone(), on_lost())?);
-        channels.push(MixSource {
-            ring,
-            gain: if audio.desktop_muted {
-                0.0
-            } else {
-                crate::capture::audio::channel_gain(audio.desktop_level)
-            },
-            channel: AudioChannel::Desktop,
-        });
-    }
-
-    if channels.is_empty() {
-        return Ok(None);
-    }
-    // DATABASE §2.1 audio_json — the row's audio fact, rendered from the
-    // SAME snapshot that built the plan (used = actually recorded).
-    let row_note = serde_json::json!([
-        { "source": "mic", "device": audio.mic_device_id, "used": audio.mic_enabled },
-        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio },
-    ])
-    .to_string();
-    Ok(Some(crate::pipeline::session::AudioPlan {
-        producers,
-        channels,
-        row_note: Some(row_note),
-    }))
-}
-
 /// `cmd://recording_start` (API §2.3) — wire source→bus→encode→mux for
 /// the active monitor source. Thin by tree law: state checks here, the
 /// whole pipeline dance lives in pipeline/session.rs. Task 1.3 scope
@@ -427,54 +353,18 @@ pub async fn recording_start(
     preset_id: Option<String>,
     output_dir: Option<String>,
     app: tauri::AppHandle,
-    capture_state: State<'_, CaptureHandle>,
-    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
-    store: State<'_, Mutex<SettingsStore>>,
 ) -> Result<Value, IpcError> {
     let _ = (region_rect, audio, camera_id, preset_id); // 1.3 scope note
-    let Some(source) = capture_state
-        .active_info()
-        .filter(|active| active.source_id == source_id)
-    else {
-        return Err(bad_state(
-            "Select a capture source before recording (or the source id changed).",
-        )
-        .into());
-    };
-    let Some(bus) = source.frame_bus else {
-        return Err(bad_state("The active source does not produce a recording stream.").into());
-    };
-
-    // outputDir from the caller, else the default Videos dir (PRD M9).
-    let dir = match output_dir {
-        Some(dir) => std::path::PathBuf::from(dir),
-        None => crate::util::paths::videos_dir(),
-    };
-
-    // The session's event stream (API §3): the pipeline stays
-    // Tauri-agnostic — the IPC layer injects the Tauri-backed sink.
-    let events = std::sync::Arc::new(super::events::TauriEventSink::new(app.clone()));
-    // 2.1: the audio plan comes from the SETTINGS SNAPSHOT (the request
-    // body's `audio` field stays contract-shaped-but-not-honored — API
-    // §2.3 note). A capture start failure is fatal for the take: typed,
-    // before any media flows.
-    let audio_plan = {
-        let guard = store
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        build_audio_plan(&guard.get().audio).map_err(|err| err.to_ipc())?
-    };
-    let info = recordings
-        .start(bus, source.geometry, &dir, events, audio_plan)
-        .map_err(|err| err.to_ipc())?;
-    // ARCHITECTURE §3.2 step 3: the session is live → announce it.
-    super::events::recording_started(&app, &info);
-    Ok(serde_json::json!({
-        "recordingId": info.recording_id,
-        "status": "recording",
-        "encoder": { "backend": info.encoder.backend, "isHardware": info.encoder.is_hardware },
-        "startedAt": info.started_at,
-    }))
+    crate::app_state::run(
+        app,
+        crate::app_state::Action::Start {
+            source_id: Some(source_id),
+            output_dir,
+        },
+        false,
+    )
+    .await
+    .map_err(Into::into)
 }
 
 /// `cmd://recording_pause` / `cmd://recording_resume` (API §2.3) — state
@@ -487,24 +377,32 @@ pub async fn recording_start(
 #[tauri::command]
 pub async fn recording_pause(
     recording_id: String,
-    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
 ) -> Result<Value, IpcError> {
-    recordings
-        .pause(&recording_id)
-        .map_err(|err| err.to_ipc())?;
-    Ok(serde_json::json!({ "status": "paused" }))
+    crate::app_state::run(
+        app,
+        crate::app_state::Action::Pause(recording_id),
+        window.label() == "hud",
+    )
+    .await
+    .map_err(Into::into)
 }
 
 #[cfg(feature = "encode")]
 #[tauri::command]
 pub async fn recording_resume(
     recording_id: String,
-    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
 ) -> Result<Value, IpcError> {
-    recordings
-        .resume(&recording_id)
-        .map_err(|err| err.to_ipc())?;
-    Ok(serde_json::json!({ "status": "recording" }))
+    crate::app_state::run(
+        app,
+        crate::app_state::Action::Resume(recording_id),
+        window.label() == "hud",
+    )
+    .await
+    .map_err(Into::into)
 }
 
 /// `cmd://recording_flag` (API §2.3 / flow 7.2) — append a chapter marker
@@ -560,36 +458,15 @@ pub async fn recording_flag(
 pub async fn recording_stop(
     recording_id: String,
     app: tauri::AppHandle,
-    library: tauri::State<'_, crate::library::LibraryHandle>,
-    recordings: State<'_, crate::pipeline::session::RecordingHandle>,
+    window: tauri::WebviewWindow,
 ) -> Result<Value, IpcError> {
-    let outcome = recordings
-        .stop(&recording_id)
-        .map_err(|err| err.to_ipc())? // outer: ipc.bad_state
-        .map_err(|err| err.to_ipc())?; // inner: the take's own fate
-    // Task 1.6: the take is on disk → the pipeline flow writes the
-    // library row (DATABASE §6 writer role) and the reply carries the
-    // real row id. The files stay on disk even if the index write
-    // fails — the error propagates as a typed disk failure (§1) and the
-    // finished event is NOT emitted (no payload can claim a row that
-    // does not exist).
-    let id = library
-        .record_finalize(&crate::library::FinalizedRecording::from(&outcome))
-        .map_err(|err| err.to_ipc())?;
-    // ARCHITECTURE §3.2 step 6: announce the finished take, then the
-    // library change (API §3: `library/updated` on row change).
-    super::events::recording_finished(&app, &recording_id, &outcome, id);
-    super::events::library_updated(&app, id);
-    Ok(serde_json::json!({
-        "recording": {
-            "id": id,
-            "path": outcome.path.display().to_string(),
-            "container": "mkv",
-            "durationMs": outcome.duration_ms,
-            "sizeBytes": outcome.size_bytes,
-            "status": "ready",
-        }
-    }))
+    crate::app_state::run(
+        app,
+        crate::app_state::Action::Stop(Some(recording_id)),
+        window.label() == "hud",
+    )
+    .await
+    .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -600,7 +477,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.1.0");
+        assert_eq!(v["ipcContract"], "1.2.0");
     }
 
     #[test]
@@ -613,7 +490,7 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["vaapi", "nvenc", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.1.0");
+        assert_eq!(v["version"]["ipcContract"], "1.2.0");
         assert_eq!(v["version"]["app"], "0.0.1-alpha.1");
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());

@@ -1,6 +1,6 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { asIpcError, windowHide } from "../../lib/ipc";
 import { useSspStore, type ViewId } from "../../lib/store";
 
 /* §5.8 NavBar — window chrome law:
@@ -28,6 +28,18 @@ export default function NavBar() {
   const view = useSspStore((s) => s.view);
   const setView = useSspStore((s) => s.setView);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [hiding, setHiding] = useState(false);
+
+  async function hide() {
+    setHiding(true);
+    try {
+      await windowHide();
+    } catch (err) {
+      useSspStore.getState().showError(asIpcError(err));
+    } finally {
+      setHiding(false);
+    }
+  }
 
   function select(id: NavItem["id"], el?: HTMLButtonElement | null) {
     if (id === "stream") return; // always disabled (§5.8)
@@ -63,10 +75,7 @@ export default function NavBar() {
     >
       {/* left zone — mirrored with the right zone (flex-1) so the segmented pill
           is always exactly centered; the name yields below the compact band (§6) */}
-      <div
-        data-tauri-drag-region
-        className="flex min-w-0 flex-1 items-center gap-2"
-      >
+      <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-2">
         <span className="app-mark" aria-hidden="true" />
         <span
           data-tauri-drag-region
@@ -77,10 +86,7 @@ export default function NavBar() {
       </div>
 
       {/* center zone — segmented pill */}
-      <nav
-        className="flex flex-none justify-center"
-        aria-label="Primary"
-      >
+      <nav className="flex flex-none justify-center" aria-label="Primary">
         <div
           role="tablist"
           aria-label="Views"
@@ -119,7 +125,7 @@ export default function NavBar() {
         </div>
       </nav>
 
-      {/* right zone — tray gear + minimize to tray (tray lands in Phase 6; minimize to window list until then) */}
+      {/* right zone — quick settings + guarded minimize to tray (§5.8) */}
       <div className="flex flex-1 items-center justify-end gap-1">
         <button
           type="button"
@@ -134,7 +140,9 @@ export default function NavBar() {
           type="button"
           aria-label="Minimize"
           title="Minimize to tray"
-          onClick={() => void getCurrentWindow().minimize()}
+          disabled={hiding}
+          aria-busy={hiding}
+          onClick={() => void hide()}
           className="icon-btn flex h-10 w-10 items-center justify-center rounded-sm text-ink-secondary hover:bg-accent-muted hover:text-ink"
         >
           <X size={20} strokeWidth={1.5} />

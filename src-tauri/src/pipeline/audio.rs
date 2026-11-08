@@ -15,6 +15,77 @@
 use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
+/// API §2.3: take-snapshot audio plan, shared by IPC and tray starts.
+/// Muted inputs still capture/drain at zero gain. Loss callbacks only log;
+/// the mixer emits the single device-lost event from the disabled ring.
+#[cfg(feature = "encode")]
+pub fn build_audio_plan(
+    audio: &crate::settings::Audio,
+) -> Result<Option<super::session::AudioPlan>, crate::util::error::CoreError> {
+    use crate::capture::audio::{AudioChannel, ChannelConfig, OnLost, start_desktop, start_mic};
+    let on_lost = || -> OnLost {
+        Box::new(|reason: &str| {
+            tracing::error!(reason, "audio capture source lost");
+        })
+    };
+    let mut producers = Vec::new();
+    let mut channels = Vec::new();
+    if audio.mic_enabled {
+        let config = ChannelConfig {
+            channel: AudioChannel::Mic,
+            enabled: true,
+            muted: audio.mic_muted,
+            device_id: audio.mic_device_id.clone(),
+            level: audio.mic_level,
+        };
+        let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
+        producers.push(start_mic(&config, ring.clone(), on_lost())?);
+        channels.push(MixSource {
+            ring,
+            gain: if audio.mic_muted {
+                0.0
+            } else {
+                crate::capture::audio::channel_gain(audio.mic_level)
+            },
+            channel: AudioChannel::Mic,
+        });
+    }
+    if audio.desktop_audio {
+        let config = ChannelConfig {
+            channel: AudioChannel::Desktop,
+            enabled: true,
+            muted: audio.desktop_muted,
+            device_id: audio.desktop_device_id.clone(),
+            level: audio.desktop_level,
+        };
+        let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
+        producers.push(start_desktop(&config, ring.clone(), on_lost())?);
+        channels.push(MixSource {
+            ring,
+            gain: if audio.desktop_muted {
+                0.0
+            } else {
+                crate::capture::audio::channel_gain(audio.desktop_level)
+            },
+            channel: AudioChannel::Desktop,
+        });
+    }
+    if channels.is_empty() {
+        return Ok(None);
+    }
+    // DATABASE §2.1: metadata describes the same snapshot used above.
+    let row_note = serde_json::json!([
+        { "source": "mic", "device": audio.mic_device_id, "used": audio.mic_enabled },
+        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio },
+    ])
+    .to_string();
+    Ok(Some(super::session::AudioPlan {
+        producers,
+        channels,
+        row_note: Some(row_note),
+    }))
+}
+
 /// Default capacity in SAMPLES (interleaved stereo f32): 2^16 samples =
 /// 32 Ki stereo frames ≈ 683 ms at 48 kHz. Roomy enough to ride out a
 /// scheduler hiccup on the mixer thread, small enough that a stalled

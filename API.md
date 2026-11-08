@@ -1,6 +1,6 @@
 # API.md — ScreenStudio Pro IPC Contract
 
-**Version:** 1.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+**Version:** 1.2.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
 
 **Contract nature (read first):** ScreenStudio Pro has **no HTTP server and no network API** — PRD non-goal N6 and ARCHITECTURE §3.3 forbid it. The app's entire API surface is the **Tauri IPC**: *commands* (request/response, like REST) and *events* (push, like webhooks in reverse). This file documents that surface in REST-style conventions so it can be reviewed the same way: every command has a purpose, payload schema, success shape, and every error code the frontend may receive.
 
@@ -35,6 +35,14 @@ Every error response — command failure or `error` event payload — is one sha
 *(Additions since v1.0.0: `portal.busy` — §2.1 always intended it ("a session is already active — code added to canonical set §1") but the list above missed it; corrected at task 1.1. `capture.invalid_kind` — added at task 1.1 for window/region kinds before their portal flavours land (M2/M3). Codes are add-only (§1 rule). `capture.no_frames` — added at task 1.5: a stop that encoded zero frames fails loudly instead of finalizing an unreadable header-only container; the partial file is removed, retryable=true (§2.4). **v1.1.0 (task 2.3, MINOR — additive):** `cmd://recording_pause` + `cmd://recording_resume` went live, and `recording/tick`'s `state` carries the real phase (`paused` when the take is paused, previously pinned to `"recording"`). No existing command/event/error changed shape.)*
 
 Error → HTTP-style severity mapping for the UI: `retryable=false` + `disk.*`/`portal.denied` → persistent toast (DESIGN §5.6); all others → inline field/panel error per §5.2 or auto-fallback per §6.1.
+
+**v1.2.0 (task 2.6, MINOR):** adds `window_hide`, `shell/error`, and
+`ipc.window_failed`, `ipc.tray_unavailable`, `ipc.task_failed` (all kind `ipc`).
+Window/HUD failures keep recording controls reachable. Native tray actions use
+the same recording operations as commands; failures restore the main window.
+Quit drains the take and commits its library row before exit. Failed index
+writes retain the finalized outcome for retry by Stop or Quit and prevent a
+new take from replacing it. Existing command/event payloads keep their shapes.
 
 ---
 
@@ -128,6 +136,10 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 ```
 - **Errors:** `encoder.unavailable`+`encoder.init_failed` (the x264 **fallback is applied automatically first** and only errors if that also fails — `details.encoderChain` then lists what was tried) · `portal.denied` (session lapsed) · `disk.no_space`, `disk.path_unwritable` · `pipewire.stream_lost` · `pipewire.audio_device_gone` (an audio channel's device is gone or unusable **at start** — fatal for the take, which never starts) · `409`-class `ipc.bad_state` (a recording is already active, or `sourceId` is not the active source)
 
+Task 2.6: a source whose stream has reported loss is not startable
+(`ipc.bad_state`); tray Start is disabled until a live source is selected.
+The lost source handle is retained for `source_release`/Quit cleanup.
+
 #### `cmd://recording_pause` / `cmd://recording_resume`
 - **Method:** command · **PRD:** M7 (segment stitching; **live since 2.3**) · **DB:** R (no row change; session state) · **Flag:** ⚠
 - Body: `{ "recordingId": "rec_01HV4…" }` · **200:** `{ "status": "paused" }` / `{ "status": "recording" }`
@@ -205,7 +217,7 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
                { "backend": "nvenc", "isHardware": true, "available": false },
                { "backend": "x264", "isHardware": false, "available": true }],
   "portal": { "screencast": true, "globalShortcuts": "partial", "compositor": "hyprland" },
-  "version": { "app": "0.0.1-alpha.1", "ipcContract": "1.1.0" } }
+  "version": { "app": "0.0.1-alpha.1", "ipcContract": "1.2.0" } }
 ```
 
 ### 2.6 Settings & preferences
@@ -250,6 +262,7 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
 | `evt://library/updated` | `{ id, deleted: false }` | on row change | M14 | R ✓ |
 | `evt://source/lost` | `{ sourceId, reason: "portal.denied" }` | on compositor teardown | M1–M3 | — ⚠ |
 | `evt://device/changed` | `{ audio: true, camera: false }` | on PipeWire/V4L2 hotplug (≤ 1 Hz debounced) | M4/M5 | — ⚠ |
+| `evt://shell/error` | `{ error: <§1>, recordingActive }` | on native/HUD action failure, main window only (§4.1) | M6/M12 | — ⚠ |
 
 All event payloads are JSON, all carry the topic-scoped kind already shown; the webview subscribes through `lib/events.ts` exactly once per topic.
 
@@ -265,6 +278,24 @@ All event payloads are JSON, all carry the topic-scoped kind already shown; the 
 - **Rate limits:** commands are human-initiated — no limiter (a desktop IPC has no strangers), **except** `prefs_set` batched at ≤60Hz as noted; and `source_select` no more than once per 500ms (portal sessions are heavyweight). Events have hard coalescing ceilings **in Rust, not the webview** (meters ≤30Hz, stats 2s, tick 1s, hotplug debounced 1s) — ARCHITECTURE §6 law, restated here as the API contract.
 
 ---
+
+### 4.1 Window lifecycle (task 2.6)
+
+- `cmd://window_hide`: main window only. Body `{ "recordingId"?: string }`,
+  reply `{ "ok": true }`. Omit the id for explicit titlebar minimize-to-tray.
+  Supply it only after HUD creation for automatic hiding; a stale/ended take
+  is an idempotent no-op. Missing tray host returns `ipc.tray_unavailable` and
+  leaves the window reachable; window-operation failures use `ipc.window_failed`.
+- `evt://shell/error`: main-window-only native action failure, payload
+  `{ "error": <standard §1 error>, "recordingActive": boolean }`.
+  Emitted on failure, never polled. `false` resets the session projection after
+  a failed stop/finalize; `true` preserves the current recording. Render human
+  copy once, deduplicated with any existing recording-error toast.
+- `recording/started` initializes the main projection for both tray and IPC
+  starts. Stop and native failures restore the main window for feedback.
+  Main owns HUD creation and teardown, including late creation after Stop.
+  HUD command failures also use `shell/error` for visible main-window feedback.
+  Library routing/highlight remains part of the Phase 5 Library surface.
 
 ## 5. API Versioning Rules
 
@@ -294,6 +325,7 @@ All event payloads are JSON, all carry the topic-scoped kind already shown; the 
 | `settings_get` / `settings_set` | M10 | — (TOML) | ⚠ settings-are-TOML is law |
 | `prefs_get` / `prefs_set` | UI persistence (DESIGN §6.5/§6.6) | ui_prefs UPSERT | ✓ |
 | `shortcuts_apply` | M12 | — (TOML) | ⚠ matches runtime binding |
+| `window_hide` | M6/M12, DESIGN §5.8/§6.5 | — | ⚠ window lifecycle |
 | All events | their commands' features | as tabled above | audited above |
 
 **Standing flags to re-audit each release:** (1) any `⚠` endpoint that starts persisting state It shouldn't (would need a table + this file's edit first); (2) `library_delete` without a purge command (soft-delete growth — V2 ticket); (3) any event payload that starts carrying media bytes (forbidden — ARCHITECTURE §6).

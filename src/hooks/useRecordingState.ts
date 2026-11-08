@@ -17,6 +17,8 @@ export function useRecordingState() {
     const unlistens: Array<() => void> = [];
 
     void Promise.all([
+      listenEvent("recording/started", store.getState().onStarted),
+      listenEvent("shell/error", store.getState().onShellError),
       listenEvent("recording/tick", store.getState().onTick),
       listenEvent("recording/meters", store.getState().onMeters),
       listenEvent("recording/error", store.getState().onSessionError),

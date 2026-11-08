@@ -1,10 +1,8 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { currentMonitor } from "@tauri-apps/api/window";
 
-/* §5.9 HUD float window — the shell the HudBar lives in. The MAIN window
-   spawns it on `recording/started` (hooks/useHudWindow); the HUD closes
-   ITSELF on finished/error (src/hud-main.tsx), so no cross-window close
-   permission is ever needed. Born with the take's id in the URL: the
+/* §5.9 HUD float window — the main window owns its lifetime, including
+   creation that finishes after Stop (API §4.1). Born with the take's id in the URL: the
    first 1 Hz tick is up to a full second away and the buttons must work
    immediately (API §2.3); from there the tick stream re-syncs everything
    (§4.1 Rust truth). */
@@ -31,16 +29,33 @@ export function openHud(recordingId: string): Promise<void> {
    tauri://destroyed (take ended) and tauri://error (failed creation) so a
    dead or failed spawn never wedges later takes. */
 let live: WebviewWindow | null = null;
+let liveId: string | null = null;
+
+/** Serialized with creation so Stop cannot leave a late orphan HUD. */
+export function closeHud(recordingId: string): Promise<void> {
+  const next = inFlight.then(async () => {
+    if (live && liveId === recordingId) {
+      await live.destroy();
+      live = null;
+      liveId = null;
+    }
+  });
+  inFlight = next.catch(() => undefined);
+  return next;
+}
 
 /** Test hook: `live` is module state and no destroy event fires in jsdom. */
 export function _resetLiveForTests(): void {
   live = null;
+  liveId = null;
+  inFlight = Promise.resolve();
 }
 
 async function spawn(recordingId: string): Promise<void> {
   // A lingering window from a prior take must not wedge the next one.
-  if (live) return;
-  if (await WebviewWindow.getByLabel("hud")) return;
+  if (live && liveId === recordingId) return;
+  const previous = live ?? (await WebviewWindow.getByLabel("hud"));
+  if (previous) await previous.destroy();
 
   // Default placement: bottom-right at the snap inset (PRD 7.2 floats it
   // above the work; bottom-right is where PiP-style HUDs conventionally
@@ -88,10 +103,28 @@ async function spawn(recordingId: string): Promise<void> {
     shadow: false,
   });
   live = win;
-  win.once("tauri://destroyed", () => {
-    live = null;
-  });
-  win.once("tauri://error", () => {
-    live = null;
+  liveId = recordingId;
+  // Constructor completion only submits creation. Hiding before the actual
+  // created event would strand the controls on a rejected webview spawn.
+  await new Promise<void>((resolve, reject) => {
+    void win.once("tauri://created", () => resolve()).catch(reject);
+    void win
+      .once("tauri://error", () => {
+        if (live === win) {
+          live = null;
+          liveId = null;
+        }
+        reject(new Error("HUD creation failed"));
+      })
+      .catch(reject);
+    void win
+      .once("tauri://destroyed", () => {
+        if (live === win) {
+          live = null;
+          liveId = null;
+        }
+        reject(new Error("HUD closed during creation"));
+      })
+      .catch(reject);
   });
 }

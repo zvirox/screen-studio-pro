@@ -15,7 +15,9 @@ import type {
   IpcError,
   RecordingFinishedEvt,
   RecordingMetersEvt,
+  RecordingStartedEvt,
   RecordingTickEvt,
+  ShellErrorEvt,
   SourceCapabilities,
 } from "../types/ipc";
 
@@ -155,10 +157,7 @@ export const INITIAL_TOASTS: Pick<SspState, "toasts" | "nextToastId"> = {
 type ToastPush = Pick<SspState, "toasts" | "nextToastId">;
 
 function pushToast(state: ToastPush, toast: Omit<Toast, "id">): ToastPush {
-  const toasts = [
-    ...state.toasts,
-    { ...toast, id: state.nextToastId },
-  ].slice(-TOAST_LIMIT);
+  const toasts = [...state.toasts, { ...toast, id: state.nextToastId }].slice(-TOAST_LIMIT);
   return { toasts, nextToastId: state.nextToastId + 1 };
 }
 
@@ -191,6 +190,9 @@ interface SspState {
   resumeRecording: () => Promise<void>;
 
   /* Event reducers — subscribe exactly once (hooks/useRecordingState). */
+  onStarted: (evt: RecordingStartedEvt) => void;
+  onShellError: (evt: ShellErrorEvt) => void;
+  showError: (err: IpcError) => void;
   onTick: (evt: RecordingTickEvt) => void;
   onSessionError: (err: IpcError) => void;
   onFinished: (evt: RecordingFinishedEvt) => void;
@@ -358,6 +360,7 @@ export const useSspStore = create<SspState>((set, get) => ({
     // Guard matches the ActionRow's disabled logic — the button gates the
     // click, the store gates everything else (keyboard, rapid re-click).
     if (source.status !== "live" || !source.sourceId) return;
+    if (get().session.status !== "idle") return;
     set({ session: { ...INITIAL_SESSION, status: "starting" } });
     try {
       // 2.2: the §2.3 audio array carries the strip's ENABLED channels.
@@ -382,22 +385,18 @@ export const useSspStore = create<SspState>((set, get) => ({
         presetId: null,
         outputDir: null,
       });
-      set({
-        session: {
-          status: "recording",
-          recordingId: reply.recordingId,
-          encoderBackend: reply.encoder.backend,
-          startedAt: reply.startedAt,
-          elapsedMs: 0,
-          paused: false,
-          fault: null,
-        },
-      });
+      // A start event may already have advanced (or ended) the take.
+      // Only the still-pending command may initialize from its reply.
+      if (get().session.status === "starting") {
+        get().onStarted({ ...reply, encoder: reply.encoder.backend });
+      }
     } catch (err) {
       // Command failure rides the reply (API §3 note) — back to idle, the
       // error toast carries the copy (the inline fault line is gone with
       // ToastHost, 1.7).
-      set({ session: { ...INITIAL_SESSION, fault: err as IpcError } });
+      if (get().session.status === "starting") {
+        set({ session: { ...INITIAL_SESSION, fault: err as IpcError } });
+      }
       set((s) =>
         pushToast(s, {
           kind: "error",
@@ -416,20 +415,22 @@ export const useSspStore = create<SspState>((set, get) => ({
       // Reply is the authoritative outcome (finished event lands too, and
       // onFinished is idempotent on an already-idle session).
       await recordingStop(session.recordingId);
-      set({ session: { ...INITIAL_SESSION } });
+      if (get().session.recordingId === session.recordingId) {
+        set({ session: { ...INITIAL_SESSION } });
+      }
     } catch (err) {
       const fault = err as IpcError;
       const prior = get().session.fault;
       // §6.5 no-double-telling: the async fault already surfaced at fault
       // time; the stop reply carries the same error — keep one copy.
       const keep = prior && prior.code === fault.code ? prior : fault;
-      set({ session: { ...INITIAL_SESSION, fault: keep } });
+      if (get().session.recordingId === session.recordingId) {
+        set({ session: { ...INITIAL_SESSION, fault: keep } });
+      }
       // Same law at toast level: the existing error toast (same code) IS
       // the copy the user is reading — a stop reply that repeats it must
       // not stack a second one.
-      const told = get().toasts.some(
-        (t) => t.kind === "error" && t.code === fault.code,
-      );
+      const told = get().toasts.some((t) => t.kind === "error" && t.code === fault.code);
       if (!told) {
         set((s) =>
           pushToast(s, {
@@ -446,13 +447,14 @@ export const useSspStore = create<SspState>((set, get) => ({
     const { session } = get();
     // Guarded no-op outside a live, unpaused take — the Rust side owns the
     // authoritative §2.3 bad_state matrix; the UI never double-asks.
-    if (session.status !== "recording" || !session.recordingId || session.paused)
-      return;
+    if (session.status !== "recording" || !session.recordingId || session.paused) return;
     try {
       await recordingPause(session.recordingId);
       // The tick phase confirms at the next 1 Hz beat; the reply flips the
       // chip immediately (no frozen-timer flash of the wrong phase).
-      set({ session: { ...get().session, paused: true } });
+      if (get().session.recordingId === session.recordingId) {
+        set({ session: { ...get().session, paused: true } });
+      }
     } catch (err) {
       // The take is untouched by a refused pause (bad_state class) — toast
       // the §7.9 copy, session stays as-is.
@@ -468,11 +470,12 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   async resumeRecording() {
     const { session } = get();
-    if (session.status !== "recording" || !session.recordingId || !session.paused)
-      return;
+    if (session.status !== "recording" || !session.recordingId || !session.paused) return;
     try {
       await recordingResume(session.recordingId);
-      set({ session: { ...get().session, paused: false } });
+      if (get().session.recordingId === session.recordingId) {
+        set({ session: { ...get().session, paused: false } });
+      }
     } catch (err) {
       set((s) =>
         pushToast(s, {
@@ -482,6 +485,29 @@ export const useSspStore = create<SspState>((set, get) => ({
         }),
       );
     }
+  },
+
+  onStarted(evt) {
+    if (get().session.recordingId === evt.recordingId) return;
+    set({
+      session: {
+        ...INITIAL_SESSION,
+        status: "recording",
+        recordingId: evt.recordingId,
+        encoderBackend: evt.encoder,
+        startedAt: evt.startedAt,
+      },
+    });
+  },
+
+  showError(err) {
+    if (get().toasts.some((t) => t.kind === "error" && t.code === err.code)) return;
+    set((s) => pushToast(s, { kind: "error", title: err.userMessage, code: err.code }));
+  },
+
+  onShellError(evt) {
+    if (!evt.recordingActive) set({ session: { ...INITIAL_SESSION } });
+    get().showError(evt.error);
   },
 
   onTick(evt) {
@@ -518,7 +544,9 @@ export const useSspStore = create<SspState>((set, get) => ({
   onFinished(evt) {
     // Trailer written; the session is over regardless of which trigger won
     // the race (stop reply resolves alongside this event).
-    set({ session: { ...INITIAL_SESSION } });
+    if (!get().session.recordingId || get().session.recordingId === evt.recordingId) {
+      set({ session: { ...INITIAL_SESSION } });
+    }
     // §6.2 step 3: ONE saved toast — duration + path for Reveal/Copy
     // (rendered by ToastHost with the §5.6 6s auto-dismiss).
     set((s) =>

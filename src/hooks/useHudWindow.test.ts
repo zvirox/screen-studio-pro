@@ -1,46 +1,85 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { INITIAL_SESSION, INITIAL_TOASTS, useSspStore } from "../lib/store";
+import type * as ipcModule from "../lib/ipc";
 
-/* The hook is the SPAWN half only: main window hears `recording/started`
-   (the take's birth announcement, API §3) and opens the HUD child; the
-   HUD closes itself on finished/error (its own subscription). */
-const openHud = vi.fn().mockResolvedValue(undefined);
-const unlisten = vi.fn();
-let startedHandler: ((evt: { recordingId: string }) => void) | null = null;
-
-vi.mock("../lib/hudWindow", () => ({ openHud: (...args: unknown[]) => openHud(...args) }));
-
-vi.mock("../lib/events", () => ({
-  listenEvent: vi.fn(
-    (_topic: string, handler: (evt: { recordingId: string }) => void) => {
-      startedHandler = handler;
-      return Promise.resolve(unlisten);
-    },
-  ),
+vi.mock("../lib/hudWindow", () => ({ openHud: vi.fn(), closeHud: vi.fn() }));
+vi.mock("../lib/ipc", async (original) => ({
+  ...(await original<typeof ipcModule>()),
+  windowHide: vi.fn(),
 }));
-
+import { openHud, closeHud } from "../lib/hudWindow";
+import { windowHide } from "../lib/ipc";
 import { useHudWindow } from "./useHudWindow";
 
-describe("useHudWindow (recording/started → spawn)", () => {
+function start() {
+  act(() =>
+    useSspStore.getState().onStarted({ recordingId: "rec_1", encoder: "x264", startedAt: "now" }),
+  );
+}
+
+describe("useHudWindow lifetime", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    openHud.mockResolvedValue(undefined);
-    startedHandler = null;
+    useSspStore.setState({ session: INITIAL_SESSION, ...INITIAL_TOASTS });
+    vi.mocked(openHud).mockResolvedValue();
+    vi.mocked(closeHud).mockResolvedValue();
+    vi.mocked(windowHide).mockResolvedValue({ ok: true });
   });
 
-  it("opens the HUD with the started take's id", async () => {
-    const { unmount } = renderHook(() => useHudWindow());
-    await vi.waitFor(() => expect(startedHandler).toBeTypeOf("function"));
-    startedHandler?.({ recordingId: "rec_01HV9" });
-    expect(openHud).toHaveBeenCalledWith("rec_01HV9");
-    unmount();
-    expect(unlisten).toHaveBeenCalledTimes(1);
+  it("waits for real HUD creation before requesting guarded hide", async () => {
+    let ready!: () => void;
+    vi.mocked(openHud).mockReturnValue(
+      new Promise((resolve) => {
+        ready = resolve;
+      }),
+    );
+    renderHook(useHudWindow);
+    start();
+    expect(openHud).toHaveBeenCalledWith("rec_1");
+    expect(windowHide).not.toHaveBeenCalled();
+    await act(async () => ready());
+    expect(windowHide).toHaveBeenCalledWith("rec_1");
   });
 
-  it("unlistens on unmount — no leaked subscription", async () => {
-    const { unmount } = renderHook(() => useHudWindow());
-    await vi.waitFor(() => expect(startedHandler).toBeTypeOf("function"));
-    unmount();
-    expect(unlisten).toHaveBeenCalledTimes(1);
+  it("destroys a late HUD without hiding after Stop", async () => {
+    let ready!: () => void;
+    vi.mocked(openHud).mockReturnValue(
+      new Promise((resolve) => {
+        ready = resolve;
+      }),
+    );
+    renderHook(useHudWindow);
+    start();
+    act(() => useSspStore.setState({ session: INITIAL_SESSION }));
+    await act(async () => ready());
+    expect(windowHide).not.toHaveBeenCalled();
+    expect(closeHud).toHaveBeenCalledWith("rec_1");
+  });
+
+  it("keeps the main controls reachable and reports failed creation", async () => {
+    vi.mocked(openHud).mockRejectedValue(new Error("native raw failure"));
+    renderHook(useHudWindow);
+    start();
+    await vi.waitFor(() => expect(useSspStore.getState().toasts).toHaveLength(1));
+    expect(windowHide).not.toHaveBeenCalled();
+    expect(useSspStore.getState().session.recordingId).toBe("rec_1");
+    expect(useSspStore.getState().toasts[0].code).toBe("ipc.window_failed");
+  });
+
+  it("reports unavailable tray without losing the live take", async () => {
+    vi.mocked(windowHide).mockRejectedValue({
+      kind: "ipc",
+      code: "ipc.tray_unavailable",
+      retryable: true,
+      userMessage: "Keep this window open.",
+      details: null,
+    });
+    renderHook(useHudWindow);
+    start();
+    await vi.waitFor(() =>
+      expect(useSspStore.getState().toasts[0]?.code).toBe("ipc.tray_unavailable"),
+    );
+    expect(useSspStore.getState().session.recordingId).toBe("rec_1");
   });
 });

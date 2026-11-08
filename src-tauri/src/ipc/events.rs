@@ -12,8 +12,9 @@ Cadence/coalescing law is ARCHITECTURE §6: throttling happens IN Rust
 at the emit site per topic — payloads here are the wire shapes only.
 Task 1.4 adds the throttled emitters that produce them. */
 
-/// The ten API.md §3 topics, as constants so producers can't typo a topic.
+/// API.md event topics, as constants so producers can't typo a topic.
 pub mod topic {
+    pub const SHELL_ERROR: &str = "shell/error";
     pub const RECORDING_STARTED: &str = "recording/started";
     pub const RECORDING_TICK: &str = "recording/tick";
     pub const RECORDING_METERS: &str = "recording/meters";
@@ -38,6 +39,15 @@ pub fn emit<T: Serialize + Clone>(
 }
 
 /* ---------- payload types ---------- */
+
+/// API §4.1 native actions lack command replies; their failures carry the
+/// authoritative post-action session liveness to the main window only.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellError {
+    pub error: IpcError,
+    pub recording_active: bool,
+}
 
 /// Recording phase carried by `recording/tick` (1 Hz, §3 rate law).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -236,6 +246,9 @@ impl crate::pipeline::stats::EventSink for TauriEventSink {
             }
             SessionEvent::Error(err) => {
                 let _ = emit(&self.app, topic::RECORDING_ERROR, err);
+                crate::tray::restore(&self.app);
+                // Never query/join the worker from its own callback.
+                crate::app_state::dispatch(&self.app, crate::app_state::Action::Refresh);
             }
         }
     }
