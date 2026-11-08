@@ -305,7 +305,7 @@ fn start(
         .unwrap_or_else(crate::util::paths::videos_dir);
     let sink = std::sync::Arc::new(events::TauriEventSink::new(app.clone()));
     app.state::<RecordingHandle>()
-        .start(bus, source.geometry, &dir, sink, audio, region_rect)
+        .start(bus, source.geometry, &dir, sink, audio, region_rect, Some(app))
 }
 
 impl Snapshot {
@@ -340,7 +340,7 @@ mod tests {
         let recordings = RecordingHandle::new();
         let bus = Arc::new(FrameBus::new(16));
         let info = recordings
-            .start(bus.clone(), (64, 64), dir, Arc::new(Sink), None, None)
+            .start(bus.clone(), (64, 64), dir, Arc::new(Sink), None, None, None)
             .expect("start");
         for n in 0..8 {
             assert!(matches!(

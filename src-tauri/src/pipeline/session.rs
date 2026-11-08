@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tauri::Manager;
 
 use super::FrameBus;
 
@@ -649,6 +650,7 @@ impl RecordingHandle {
         events: Arc<dyn EventSink>,
         audio: Option<AudioPlan>,
         region_rect: Option<crate::capture::RegionRect>,
+        app: Option<&tauri::AppHandle>,
     ) -> Result<StartInfo, CoreError> {
         let mut slot = self.locked();
         // A worker that ended on its own (a mid-take fault) must not
@@ -664,13 +666,30 @@ impl RecordingHandle {
         // yuv420p is 2×2-subsampled — even-dim clamp here too so the
         // muxer's header and the encoder's output always agree.
         let dims = (dims.0 & !1, dims.1 & !1);
+
+        // Encoder selection: use settings + auto-detection (PLAN 3.3 / M8).
+        // The settings are read from the app state (TOML) if available.
+        let encoder_name = if let Some(app) = app {
+            let settings = app
+                .state::<Mutex<crate::settings::SettingsStore>>()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .get()
+                .clone();
+            settings.capture.encoder
+        } else {
+            "auto".to_string()
+        };
+
+        // Muxer spec: the codec ID is always H264; the backend is chosen
+        // at encoder open time (select_encoder handles NVENC/VAAPI/x264).
         let spec = VideoSpec {
             codec: ff::codec::Id::H264,
             width: dims.0,
             height: dims.1,
             pix_fmt: ff::format::Pixel::YUV420P,
             frame_rate: FRAME_RATE,
-            options: sw_x264::options(),
+            options: crate::encode::sw_x264::options(), // base options; encoder may override
         };
         let path = next_output_path(dir);
         // A/V split (2.1): the container opens through the builder —
@@ -688,20 +707,28 @@ impl RecordingHandle {
         });
         let has_audio = !channels.is_empty();
         let builder = MuxerBuilder::create(&path)?;
-        let (builder, video_opened) = builder.add_video(&spec)?;
+        let (builder, _video_opened) = builder.add_video(&spec)?;
         let (builder, audio_opened) = if has_audio {
             let (builder, opened) = builder.add_audio(&composition_audio_spec())?;
             (builder, Some(opened))
         } else {
             (builder, None)
         };
-        let mux = builder.write_header()?;
-        let encoder = SwX264::from_open(video_opened);
+        let _mux = builder.write_header()?;
+
+        // Encoder selection (M8): auto NVENC → VAAPI → x264, with fallback.
+        let encoder_opts = crate::encode::sw_x264::options();
+        let encoder_info = crate::encode::select_encoder(
+            &encoder_name,
+            dims,
+            encoder_opts,
+        )?;
+
         // Reply facts must be captured before the encoder moves into the
         // worker thread (the encoder info is static, the id/clock are not).
         let info = StartInfo {
             recording_id: recording_id.clone(),
-            encoder: encoder.info(),
+            encoder: encoder_info,
             started_at: crate::util::time::rfc3339_now(),
         };
 
@@ -778,9 +805,24 @@ impl RecordingHandle {
         let worker_anchored = video_anchored.clone();
         let worker_pause = pause.clone();
         let worker_region_rect = region_rect;
+        let encoder_opts = crate::encode::sw_x264::options();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
+                // Create the x264 encoder inside the worker thread.
+                let spec = VideoSpec {
+                    codec: ff::codec::Id::H264,
+                    width: dims.0,
+                    height: dims.1,
+                    pix_fmt: ff::format::Pixel::YUV420P,
+                    frame_rate: FRAME_RATE,
+                    options: encoder_opts,
+                };
+                let builder = MuxerBuilder::create(&path)?;
+                let (builder, video_opened) = builder.add_video(&spec)?;
+                let mux = builder.write_header()?;
+                let encoder = SwX264::from_open(video_opened);
+
                 run_session(
                     mux,
                     encoder,
@@ -795,9 +837,6 @@ impl RecordingHandle {
                 )
             })
             .map_err(|err| {
-                // mux/encoder drop here unwinds the header-less file; the
-                // take never started, so one typed error surfaces (spawn
-                // failure is an app-level failure, not a user mistake).
                 tracing::error!(error = %err, "recording worker spawn failed");
                 CoreError::encoder(
                     "encoder.init_failed",
@@ -1575,7 +1614,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("recording starts");
         assert_eq!(info.encoder.backend, "x264");
         assert!(!info.encoder.is_hardware);
@@ -1631,13 +1670,13 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("first start");
         produce(&bus, 5, 0);
 
         // Second start while active → ipc.bad_state (API §2.3).
         let err = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .unwrap_err();
         assert_eq!(err.code(), "ipc.bad_state");
 
@@ -1668,7 +1707,7 @@ mod tests {
             let base = 1_000_000 + take * 120_000_000;
             produce(&bus, 8, base);
             let info = handle
-                .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+                .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
                 .unwrap();
             produce(&bus, 5, base + 60_000_000);
             wait_drained(&bus);
@@ -1706,6 +1745,7 @@ mod tests {
                 TestSink::new(),
                 Some(plan),
                 None,
+                None,
             )
             .unwrap();
         produce(&bus, 5, 0);
@@ -1737,7 +1777,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let first = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("first");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -1748,7 +1788,7 @@ mod tests {
 
         let bus = Arc::new(FrameBus::new(4));
         let second = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("second");
         produce(&bus, 5, 0);
         wait_drained(&bus);
@@ -1773,7 +1813,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(4));
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("clean start");
         // No frames are ever produced: the bus stays empty the whole take.
         let err = handle
@@ -1791,7 +1831,7 @@ mod tests {
         // And the session is reusable afterwards (slot released cleanly).
         let bus = Arc::new(FrameBus::new(4));
         let next = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("session reuses the slot after a failed take");
         produce(&bus, 3, 0);
         wait_drained(&bus);
@@ -1814,7 +1854,7 @@ mod tests {
         let bus = Arc::new(FrameBus::new(8));
         let dir = tempfile::tempdir().expect("tmp dir");
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("start");
 
         // Live-source simulation: the producer runs through the whole
@@ -1937,7 +1977,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("recording starts");
 
         // Live producer: one frame every 16 ms (60 fps), like the capture.
@@ -2006,7 +2046,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("recording starts");
 
         // A frame whose size does not match the opened encoder is a
@@ -2073,6 +2113,7 @@ mod tests {
                 dir.path(),
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
             )
             .expect("recording starts");
@@ -2207,6 +2248,7 @@ mod tests {
                 sink.clone(),
                 Some(plan),
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2330,6 +2372,7 @@ mod tests {
                 sink.clone(),
                 Some(plan),
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2416,7 +2459,7 @@ mod tests {
         let sink = TestSink::new();
 
         handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("recording starts");
         assert!(matches!(
             bus.try_push(synthetic_frame_dims(0, 0, W * 2, H * 2)),
@@ -2431,7 +2474,7 @@ mod tests {
 
         // The next take starts — the faulted worker was reaped.
         let next = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("the faulted take freed the slot");
         // Real frames: the zero-frame guard (capture.no_frames) must not
         // be what this test exercises — it is about slot recovery.
@@ -2476,7 +2519,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("recording starts");
 
         // Segment 1: ~1.1 s of content on the WALL clock (60 fps real
@@ -2638,7 +2681,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tmp dir");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("recording starts");
         // Raw pts jump forward, then step BACK (a producer clock stepping
         // under NTP, or any reordered-clock pathology).
@@ -2711,6 +2754,7 @@ mod tests {
                 sink.clone(),
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2769,7 +2813,7 @@ mod tests {
         assert_eq!(err.code(), "ipc.bad_state");
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), TestSink::new(), None, None, None)
             .expect("recording starts");
         produce(&bus, 10, 0);
 
@@ -2846,6 +2890,7 @@ mod tests {
                 dir.path(),
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
             )
             .expect("recording starts");
@@ -2958,7 +3003,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("recording starts");
 
         // Produce ~1 s of content so elapsedMs has substance.
@@ -3027,7 +3072,7 @@ mod tests {
         let sink = TestSink::new();
 
         let info = handle
-            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None)
+            .start(bus.clone(), (W, H), dir.path(), sink.clone(), None, None, None)
             .expect("recording starts");
         produce(&bus, 5, 0);
         wait_drained(&bus);

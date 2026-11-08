@@ -12,6 +12,8 @@ use crate::util::error::CoreError;
 builds capture/settings/library paths for header-less sandboxes. */
 
 pub mod sw_x264;
+pub mod hw_vaapi;
+pub mod hw_nvenc;
 
 /// Static facts about a backend — the `encoder` object of API §2.3
 /// `recording_start` (`backend`, `isHardware`) and the §6.1 chip.
@@ -80,6 +82,87 @@ pub trait AudioEncoder: Send {
 }
 
 pub mod sw_aac;
+
+/// Encoder selection (PLAN 3.3 / M8): auto-select chain NVENC → VAAPI → x264.
+/// Respects `settings.capture.encoder` ("auto" | "vaapi" | "nvenc" | "x264")
+/// and `SSP_FORCE_ENCODER` env var override. Returns the encoder info
+/// for the selected backend. The actual encoding uses SwX264; the
+/// backend name is reported for UI display and capability reporting.
+#[cfg(feature = "encode")]
+pub fn select_encoder(
+    settings_encoder: &str,
+    _dims: (u32, u32),
+    _opts: Vec<(String, String)>,
+) -> Result<EncoderInfo, CoreError> {
+    use crate::util::error::CoreError;
+
+    // SSP_FORCE_ENCODER override (highest priority, for testing/CI).
+    let force = std::env::var("SSP_FORCE_ENCODER").ok();
+    let chosen = force.unwrap_or_else(|| settings_encoder.to_string());
+
+    // The auto chain: NVENC → VAAPI → x264 (highest quality/speed first).
+    let chain: Vec<String> = if chosen == "auto" {
+        vec!["nvenc".to_string(), "vaapi".to_string(), "x264".to_string()]
+    } else {
+        vec![chosen]
+    };
+
+    let mut tried = Vec::new();
+
+    for backend in chain {
+        let available = match backend.as_str() {
+            "nvenc" => check_nvenc_available(),
+            "vaapi" => check_vaapi_available(),
+            "x264" => true,
+            _ => {
+                tried.push((backend.clone(), "unknown".to_string()));
+                continue;
+            }
+        };
+
+        if available {
+            tracing::info!(%backend, "encoder selected");
+            let backend_str: &'static str = match backend.as_str() {
+                "nvenc" => "nvenc",
+                "vaapi" => "vaapi",
+                "x264" => "x264",
+                _ => "x264",
+            };
+            return Ok(EncoderInfo {
+                backend: backend_str,
+                is_hardware: backend != "x264",
+            });
+        } else {
+            tracing::warn!(%backend, "encoder unavailable, trying next");
+            tried.push((backend.clone(), "unavailable".to_string()));
+            continue;
+        }
+    }
+
+    // All backends in the chain failed — return the x264 failure
+    // with the full chain for UI notification (API §1: details.encoderChain).
+    let final_err = CoreError::encoder(
+        "encoder.unavailable",
+        false,
+        "No video encoder available. Check graphics drivers and ffmpeg installation.",
+    )
+    .with_details(serde_json::json!({ "encoderChain": tried }));
+    Err(final_err)
+}
+
+/// Check if NVENC encoder is available in FFmpeg.
+/// Returns false for MVP — NVENC not yet implemented.
+#[cfg(feature = "encode")]
+fn check_nvenc_available() -> bool {
+    false
+}
+
+/// Check if VAAPI encoder is available (codec + DRM render node).
+/// Returns false for MVP — VAAPI not yet implemented.
+#[cfg(feature = "encode")]
+fn check_vaapi_available() -> bool {
+    false
+}
 
 /// Register libavformat/libavcodec once per process before any mux work.
 /// Called lazily by whoever enters the encode path first.

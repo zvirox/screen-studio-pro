@@ -1,4 +1,4 @@
-import { Dot, LoaderCircle, Square } from "lucide-react";
+import { Dot, LoaderCircle, Square, Zap, Cpu } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import { formatElapsed } from "../../lib/format";
 
@@ -9,6 +9,28 @@ import { formatElapsed } from "../../lib/format";
    lands in PLAN 2.4) → idle again. Fault copy surfaces once, at floatover
    level, through the store's error toasts (§5.6, ToastHost since 1.7) —
    the row renders no second telling of it. */
+
+/* Encoder chip — shows the active backend (NVENC/VAAPI/x264) with fallback notice.
+   DESIGN §6.1: x264 shows warning-state inline notice with zap-off icon:
+   "Falling back to CPU encode". */
+function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boolean }) {
+  const label = backend.toUpperCase();
+  const icon = backend === "nvenc" ? <Cpu size={12} strokeWidth={2} /> : backend === "vaapi" ? <Cpu size={12} strokeWidth={2} /> : <Cpu size={12} strokeWidth={2} />;
+  const fallbackNotice = isFallback ? (
+    <span className="flex items-center gap-1 text-warning text-body-xs">
+      <Zap size={10} strokeWidth={2} aria-hidden="true" />
+      Falling back to CPU encode
+    </span>
+  ) : null;
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-2 py-1 text-body-sm font-mono text-ink">
+      {icon}
+      {label}
+      {fallbackNotice}
+    </div>
+  );
+}
 
 export default function ActionRow() {
   const source = useSspStore((s) => s.source);
@@ -68,8 +90,15 @@ export default function ActionRow() {
                 PAUSED
               </div>
             ) : null}
+            {/* Encoder chip — right side during recording */}
+            <EncoderChip backend={session.encoderBackend || "x264"} isFallback={session.encoderBackend === "x264" && !!session.startedAt} />
           </>
-        ) : null}
+        ) : (
+          <>
+            {/* Encoder chip — idle state shows configured encoder */}
+            <EncoderChip backend={session.encoderBackend || "auto"} isFallback={false} />
+          </>
+        )}
         <button
           type="button"
           // §5.1: the Record button is always primary, always 48px; fixed

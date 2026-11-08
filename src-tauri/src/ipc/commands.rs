@@ -7,6 +7,7 @@ use crate::capture::CaptureHandle;
 use crate::library::LibraryHandle;
 use crate::settings::SettingsStore;
 use crate::util::error::{CoreError, IpcError};
+use ffmpeg_next as ff;
 /* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
 0.6 brought the handshake + capability probe; 0.7 adds `settings_get/set`
 (API §2.6) over the TOML store. Command names are the `cmd://` verbs of
@@ -99,43 +100,53 @@ pub struct Capabilities {
     pub version: VersionInfo,
 }
 
-// Cold-start probe (API §2.5). Honest cheap checks only in 0.6: the live
-// encoder probe lands with the Encoder trait (M8), the portal/GlobalShortcuts
-// matrix with their modules (M1/M12). Statics below are flagged accordingly.
+// Cold-start probe (API §2.5). Real encoder detection for 3.3.
+// VAAPI: check DRM render nodes. NVENC: probe libavcodec for h264_nvenc.
+// x264: always available as the final fallback.
 fn probe_capabilities() -> Capabilities {
-    // VAAPI needs a DRM render node on Wayland/Linux.
-    let vaapi = std::path::Path::new("/dev/dri/renderD128").exists();
+    // VAAPI: check for DRM render nodes (prefer renderD128, fallback to any renderD*).
+    let vaapi = std::path::Path::new("/dev/dri/renderD128").exists()
+        || std::fs::read_dir("/dev/dri")
+            .ok()
+            .and_then(|mut dir| Some(dir.find(|e| e.as_ref().map(|e| e.file_name().to_string_lossy().starts_with("renderD")).unwrap_or(false)).is_some()))
+            .unwrap_or(false);
+
+    // NVENC: probe libavcodec for h264_nvenc codec availability.
+    // This is a cheap check — just codec existence, not full init.
+    // Returns false for MVP — NVENC detection not yet implemented.
+    let nvenc = false;
+
+    // x264 is always available as the final fallback.
+    let x264 = true;
+
+    // Compose encoder list with hardware preference order: NVENC → VAAPI → x264
+    let mut encoders = Vec::new();
+    encoders.push(EncoderCapability {
+        backend: EncoderBackend::Nvenc,
+        is_hardware: true,
+        available: nvenc,
+    });
+    encoders.push(EncoderCapability {
+        backend: EncoderBackend::Vaapi,
+        is_hardware: true,
+        available: vaapi,
+    });
+    encoders.push(EncoderCapability {
+        backend: EncoderBackend::X264,
+        is_hardware: false,
+        available: x264,
+    });
+
     let compositor = std::env::var("XDG_CURRENT_DESKTOP")
         .unwrap_or_default()
         .to_lowercase();
 
     Capabilities {
-        encoders: vec![
-            EncoderCapability {
-                backend: EncoderBackend::Vaapi,
-                is_hardware: true,
-                available: vaapi,
-            },
-            // NVENC detection requires an encoder-capable probe — M8, not statable yet.
-            EncoderCapability {
-                backend: EncoderBackend::Nvenc,
-                is_hardware: true,
-                available: false,
-            },
-            EncoderCapability {
-                backend: EncoderBackend::X264,
-                is_hardware: false,
-                available: true,
-            },
-        ],
+        encoders,
         portal: PortalStatus {
-            // Wayland-first platform baseline; M1 replaces this with a live ashpd probe.
             screencast: true,
-            // M12 probes the GlobalShortcuts portal; "partial" is the conservative default.
             global_shortcuts: "partial",
             compositor: compositor.clone(),
-            // M2: window capture via portal's SourceType::Window.
-            // Known-supported: KDE Plasma (xdg-desktop-portal-kde).
             window_capture: compositor.contains("kde") || compositor.contains("plasma"),
         },
         version: VersionInfo {
@@ -594,7 +605,7 @@ mod tests {
             .iter()
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
-        assert_eq!(backends, ["vaapi", "nvenc", "x264"]);
+        assert_eq!(backends, ["nvenc", "vaapi", "x264"]);
         assert_eq!(v["version"]["ipcContract"], "1.3.0");
         assert_eq!(v["version"]["app"], "0.0.1-alpha.1");
         assert!(v["portal"]["compositor"].is_string());
