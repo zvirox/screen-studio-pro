@@ -1,5 +1,8 @@
-use crate::pipeline::{Frame, FrameLayout};
+use crate::pipeline::Frame;
 use crate::util::error::CoreError;
+
+#[cfg(test)]
+use crate::pipeline::FrameLayout;
 
 /// Apply a region crop to a frame. Returns a new frame with the cropped
 /// data, or the original frame if no region is set.
