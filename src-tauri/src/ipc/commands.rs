@@ -7,7 +7,6 @@ use crate::capture::CaptureHandle;
 use crate::library::LibraryHandle;
 use crate::settings::SettingsStore;
 use crate::util::error::{CoreError, IpcError};
-use ffmpeg_next as ff;
 /* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
 0.6 brought the handshake + capability probe; 0.7 adds `settings_get/set`
 (API §2.6) over the TOML store. Command names are the `cmd://` verbs of
@@ -108,15 +107,13 @@ fn probe_capabilities() -> Capabilities {
     let vaapi = std::path::Path::new("/dev/dri/renderD128").exists()
         || std::fs::read_dir("/dev/dri")
             .ok()
-            .and_then(|mut dir| {
-                Some(
-                    dir.find(|e| {
-                        e.as_ref()
-                            .map(|e| e.file_name().to_string_lossy().starts_with("renderD"))
-                            .unwrap_or(false)
-                    })
-                    .is_some(),
-                )
+            .map(|mut dir| {
+                dir.find(|e| {
+                    e.as_ref()
+                        .map(|e| e.file_name().to_string_lossy().starts_with("renderD"))
+                        .unwrap_or(false)
+                })
+                .is_some()
             })
             .unwrap_or(false);
 
@@ -129,22 +126,23 @@ fn probe_capabilities() -> Capabilities {
     let x264 = true;
 
     // Compose encoder list with hardware preference order: NVENC → VAAPI → x264
-    let mut encoders = Vec::new();
-    encoders.push(EncoderCapability {
-        backend: EncoderBackend::Nvenc,
-        is_hardware: true,
-        available: nvenc,
-    });
-    encoders.push(EncoderCapability {
-        backend: EncoderBackend::Vaapi,
-        is_hardware: true,
-        available: vaapi,
-    });
-    encoders.push(EncoderCapability {
-        backend: EncoderBackend::X264,
-        is_hardware: false,
-        available: x264,
-    });
+    let encoders = vec![
+        EncoderCapability {
+            backend: EncoderBackend::Nvenc,
+            is_hardware: true,
+            available: nvenc,
+        },
+        EncoderCapability {
+            backend: EncoderBackend::Vaapi,
+            is_hardware: true,
+            available: vaapi,
+        },
+        EncoderCapability {
+            backend: EncoderBackend::X264,
+            is_hardware: false,
+            available: x264,
+        },
+    ];
 
     let compositor = std::env::var("XDG_CURRENT_DESKTOP")
         .unwrap_or_default()

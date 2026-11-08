@@ -1,4 +1,4 @@
-use super::{EncodedPacket, Encoder, EncoderInfo};
+use super::{Encoder, EncoderInfo};
 use crate::util::error::CoreError;
 
 /* VAAPI hardware encoder (PLAN 3.3) — Intel/AMD GPUs on Linux.
@@ -11,8 +11,10 @@ which needs more ffmpeg_next API integration. For now, it returns
 Full VAAPI implementation will be completed in a follow-up task.
 */
 
+#[allow(dead_code)]
 pub struct VaapiEncoder;
 
+#[allow(dead_code)]
 impl VaapiEncoder {
     /// Creates a new VAAPI encoder instance. Currently returns unavailable
     /// as the full VAAPI hardware frame management is not yet implemented.

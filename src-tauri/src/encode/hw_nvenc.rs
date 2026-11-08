@@ -1,4 +1,4 @@
-use super::{EncodedPacket, Encoder, EncoderInfo};
+use super::{Encoder, EncoderInfo};
 use crate::util::error::CoreError;
 
 /* NVENC hardware encoder (PLAN 3.3) — NVIDIA GPUs.
@@ -11,8 +11,10 @@ the encoder selection chain falls back to x264.
 Full NVENC implementation will be completed in a follow-up task.
 */
 
+#[allow(dead_code)]
 pub struct NvencEncoder;
 
+#[allow(dead_code)]
 impl NvencEncoder {
     /// Creates a new NVENC encoder instance. Currently returns unavailable
     /// as the full NVENC hardware frame management is not yet implemented.

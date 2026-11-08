@@ -2,7 +2,7 @@ use super::audio::{MIX_WINDOW_SAMPLES, MeterReading, MixSource};
 use super::stats::{EventSink, SessionEvent, StatsMeter, Throttle};
 use crate::capture::audio::AudioProducer;
 use crate::encode::sw_aac::{self, SwAac};
-use crate::encode::sw_x264::{self, SwX264};
+use crate::encode::sw_x264::SwX264;
 use crate::encode::{AudioEncoder, EncodedPacket, Encoder};
 use crate::pipeline::muxer::{AudioSpec, Muxer, MuxerBuilder, VideoSpec};
 use crate::util::error::CoreError;

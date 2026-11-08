@@ -52,6 +52,7 @@ pub const PACKET_TIME_BASE: ffmpeg_next::Rational = ffmpeg_next::Rational(1, 1_0
 /// session maps it to the contract's `encoder.*`/`disk.*` codes.
 #[cfg_attr(test, allow(dead_code))]
 pub trait Encoder: Send {
+    #[allow(dead_code)]
     fn info(&self) -> EncoderInfo;
     /// Scale + encode one raw frame; returns the packets it drained.
     /// `frame.pts_us` must already be recording-relative (µs since start).
