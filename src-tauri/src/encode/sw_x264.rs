@@ -27,10 +27,12 @@ half a pixel grid; a 1-px scale is invisible at these rates). */
 /// crash-tolerance law — with x264's default 250-frame GOP a killed
 /// process leaves a header-only file), and it keeps seeking responsive
 /// in the library (M14).
+#[cfg_attr(not(test), allow(dead_code))]
 const X264_OPTS: &[(&str, &str)] = &[("preset", "medium"), ("g", "60")];
 
 /// The option dictionary the muxer passes to `avcodec_open2` when opening
 /// this backend (see pipeline/muxer.rs).
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn options() -> Vec<(String, String)> {
     X264_OPTS
         .iter()

@@ -11,6 +11,7 @@ import {
   type PrefValue,
   type PrefsGetReply,
   type PrefsAllReply,
+  type PresetsListReply,
   type RecordingPhaseReply,
   type RecordingStartInput,
   type RecordingStartReply,
@@ -68,6 +69,11 @@ export function windowHide(recordingId?: string): Promise<{ ok: boolean }> {
 /** `cmd://system_capabilities` — cold-start probe (API §2.5). */
 export function systemCapabilities(): Promise<Capabilities> {
   return call<Capabilities>("system_capabilities");
+}
+
+/** `cmd://presets_list` — the four static quality presets (API §2.5). */
+export function presetsList(): Promise<PresetsListReply> {
+  return call<PresetsListReply>("presets_list");
 }
 
 /** `cmd://settings_get` — one TOML section as JSON (API §2.6). */

@@ -119,6 +119,7 @@ pub fn run() {
         ipc::commands::source_release,
         ipc::commands::source_region_set,
         ipc::commands::source_region_clear,
+        ipc::commands::presets_list,
         ipc::commands::recording_start,
         ipc::commands::recording_pause,
         ipc::commands::recording_resume,
@@ -138,6 +139,7 @@ pub fn run() {
         ipc::commands::audio_set_channel,
         ipc::commands::source_select,
         ipc::commands::source_release,
+        ipc::commands::presets_list,
     ]);
 
     builder

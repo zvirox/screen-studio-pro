@@ -1,6 +1,8 @@
 import { Dot, LoaderCircle, Square, Zap, Cpu } from "lucide-react";
+import { useEffect } from "react";
 import { useSspStore } from "../../lib/store";
 import { formatElapsed } from "../../lib/format";
+import type { PresetId } from "../../types/ipc";
 
 /* §5.1/§6.1 #5 action row — 1.5 slice: the 48px primary Record button only
    (the preset select and encoder chip join with their features in 3.x).
@@ -35,8 +37,15 @@ function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boo
 export default function ActionRow() {
   const source = useSspStore((s) => s.source);
   const session = useSspStore((s) => s.session);
+  const presets = useSspStore((s) => s.presets);
+  const loadPresets = useSspStore((s) => s.loadPresets);
+  const setPreset = useSspStore((s) => s.setPreset);
   const startRecording = useSspStore((s) => s.startRecording);
   const stopRecording = useSspStore((s) => s.stopRecording);
+
+  useEffect(() => {
+    void loadPresets();
+  }, [loadPresets]);
 
   const busy = session.status === "starting" || session.status === "stopping";
   const recording = session.status === "recording";
@@ -44,6 +53,31 @@ export default function ActionRow() {
   // A fault still tints the retry state (primary action after failure);
   // its copy renders once, in the error toast (§6.5 no-double-telling).
   const fault = session.fault;
+
+  /* M11 preset select — DESIGN §6.1 #5: "quality preset select left
+     (plain language: "For YouTube — 1080p60")". Native select styled
+     with the closed tokens (no new Radix dep would be a §4.2 ask).
+     Disabled while recording (take-snapshot law: changes apply to
+     the next recording). */
+  const presetSelect = (
+    <label className="flex items-center gap-2 text-body-sm">
+      <span className="sr-only">Quality preset</span>
+      <select
+        aria-label="Quality preset"
+        value={presets.presetId ?? ""}
+        disabled={recording || presets.status !== "ready"}
+        onChange={(e) => void setPreset(e.target.value as PresetId)}
+        className="h-10 max-w-[220px] truncate rounded-sm border border-subtle bg-solid px-2 text-body-sm text-ink disabled:opacity-60"
+      >
+        {presets.presets.length === 0 && <option value="">Quality…</option>}
+        {presets.presets.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label} — {p.description}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   const label = busy ? (
     <span role="status" aria-live="polite" className="flex items-center justify-center gap-2">
@@ -70,6 +104,7 @@ export default function ActionRow() {
   return (
     <section aria-label="Recording controls" className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
+        {presetSelect}
         {recording ? (
           <>
             <div

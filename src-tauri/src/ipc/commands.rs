@@ -14,7 +14,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.3.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.4.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -168,6 +168,36 @@ fn probe_capabilities() -> Capabilities {
 #[tauri::command]
 pub fn system_capabilities() -> Capabilities {
     probe_capabilities()
+}
+
+/* ---------- presets_list (API §2.5, M11) ---------- */
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresetEntry {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub description: &'static str,
+    pub fps: u32,
+    pub height: u32,
+    pub container: &'static str,
+}
+
+/// `cmd://presets_list` — the four static quality presets (API §2.5).
+#[tauri::command]
+pub fn presets_list() -> Value {
+    let presets: Vec<PresetEntry> = crate::pipeline::presets::list()
+        .iter()
+        .map(|p| PresetEntry {
+            id: p.id,
+            label: p.label,
+            description: p.description,
+            fps: p.fps,
+            height: p.height,
+            container: p.container,
+        })
+        .collect();
+    serde_json::json!({ "presets": serde_json::to_value(presets).expect("static presets are plain JSON data") })
 }
 
 /// `cmd://settings_get` — returns one TOML section as JSON (API §2.6).
@@ -600,7 +630,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.3.0");
+        assert_eq!(v["ipcContract"], "1.4.0");
     }
 
     #[test]
@@ -613,9 +643,21 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["nvenc", "vaapi", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.3.0");
+        assert_eq!(v["version"]["ipcContract"], "1.4.0");
         assert_eq!(v["version"]["app"], "0.0.1-alpha.1");
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());
+    }
+
+    #[test]
+    fn presets_list_carries_the_four_m11_presets() {
+        let v = presets_list();
+        let ids: Vec<&str> = v["presets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["youtube", "discord", "lossless", "smallest"]);
     }
 }

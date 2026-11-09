@@ -1,6 +1,13 @@
 # API.md — ScreenStudio Pro IPC Contract
 
-**Version:** 1.3.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+**Version:** 1.4.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+
+**v1.4.0 (task 3.4, MINOR — additive):** `cmd://presets_list` is now live
+(M11). The four static quality presets are surfaced with plain-language
+descriptions; the take resolves the selected preset from the
+SETTINGS SNAPSHOT at start (config-snapshot law) — height cap, fps
+cap, and encoder-x264 options derive from it. The presets list reply
+is additive; no existing payload changed shape.
 
 **Contract nature (read first):** ScreenStudio Pro has **no HTTP server and no network API** — PRD non-goal N6 and ARCHITECTURE §3.3 forbid it. The app's entire API surface is the **Tauri IPC**: *commands* (request/response, like REST) and *events* (push, like webhooks in reverse). This file documents that surface in REST-style conventions so it can be reviewed the same way: every command has a purpose, payload schema, success shape, and every error code the frontend may receive.
 
@@ -116,7 +123,7 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 
 ### 2.3 Recording session
 
-*(Task 1.3 scope: video-only monitor recording. `regionRect`, `cameraId`, `presetId` are accepted at their §-shapes but not honored until M3/M5/M11. **2.1 audio:** every enabled channel in the SETTINGS snapshot records into one pre-mixed stereo AAC track; a start-time capture failure rejects the start typed, before any media flows, and a device lost mid-take renders ONE non-fatal `pipewire.audio_device_gone` event while the take continues with that channel silent. The request body's `audio` array stays contract-shaped-but-not-honored — the settings snapshot governs the take (config-snapshot law); mid-take settings changes do not reshape a running take. `outputDir` is honored when given, else the default `$XDG_VIDEOS_DIR/SSP`. The stop reply omits the library row `id` and `thumbPath` until the DB upsert (task 1.6); `container` is `"mkv"` — remux to MP4 joins M9. Mid-take faults (mux disk errors, codec failures, a panicked or lost capture stream) surface at `recording_stop` as the §1 error; the event-stream join is task 1.4. **2.3:** pause is a phase of the ONE running take — nothing on disk changes (no separate segment files); frames fed while paused are discarded and the paused wall time is excluded from the encoded timeline (the resumed stream's pts continue where the pause began). Stop-while-paused is legal and finalizes the pre-pause content.)*
+*(Task 1.3 scope: video-only monitor recording. `regionRect`, `cameraId`, `presetId` are accepted at their §-shapes but not honored until M3/M5/M11. **2.1 audio:** every enabled channel in the SETTINGS snapshot records into one pre-mixed stereo AAC track; a start-time capture failure rejects the start typed, before any media flows, and a device lost mid-take renders ONE non-fatal `pipewire.audio_device_gone` event while the take continues with that channel silent. The request body's `audio` array stays contract-shaped-but-not-honored — the settings snapshot governs the take (config-snapshot law); mid-take settings changes do not reshape a running take. `outputDir` is honored when given, else the default `$XDG_VIDEOS_DIR/SSP`. The stop reply omits the library row `id` and `thumbPath` until the DB upsert (task 1.6); `container` is `"mkv"` — remux to MP4 joins M9. Mid-take faults (mux disk errors, codec failures, a panicked or lost capture stream) surface at `recording_stop` as the §1 error; the event-stream join is task 1.4. **2.3:** pause is a phase of the ONE running take — nothing on disk changes (no separate segment files); frames fed while paused are discarded and the paused wall time is excluded from the encoded timeline (the resumed stream's pts continue where the pause began). Stop-while-paused is legal and finalizes the pre-pause content. **3.4/M11:** the take resolves the SETTINGS SNAPSHOT's `capture.qualityPreset` (the `presetId` body field rides the snapshot's id, contract-shaped-and-not-re-read) — the preset's fps cap, height cap, and x264 options govern the take; the container stays `"mkv"` (remux is M9).*)*
 
 #### `cmd://recording_start`
 - **Method:** command · **PRD:** M1–M5, M7–M11 · **DB:** R (INSERT with `status='recording'`, `created_at` set) · **Flag:** ✓

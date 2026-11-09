@@ -6,7 +6,7 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.3.0";
+export const IPC_CONTRACT_VERSION = "1.4.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
@@ -56,6 +56,25 @@ export interface Capabilities {
   encoders: EncoderCapability[];
   portal: PortalStatus;
   version: VersionInfo;
+}
+
+/* ---------- §2.5 Quality presets (task 3.4, M11) ---------- */
+
+export type PresetId = "youtube" | "discord" | "lossless" | "smallest";
+
+export interface Preset {
+  id: PresetId;
+  label: string;
+  /** Plain-language description per PRD §7.5 (no encoder jargon). */
+  description: string;
+  fps: number;
+  /** Zero = native resolution (no cap). */
+  height: number;
+  container: string;
+}
+
+export interface PresetsListReply {
+  presets: Preset[];
 }
 
 export interface Hello {

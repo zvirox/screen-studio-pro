@@ -17,6 +17,8 @@ vi.mock("./ipc", async (importOriginal) => ({
   recordingPause: vi.fn(),
   recordingResume: vi.fn(),
   settingsGet: vi.fn(),
+  settingsSet: vi.fn(),
+  presetsList: vi.fn(),
   audioSetChannel: vi.fn(),
   audioListDevices: vi.fn(),
 }));
@@ -27,6 +29,8 @@ import {
   recordingPause,
   recordingResume,
   settingsGet,
+  settingsSet,
+  presetsList,
   audioSetChannel,
   audioListDevices,
   sourceSelect,
@@ -37,6 +41,8 @@ const mockedStop = vi.mocked(recordingStop);
 const mockedPause = vi.mocked(recordingPause);
 const mockedResume = vi.mocked(recordingResume);
 const mockedSettingsGet = vi.mocked(settingsGet);
+const mockedSettingsSet = vi.mocked(settingsSet);
+const mockedPresetsList = vi.mocked(presetsList);
 const mockedSetChannel = vi.mocked(audioSetChannel);
 const mockedAudioListDevices = vi.mocked(audioListDevices);
 
@@ -746,5 +752,90 @@ describe("audio slice (§6.1 #3 strip; 2.2)", () => {
       mic: { rms: 0.3, peak: 0.3 },
       desktop: { rms: 0.1, peak: 0.1 },
     });
+  });
+});
+
+/* ---------- presets (M11; API §2.5) ---------- */
+
+const PRESETS = [
+  { id: "youtube" as const, label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
+  { id: "discord" as const, label: "For Discord", description: "720p30, ~6 Mbps", fps: 30, height: 720, container: "mp4" },
+  { id: "lossless" as const, label: "Lossless local", description: "native resolution, visually lossless", fps: 60, height: 0, container: "mkv" },
+  { id: "smallest" as const, label: "Smallest file", description: "720p30, ~2 Mbps", fps: 30, height: 720, container: "mp4" },
+];
+
+describe("presets (§2.5; M11)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSspStore.setState({
+      source: INITIAL_SOURCE,
+      session: INITIAL_SESSION,
+      presets: { status: "idle", error: null, presets: [], presetId: null },
+      toasts: [],
+      nextToastId: 1,
+    });
+  });
+
+  it("loadPresets fetches the list and mirrors settings.capture.qualityPreset", async () => {
+    mockedPresetsList.mockResolvedValue({ presets: PRESETS });
+    mockedSettingsGet.mockResolvedValue({
+      frameRate: 60,
+      encoder: "auto",
+      qualityPreset: "discord",
+    });
+    await useSspStore.getState().loadPresets();
+    const p = useSspStore.getState().presets;
+    expect(p.status).toBe("ready");
+    expect(p.presets.map((x) => x.id)).toEqual(["youtube", "discord", "lossless", "smallest"]);
+    expect(p.presetId).toBe("discord");
+    expect(mockedPresetsList).toHaveBeenCalledTimes(1);
+  });
+
+  it("loadPresets failure lands in the slice and pushes the §1 toast", async () => {
+    mockedPresetsList.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().loadPresets();
+    expect(useSspStore.getState().presets.status).toBe("error");
+    expect(useSspStore.getState().presets.error).toEqual(PORTAL_DENIED);
+    expect(useSspStore.getState().toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
+  });
+
+  it("setPreset persists capture.qualityPreset and updates the slice; rollback on rejection", async () => {
+    mockedSettingsSet.mockResolvedValue({} as never);
+    await useSspStore.getState().setPreset("smallest");
+    expect(mockedSettingsSet).toHaveBeenCalledWith({ capture: { qualityPreset: "smallest" } });
+    expect(useSspStore.getState().presets.presetId).toBe("smallest");
+
+    mockedSettingsSet.mockRejectedValue(PORTAL_DENIED);
+    await useSspStore.getState().setPreset("discord");
+    expect(useSspStore.getState().presets.presetId).toBe("smallest"); // rolled back
+    expect(useSspStore.getState().toasts[0]!.title).toBe(PORTAL_DENIED.userMessage);
+  });
+
+  it("setPreset is a no-op while recording (take-snapshot law)", async () => {
+    useSspStore.setState({
+      session: { ...INITIAL_SESSION, status: "recording", recordingId: "rec_1" },
+      presets: { status: "ready", error: null, presets: PRESETS, presetId: "youtube" },
+    });
+    await useSspStore.getState().setPreset("discord");
+    expect(mockedSettingsSet).not.toHaveBeenCalled();
+    expect(useSspStore.getState().presets.presetId).toBe("youtube");
+  });
+
+  it("startRecording sends the selected preset in presetId", async () => {
+    useSspStore.setState({
+      source: {
+        status: "live",
+        sourceId: "src_1",
+        label: "Monitor",
+        capabilities: CAPS,
+        error: null,
+        selectingKind: null,
+        regionRect: null,
+      },
+      presets: { status: "ready", error: null, presets: PRESETS, presetId: "discord" },
+    });
+    mockedStart.mockResolvedValue(START_REPLY);
+    await useSspStore.getState().startRecording();
+    expect(mockedStart).toHaveBeenCalledWith(expect.objectContaining({ presetId: "discord" }));
   });
 });

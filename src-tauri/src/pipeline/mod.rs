@@ -9,6 +9,8 @@ pub mod composite;
 #[cfg(feature = "encode")]
 pub mod muxer;
 #[cfg(feature = "encode")]
+pub mod presets;
+#[cfg(feature = "encode")]
 pub mod session;
 #[cfg(feature = "encode")]
 pub mod stats;

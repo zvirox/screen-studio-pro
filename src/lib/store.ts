@@ -2,11 +2,13 @@ import { create } from "zustand";
 import {
   audioListDevices,
   audioSetChannel,
+  presetsList,
   recordingStart,
   recordingStop,
   recordingPause,
   recordingResume,
   settingsGet,
+  settingsSet,
   sourceSelect,
   sourceRegionSet,
   sourceRegionClear,
@@ -17,6 +19,8 @@ import type {
   AudioListDevicesReply,
   Capabilities,
   IpcError,
+  Preset,
+  PresetId,
   RecordingFinishedEvt,
   RecordingMetersEvt,
   RecordingStartedEvt,
@@ -140,6 +144,25 @@ export const INITIAL_AUDIO: AudioSlice = {
   devicesLoading: false,
 };
 
+/* ---------- Presets projection (API §2.5, task 3.4 / M11) ---------- */
+
+export type PresetsStatus = "idle" | "loading" | "ready" | "error";
+
+export interface PresetsSlice {
+  status: PresetsStatus;
+  error: IpcError | null;
+  presets: Preset[];
+  /** Selected preset id — mirrored from `settings.capture.qualityPreset`. */
+  presetId: PresetId | null;
+}
+
+export const INITIAL_PRESETS: PresetsSlice = {
+  status: "idle",
+  error: null,
+  presets: [],
+  presetId: null,
+};
+
 /* ---------- Toasts (§5.6 saved-file feedback; PLAN 1.7) ---------- */
 
 export type ToastKind = "status" | "error";
@@ -222,6 +245,13 @@ interface SspState {
   capabilities: Capabilities | null;
   loadCapabilities: () => Promise<void>;
 
+  /* Presets (§2.5, M11) — fetched once at boot; selection persists via
+     settings capture.qualityPreset (the take resolves the settings
+     snapshot at start, ARCHITECTURE §4.1). */
+  presets: PresetsSlice;
+  loadPresets: () => Promise<void>;
+  setPreset: (id: PresetId) => Promise<void>;
+
   /* Toasts (§5.6) — ToastHost renders; dismissToast is the user's ✕. */
   toasts: Toast[];
   nextToastId: number;
@@ -236,6 +266,7 @@ export const useSspStore = create<SspState>((set, get) => ({
   session: INITIAL_SESSION,
   audio: INITIAL_AUDIO,
   capabilities: null,
+  presets: INITIAL_PRESETS,
 
   async loadCapabilities() {
     if (get().capabilities) return;
@@ -245,6 +276,50 @@ export const useSspStore = create<SspState>((set, get) => ({
     } catch (err) {
       // Non-fatal: the UI will simply not know about window capture support.
       console.warn("[store] capabilities probe failed:", err);
+    }
+  },
+
+  async loadPresets() {
+    if (get().presets.status === "loading") return;
+    set({ presets: { ...INITIAL_PRESETS, status: "loading" } });
+    try {
+      const { presets } = await presetsList();
+      const capture = await settingsGet("capture");
+      set({
+        presets: {
+          status: "ready",
+          error: null,
+          presets,
+          presetId: capture.qualityPreset as PresetId,
+        },
+      });
+    } catch (err) {
+      set({ presets: { ...INITIAL_PRESETS, status: "error", error: err as IpcError } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setPreset(id) {
+    const prior = get().presets.presetId;
+    if (prior === id || get().session.status === "recording") return;
+    set({ presets: { ...get().presets, presetId: id } });
+    try {
+      await settingsSet({ capture: { qualityPreset: id } });
+    } catch (err) {
+      set({ presets: { ...get().presets, presetId: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
     }
   },
 
@@ -526,7 +601,10 @@ export const useSspStore = create<SspState>((set, get) => ({
         regionRect: null,
         audio: channels,
         cameraId: null,
-        presetId: null,
+        // M11: the take resolves the SETTINGS SNAPSHOT's qualityPreset
+        // at start (config-snapshot law); the id rides the body at its
+        // contract shape so the wire stays complete.
+        presetId: get().presets.presetId,
         outputDir: null,
       });
       // A start event may already have advanced (or ended) the take.

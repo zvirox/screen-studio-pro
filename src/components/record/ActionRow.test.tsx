@@ -85,6 +85,67 @@ describe("ActionRow (§5.1/§6.5)", () => {
     setState(INITIAL_SOURCE, INITIAL_SESSION);
   });
 
+  it("quality preset select: renders the four M11 presets in plain language", () => {
+    useSspStore.setState({
+      loadPresets: vi.fn().mockResolvedValue(undefined),
+      presets: {
+        status: "ready",
+        error: null,
+        presets: [
+          { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
+          { id: "discord", label: "For Discord", description: "720p30, ~6 Mbps", fps: 30, height: 720, container: "mp4" },
+          { id: "lossless", label: "Lossless local", description: "native resolution, visually lossless", fps: 60, height: 0, container: "mkv" },
+          { id: "smallest", label: "Smallest file", description: "720p30, ~2 Mbps", fps: 30, height: 720, container: "mp4" },
+        ],
+        presetId: "youtube",
+      },
+    });
+    render(<ActionRow />);
+    const select = screen.getByRole("combobox", { name: /Quality preset/ }) as HTMLSelectElement;
+    expect(select).toHaveValue("youtube");
+    expect(select.textContent).toContain("For YouTube — 1080p60, ~12 Mbps");
+    expect(select.textContent).toContain("For Discord — 720p30, ~6 Mbps");
+    expect(select).toBeEnabled();
+  });
+
+  it("quality preset select: changing it persists through setPreset", () => {
+    const setPreset = vi.fn().mockResolvedValue(undefined);
+    useSspStore.setState({
+      loadPresets: vi.fn().mockResolvedValue(undefined),
+      setPreset,
+      presets: {
+        status: "ready",
+        error: null,
+        presets: [
+          { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
+          { id: "discord", label: "For Discord", description: "720p30, ~6 Mbps", fps: 30, height: 720, container: "mp4" },
+        ],
+        presetId: "youtube",
+      },
+    });
+    render(<ActionRow />);
+    const select = screen.getByRole("combobox", { name: /Quality preset/ });
+    fireEvent.change(select, { target: { value: "discord" } });
+    expect(setPreset).toHaveBeenCalledWith("discord");
+  });
+
+  it("quality preset select: disabled while recording (take-snapshot law)", () => {
+    useSspStore.setState({
+      loadPresets: vi.fn().mockResolvedValue(undefined),
+      presets: {
+        status: "ready",
+        error: null,
+        presets: [
+          { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
+        ],
+        presetId: "youtube",
+      },
+    });
+    setState(LIVE, { ...INITIAL_SESSION, status: "recording", recordingId: "rec_1" });
+    render(<ActionRow />);
+    expect(screen.getByRole("combobox", { name: /Quality preset/ })).toBeDisabled();
+  });
+
   it("idle: the 48px Record primary is disabled until a source is live", () => {
     render(<ActionRow />);
     const btn = screen.getByRole("button", { name: /Record/ });

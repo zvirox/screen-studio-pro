@@ -667,19 +667,27 @@ impl RecordingHandle {
         // muxer's header and the encoder's output always agree.
         let dims = (dims.0 & !1, dims.1 & !1);
 
-        // Encoder selection: use settings + auto-detection (PLAN 3.3 / M8).
-        // The settings are read from the app state (TOML) if available.
-        let encoder_name = if let Some(app) = app {
+        // Encoder + quality preset from the SETTINGS SNAPSHOT (M8/M11;
+        // ARCHITECTURE §4.1: the take resolves its targets at start).
+        // The preset's height cap wins; the source is never upscaled.
+        let (encoder_name, preset) = if let Some(app) = app {
             let settings = app
                 .state::<Mutex<crate::settings::SettingsStore>>()
                 .lock()
                 .unwrap_or_else(|p| p.into_inner())
                 .get()
                 .clone();
-            settings.capture.encoder
+            (
+                settings.capture.encoder,
+                crate::pipeline::presets::resolve(&settings.capture.quality_preset),
+            )
         } else {
-            "auto".to_string()
+            (
+                "auto".to_string(),
+                crate::pipeline::presets::resolve("youtube"),
+            )
         };
+        let dims = crate::pipeline::presets::output_size(dims, &preset);
 
         // Muxer spec: the codec ID is always H264; the backend is chosen
         // at encoder open time (select_encoder handles NVENC/VAAPI/x264).
@@ -688,8 +696,8 @@ impl RecordingHandle {
             width: dims.0,
             height: dims.1,
             pix_fmt: ff::format::Pixel::YUV420P,
-            frame_rate: FRAME_RATE,
-            options: crate::encode::sw_x264::options(), // base options; encoder may override
+            frame_rate: (preset.fps, 1),
+            options: crate::pipeline::presets::x264_options(&preset),
         };
         let path = next_output_path(dir);
         // A/V split (2.1): the container opens through the builder —
@@ -717,7 +725,7 @@ impl RecordingHandle {
         let _mux = builder.write_header()?;
 
         // Encoder selection (M8): auto NVENC → VAAPI → x264, with fallback.
-        let encoder_opts = crate::encode::sw_x264::options();
+        let encoder_opts = crate::pipeline::presets::x264_options(&preset);
         let encoder_info = crate::encode::select_encoder(&encoder_name, dims, encoder_opts)?;
 
         // Reply facts must be captured before the encoder moves into the
@@ -801,7 +809,7 @@ impl RecordingHandle {
         let worker_anchored = video_anchored.clone();
         let worker_pause = pause.clone();
         let worker_region_rect = region_rect;
-        let encoder_opts = crate::encode::sw_x264::options();
+        let worker_preset = preset;
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
@@ -811,8 +819,8 @@ impl RecordingHandle {
                     width: dims.0,
                     height: dims.1,
                     pix_fmt: ff::format::Pixel::YUV420P,
-                    frame_rate: FRAME_RATE,
-                    options: encoder_opts,
+                    frame_rate: (worker_preset.fps, 1),
+                    options: crate::pipeline::presets::x264_options(&worker_preset),
                 };
                 let builder = MuxerBuilder::create(&path)?;
                 let (builder, video_opened) = builder.add_video(&spec)?;
@@ -830,6 +838,7 @@ impl RecordingHandle {
                     worker_anchored,
                     worker_pause,
                     worker_region_rect,
+                    worker_preset,
                 )
             })
             .map_err(|err| {
@@ -1070,6 +1079,7 @@ fn run_session(
     video_anchored: Arc<AtomicBool>,
     pause: PauseState,
     region_rect: Option<crate::capture::RegionRect>,
+    preset: crate::pipeline::presets::Preset,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
     let outcome = capture_take(
@@ -1083,6 +1093,7 @@ fn run_session(
         &video_anchored,
         &pause,
         region_rect,
+        preset,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
     // reacts to the event can start the next take right away.
@@ -1118,6 +1129,7 @@ fn capture_take(
     video_anchored: &Arc<AtomicBool>,
     pause: &PauseState,
     region_rect: Option<crate::capture::RegionRect>,
+    preset: crate::pipeline::presets::Preset,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
@@ -1142,6 +1154,14 @@ fn capture_take(
     let mut stats_gate = Throttle::new(STATS_PERIOD);
     let mut meter = StatsMeter::new();
     let mut stats_window = Instant::now();
+    // M11 fps cap: a 30 fps preset on a 60 fps source keeps every
+    // other frame (the source cadence is wall-clock µs, so the drop
+    // tracks the nearest whole interval; the half-interval tolerance
+    // absorbs producer jitter so a slightly-fast producer never
+    // under-delivers the next whole interval).
+    let min_interval_us = 1_000_000u64 / preset.fps.max(1) as u64;
+    let accept_threshold_us = min_interval_us / 2;
+    let mut last_accepted_raw: Option<u64> = None;
 
     loop {
         // Cadence FIRST: the gates fire on the wall clock, so the events
@@ -1219,6 +1239,19 @@ fn capture_take(
                     }
                     continue;
                 }
+                // M11 fps cap gate: drop frames that precede the preset's
+                // frame interval. The drain budget still decrements so a
+                // stop-while-capped take stays bounded, mirroring the
+                // pause gate's accounting.
+                if let Some(last) = last_accepted_raw
+                    && frame.pts_us < last.saturating_add(min_interval_us - accept_threshold_us)
+                {
+                    if take_last {
+                        break;
+                    }
+                    continue;
+                }
+                last_accepted_raw = Some(frame.pts_us);
                 let base = match first_pts {
                     Some(base) => base,
                     None => {
@@ -1369,7 +1402,7 @@ fn capture_take(
         size_bytes,
         width: ctx.dims.0,
         height: ctx.dims.1,
-        fps: FRAME_RATE.0,
+        fps: preset.fps,
     })
 }
 
