@@ -1,6 +1,17 @@
 # API.md — ScreenStudio Pro IPC Contract
 
-**Version:** 1.5.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+**Version:** 1.6.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+
+**v1.6.0 (task 4.1, MINOR — additive):** the camera viewer is live —
+`cmd://camera_open` / `cmd://camera_close` (§2.2, "live since 4.1"; the
+portal-fallback stub stays a V2 seam), plus two additive commands:
+`cmd://camera_list_devices` (sysfs enumeration, UVC metadata nodes grouped
+away) and `cmd://camera_preview` (the §2.1 still shape, served from the
+camera's own ≤8fps stills mailbox — the ARCHITECTURE §6 stills exception
+again; polled command, never an event channel). `evt://device/changed`'s
+camera half is live (§3): a sysfs hotplug watcher emits at ≤1 Hz debounced.
+Errors stay within the canonical set (`capture.camera_unavailable`,
+`ipc.bad_state`); no new codes, no existing payload changed shape.
 
 **v1.5.0 (task 3.5, MINOR — additive):** `cmd://source_preview` is now live —
 the latest preview still (downscaled JPEG, longest side ≤640px) for a live
@@ -134,11 +145,32 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 - Body: `{ "channel": "mic", "enabled": true, "muted": false, "deviceId": "mic_blue-snowball", "level": 80 }`
 - **200:** `{ "ok": true }` · **Errors:** `settings.invalid_value` · `pipewire.audio_device_gone` (a concrete `deviceId` checked against the live system before persisting; `deviceId: null` = clear to the system default, no check) · `pipewire.audio_enum_failed`
 
-#### `cmd://camera_open` / `cmd://camera_close`
-- **Method:** command · **PRD:** M5 · **DB:** — · **Flag:** ⚠
-- **Purpose:** open V4L2 device (portal fallback per ARCHITECTURE) returning a preview handle; close/free.
-- `camera_open` body: `{ "deviceId": "v4l2_/dev/video0" }` → **200:** `{ "cameraId": "cam_01HV3…", "width": 1920, "height": 1080 }`
-- **Errors:** `capture.camera_unavailable` (both); `camera_close` succeeds idempotently
+#### `cmd://camera_open` / `cmd://camera_close` *(live since 4.1)*
+- **Method:** command · **PRD:** M5 · **DB:** — · **Flag:** ⚠ runtime only, expected
+- **Purpose:** open a V4L2 device for the stills viewer, returning a preview handle; close/free it. One camera at a time (the handle slot is independent of the portal `CaptureHandle` — a camera never contends with `portal.busy`). The portal-camera fallback (ARCHITECTURE) remains a compliant error stub — a V2 seam, nothing beyond it.
+- `camera_open` body: `{ "deviceId": "v4l2_/dev/video0" }` (from `camera_list_devices`, verbatim) → **200:** `{ "cameraId": "cam_01HV3…", "width": 640, "height": 360 }`. The reply resolves only once the reader decoded the device's first frame, so a successful open implies a servable still.
+- `camera_close` body: `{ "cameraId": "cam_01HV3…" }` → **200:** `{ "ok": true }`. **Idempotent:** no open camera, or an id that doesn't match, still succeeds.
+- **Errors:** `capture.camera_unavailable` (open: unknown/absent device, busy slot, device in use by another app, decode failure — retryable where a replug/retry can help; close: never errors)
+- **Close semantics:** the reader thread checks its stop flag between packets (~one frame period, ~33 ms) and `camera_close` bounds the wait at 250 ms, detaching a wedged reader instead of parking the UI thread. A device unplugged mid-view ends the reader on its own (libavformat latches demux errors); the next `camera_open` is self-healing — it replaces the dead session without an explicit cleanup command.
+
+#### `cmd://camera_list_devices` *(4.1)*
+- **Method:** command · **PRD:** M5 · **DB:** — · **Flag:** ⚠ devices are system state
+- **Purpose:** enumerate V4L2 capture nodes as the §2.2 device ids. Pure sysfs scan: `/dev/video*` nodes grouped by parent device, keeping the lowest index per group — the UVC metadata node (kernel ≥4.16, no capture ioctls) never surfaces. A snapshot: re-list on `device/changed` (camera half).
+- Body: `{}` → **200:**
+```json
+{ "devices": [{ "id": "v4l2_/dev/video0", "label": "HP Wide Vision HD Camera", "isDefault": true }] }
+```
+The first sorted device is `isDefault`. No V4L2 devices → an empty `devices` array (not an error).
+- **Errors:** none — enumeration failure yields the empty list.
+
+#### `cmd://camera_preview` *(4.1)*
+- **Method:** command · **PRD:** M5 (stills law, ARCHITECTURE §6) · **DB:** — · **Flag:** ⚠ stills only at ≤8fps, never a frame channel
+- **Purpose:** return the latest still for the open camera — the SAME reply shape and rate law as `source_preview` (§2.1): a downscaled JPEG (longest side ≤640px) + wall-clock stamp, latest-wins mailbox fed at ≤8fps. Polled command only — no camera event ever carries a still.
+- Body: `{ "cameraId": "cam_01HV3…" }` → **200:** the §2.1 still shape:
+```json
+{ "jpegBase64": "/9j/4AAQ…", "width": 640, "height": 360, "capturedAtMs": 1762000000000 }
+```
+- **Errors:** `ipc.bad_state` (no open camera with that id, or no frame yet — retryable; poll failures never toast) · `capture.preview_failed` (still generation failed — the next poll retries)
 
 ### 2.3 Recording session
 
@@ -292,7 +324,7 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
 | `evt://recording/finished` | `{ recordingId, recording: {…library row…} }` | once per session | M9/M14 | R ✓ |
 | `evt://library/updated` | `{ id, deleted: false }` | on row change | M14 | R ✓ |
 | `evt://source/lost` | `{ sourceId, reason: "portal.denied" }` | on compositor teardown | M1–M3 | — ⚠ |
-| `evt://device/changed` | `{ audio: true, camera: false }` | on PipeWire/V4L2 hotplug (≤ 1 Hz debounced) | M4/M5 | — ⚠ |
+| `evt://device/changed` | `{ audio: true, camera: true }` | on PipeWire/V4L2 hotplug (≤ 1 Hz debounced) — audio half live since 2.1, camera half live since 4.1 | M4/M5 | — ⚠ |
 | `evt://shell/error` | `{ error: <§1>, recordingActive }` | on native/HUD action failure, main window only (§4.1) | M6/M12 | — ⚠ |
 
 All event payloads are JSON, all carry the topic-scoped kind already shown; the webview subscribes through `lib/events.ts` exactly once per topic.
@@ -346,7 +378,7 @@ All event payloads are JSON, all carry the topic-scoped kind already shown; the 
 | `source_select` / `source_region_set` / `source_release` | M1/M2/M3 | — | ⚠ runtime only, expected |
 | `source_preview` | M1–M3 (ARCHITECTURE §6 preview law) | — | ⚠ stills only at ≤8fps, never a frame channel |
 | `audio_list_devices` / `audio_set_channel` | M4 | — | ⚠ devices are system state |
-| `camera_open` / `camera_close` | M5 | — | ⚠ runtime only, expected |
+| `camera_open` / `camera_close` | M5 | — | ⚠ runtime only, expected (live since 4.1) |
 | `recording_start` | M1–M5, M7–M11 | recordings INSERT | ✓ |
 | `recording_pause` / `recording_resume` | M7 | recordings (no row change) | ⚠ pipelining is session state |
 | `recording_stop` | M7, M9 | recordings UPDATE | ✓ |

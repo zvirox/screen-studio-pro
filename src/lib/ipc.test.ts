@@ -7,6 +7,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   asIpcError,
+  cameraClose,
+  cameraListDevices,
+  cameraOpen,
+  cameraPreview,
   ipcHello,
   isContractMatch,
   prefsGet,
@@ -183,8 +187,8 @@ describe("lib/ipc", () => {
   });
 
   it("pins the webview contract version (API §5.1)", () => {
-    expect(IPC_CONTRACT_VERSION).toBe("1.5.0");
-    expect(isContractMatch("1.5.0")).toBe(true);
+    expect(IPC_CONTRACT_VERSION).toBe("1.6.0");
+    expect(isContractMatch("1.6.0")).toBe(true);
     expect(isContractMatch("1.0.0")).toBe(false);
     expect(isContractMatch("2.0.0")).toBe(false);
   });
@@ -199,6 +203,42 @@ describe("lib/ipc", () => {
     invokeMock.mockResolvedValueOnce(reply);
     await expect(sourcePreview("src_01hv3")).resolves.toEqual(reply);
     expect(invokeMock).toHaveBeenCalledWith("source_preview", { sourceId: "src_01hv3" });
+  });
+
+  it("cameraListDevices lists the grouped capture nodes (4.1)", async () => {
+    const reply = {
+      devices: [
+        { id: "v4l2_/dev/video0", label: "HP Wide Vision HD Camera", isDefault: true },
+      ],
+    };
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(cameraListDevices()).resolves.toEqual(reply);
+    expect(invokeMock).toHaveBeenCalledWith("camera_list_devices", {});
+  });
+
+  it("cameraOpen passes the device id and returns the §2.2 handle shape (4.1)", async () => {
+    const reply = { cameraId: "cam_01hv3", width: 640, height: 360 };
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(cameraOpen("v4l2_/dev/video0")).resolves.toEqual(reply);
+    expect(invokeMock).toHaveBeenCalledWith("camera_open", { deviceId: "v4l2_/dev/video0" });
+  });
+
+  it("cameraClose addresses the camera id (4.1)", async () => {
+    invokeMock.mockResolvedValueOnce({ ok: true });
+    await expect(cameraClose("cam_01hv3")).resolves.toEqual({ ok: true });
+    expect(invokeMock).toHaveBeenCalledWith("camera_close", { cameraId: "cam_01hv3" });
+  });
+
+  it("cameraPreview returns the §2.1 still shape under the camera id (4.1)", async () => {
+    const reply = {
+      jpegBase64: "/9j/4AAQ",
+      width: 640,
+      height: 360,
+      capturedAtMs: 1_762_000_000_000,
+    };
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(cameraPreview("cam_01hv3")).resolves.toEqual(reply);
+    expect(invokeMock).toHaveBeenCalledWith("camera_preview", { cameraId: "cam_01hv3" });
   });
 
   it("presetsList calls the static preset verb", async () => {

@@ -3,6 +3,9 @@ import {
   IPC_CONTRACT_VERSION,
   type AudioListDevicesReply,
   type AudioSetChannelInput,
+  type CameraListDevicesReply,
+  type CameraOpenReply,
+  type CameraPreviewReply,
   type Capabilities,
   type Chapter,
   type Hello,
@@ -124,6 +127,35 @@ export function sourcePreview(sourceId: string): Promise<SourcePreviewStill> {
     marked (API §2.2). A snapshot: re-list after device changes. */
 export function audioListDevices(): Promise<AudioListDevicesReply> {
   return call<AudioListDevicesReply>("audio_list_devices", {});
+}
+
+/* ---------- Camera viewer (API §2.2, task 4.1) ---------- */
+
+/** `cmd://camera_list_devices` — V4L2 capture nodes grouped per camera
+    (API §2.2). A snapshot: re-list on `device/changed` (camera half). */
+export function cameraListDevices(): Promise<CameraListDevicesReply> {
+  return call<CameraListDevicesReply>("camera_list_devices", {});
+}
+
+/** `cmd://camera_open` — open a V4L2 device (API §2.2). Resolves only
+    once the reader decoded its first frame, so the reply implies a
+    servable still. One camera at a time: a second open fails with
+    `capture.camera_unavailable` until `cameraClose`. */
+export function cameraOpen(deviceId: string): Promise<CameraOpenReply> {
+  return call<CameraOpenReply>("camera_open", { deviceId });
+}
+
+/** `cmd://camera_close` — close the camera (API §2.2). Idempotent: an
+    unknown or already-closed id still returns `{ ok: true }`. */
+export function cameraClose(cameraId: string): Promise<{ ok: boolean }> {
+  return call<{ ok: boolean }>("camera_close", { cameraId });
+}
+
+/** `cmd://camera_preview` — latest encoded still of the open camera
+    (API §2.2). Same rate law as `source_preview`: poll ≤8fps while
+    live + mounted; `ipc.bad_state` until the first frame is normal. */
+export function cameraPreview(cameraId: string): Promise<CameraPreviewReply> {
+  return call<CameraPreviewReply>("camera_preview", { cameraId });
 }
 
 /** `cmd://audio_set_channel` — enable/mute a channel, pick a device, set

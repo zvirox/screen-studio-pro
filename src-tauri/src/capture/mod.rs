@@ -1,7 +1,12 @@
 pub mod audio;
+#[cfg(feature = "encode")]
+pub mod camera_v4l2;
 pub mod pipewire;
 pub mod portal;
 pub mod preview;
+
+#[cfg(feature = "encode")]
+pub use camera_v4l2::{CameraHandle, list_devices};
 
 use crate::util::error::CoreError;
 use serde::Serialize;

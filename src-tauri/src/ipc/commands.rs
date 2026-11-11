@@ -15,7 +15,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.5.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.6.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -474,6 +474,84 @@ fn preview_not_ready() -> CoreError {
     )
 }
 
+/* ---------- camera viewer (API §2.2, task 4.1) ---------- */
+
+/// `cmd://camera_list_devices` — the sysfs-enumerated capture nodes,
+/// grouped per camera (the UVC metadata node never surfaces).
+#[cfg(feature = "encode")]
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CameraDeviceEntry {
+    pub id: String,
+    pub label: String,
+    pub is_default: bool,
+}
+
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub fn camera_list_devices() -> Value {
+    let devices: Vec<CameraDeviceEntry> = crate::capture::list_devices()
+        .into_iter()
+        .map(|d| CameraDeviceEntry {
+            id: d.id,
+            label: d.label,
+            is_default: d.is_default,
+        })
+        .collect();
+    serde_json::json!({ "devices": serde_json::to_value(devices).expect("plain JSON data") })
+}
+
+/// `cmd://camera_open` (API §2.2) — open the V4L2 device and return the
+/// preview handle once the reader decoded its first frame.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub fn camera_open(
+    device_id: String,
+    camera_state: State<'_, crate::capture::CameraHandle>,
+) -> Result<Value, IpcError> {
+    let (camera_id, width, height) = camera_state.open(&device_id).map_err(|err| err.to_ipc())?;
+    Ok(serde_json::json!({
+        "cameraId": camera_id,
+        "width": width,
+        "height": height,
+    }))
+}
+
+/// `cmd://camera_close` (API §2.2) — idempotent: no open camera or an
+/// unknown id still succeeds.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub fn camera_close(
+    camera_id: String,
+    camera_state: State<'_, crate::capture::CameraHandle>,
+) -> Result<Value, IpcError> {
+    camera_state.close(Some(&camera_id));
+    Ok(serde_json::json!({ "ok": true }))
+}
+
+/// `cmd://camera_preview` (API §2.2, task 4.1) — the latest camera still:
+/// the SAME §2.1 reply shape as `source_preview` (JPEG ≤640px + stamp),
+/// served from the camera's own mailbox. Not-ready polls are retryable
+/// `ipc.bad_state` and never toast (the 3.5 polling law).
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub fn camera_preview(
+    camera_id: String,
+    camera_state: State<'_, crate::capture::CameraHandle>,
+) -> Result<Value, IpcError> {
+    let mailbox = camera_state
+        .mailbox_if_matches(&camera_id)
+        .ok_or_else(preview_not_ready)?;
+    let (frame, captured_at_ms) = mailbox.latest().ok_or_else(preview_not_ready)?;
+    let still = crate::capture::preview::encode_still(&frame)?;
+    Ok(serde_json::json!({
+        "jpegBase64": base64::engine::general_purpose::STANDARD.encode(&still.jpeg),
+        "width": still.width,
+        "height": still.height,
+        "capturedAtMs": captured_at_ms,
+    }))
+}
+
 /* ---------- audio devices (API §2.2, task 2.1) ---------- */
 
 /// `cmd://audio_list_devices` — cpal mics + PipeWire sink outputs with
@@ -674,7 +752,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.5.0");
+        assert_eq!(v["ipcContract"], "1.6.0");
     }
 
     #[test]
@@ -687,7 +765,7 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["nvenc", "vaapi", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.5.0");
+        assert_eq!(v["version"]["ipcContract"], "1.6.0");
         assert_eq!(v["version"]["app"], "0.0.1-alpha.1");
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());

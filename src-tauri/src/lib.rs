@@ -115,6 +115,10 @@ pub fn run() {
         ipc::commands::prefs_set,
         ipc::commands::audio_list_devices,
         ipc::commands::audio_set_channel,
+        ipc::commands::camera_list_devices,
+        ipc::commands::camera_open,
+        ipc::commands::camera_close,
+        ipc::commands::camera_preview,
         ipc::commands::source_select,
         ipc::commands::source_release,
         ipc::commands::source_preview,
@@ -186,9 +190,15 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(library::LibraryHandle::open(&util::paths::data_dir()));
     // §2.1: the single active portal session lives in managed state.
     app.manage(capture::CaptureHandle::new());
+    // §2.2 (4.1): the single open camera — independent of the portal slot.
+    #[cfg(feature = "encode")]
+    app.manage(capture::CameraHandle::new());
     // §2.3: the single active recording session (task 1.3).
     #[cfg(feature = "encode")]
     app.manage(pipeline::session::RecordingHandle::new());
+    // §3 (4.1): the V4L2 hotplug watcher — device/changed, camera half.
+    #[cfg(feature = "encode")]
+    capture::camera_v4l2::spawn_hotplug_watcher(app.handle().clone());
     if let Err(err) = tray::setup(app) {
         // Hiding re-checks tray availability and returns typed human copy.
         tracing::warn!(error = %err, "tray unavailable; keeping window controls reachable");

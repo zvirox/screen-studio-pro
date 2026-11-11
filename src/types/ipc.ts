@@ -1,4 +1,4 @@
-/* Contract mirror of API.md v1.5.0 — the webview half of ARCHITECTURE §2's
+/* Contract mirror of API.md v1.6.0 — the webview half of ARCHITECTURE §2's
    `types/ipc.ts` ↔ `src-tauri/ipc/` pairing (TESTING §1 P1: #1 breakage risk).
    JSON-projection law (API §5.2): Rust truth is a superset — consumers must
    tolerate unknown/additional fields; this file pins the webview's subset.
@@ -6,7 +6,7 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.5.0";
+export const IPC_CONTRACT_VERSION = "1.6.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
@@ -377,3 +377,29 @@ export interface SourcePreviewStill {
   /** Wall-clock ms of the tapped frame — polls discard stale stamps. */
   capturedAtMs: number;
 }
+
+/* ---------- Camera viewer (API §2.2, task 4.1) ---------- */
+
+/** `cmd://camera_list_devices` 200 reply — sysfs-enumerated capture
+    nodes, grouped per camera (UVC metadata nodes never surface). */
+export interface CameraDeviceInfo {
+  /** `v4l2_/dev/videoN` — pass verbatim to `cameraOpen`. */
+  id: string;
+  label: string;
+  isDefault: boolean;
+}
+
+export interface CameraListDevicesReply {
+  devices: CameraDeviceInfo[];
+}
+
+/** `cmd://camera_open` 200 reply — the stills handle + negotiated dims. */
+export interface CameraOpenReply {
+  cameraId: string;
+  width: number;
+  height: number;
+}
+
+/** `cmd://camera_preview` 200 reply — the same §2.1 still shape as
+    `source_preview`, served from the camera's own stills mailbox. */
+export type CameraPreviewReply = SourcePreviewStill;
