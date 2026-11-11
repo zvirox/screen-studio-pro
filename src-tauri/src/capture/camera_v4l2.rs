@@ -628,7 +628,10 @@ mod tests {
 
     #[test]
     fn device_id_must_be_v4l2_prefixed_under_dev() {
-        assert!(parse_device_id("v4l2_/dev/video0").is_ok());
+        // The ok-case needs an EXISTING /dev node — parse checks presence.
+        // `/dev/null` exists everywhere (CI has no cameras); the test
+        // targets the id-FORMAT law, not camera presence.
+        assert!(parse_device_id("v4l2_/dev/null").is_ok());
         assert!(parse_device_id("portal_something").is_err());
         assert!(parse_device_id("v4l2_/etc/passwd").is_err(), "outside /dev");
         assert!(parse_device_id("v4l2_/dev/video99").is_err(), "absent node");
