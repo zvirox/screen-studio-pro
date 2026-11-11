@@ -298,6 +298,31 @@ describe("session event projection (Rust truth, §4.1)", () => {
     expect(useSspStore.getState().session.paused).toBe(false);
   });
 
+  it("onStats stores the latest §3 stats payload while a take runs (3.5)", () => {
+    recordingSession();
+    const stats = { fps: 59.8, droppedFrames: 0, bitrateKbps: 12_100, encodeTimeMs: 5.2 };
+    useSspStore.getState().onStats(stats);
+    expect(useSspStore.getState().session.stats).toEqual(stats);
+    useSspStore.getState().onStats({ fps: 60, droppedFrames: 1, bitrateKbps: 9000, encodeTimeMs: 4 });
+    expect(useSspStore.getState().session.stats?.droppedFrames).toBe(1);
+  });
+
+  it("onStats outside a recording session is dropped — no stale stats on the idle row", () => {
+    useSspStore.getState().onStats({ fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1 });
+    expect(useSspStore.getState().session.stats).toBeNull();
+  });
+
+  it("a new take starts with empty stats (onStarted resets the slice)", () => {
+    recordingSession();
+    useSspStore.getState().onStats({ fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1 });
+    useSspStore.getState().onStarted({
+      recordingId: "rec_new",
+      encoder: "x264",
+      startedAt: "2026-11-02T11:00:00Z",
+    });
+    expect(useSspStore.getState().session.stats).toBeNull();
+  });
+
   it("onSessionError sets the fault copy without leaving recording state (take still ending)", () => {
     recordingSession();
     useSspStore.getState().onSessionError(STREAM_LOST);

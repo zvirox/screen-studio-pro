@@ -1,3 +1,4 @@
+use crate::capture::preview::{self, PreviewMailbox};
 use crate::pipeline::{Frame, FrameBus, FrameLayout, Push};
 use crate::util::error::CoreError;
 use pipewire as pw;
@@ -83,6 +84,9 @@ struct FrameCounting {
     on_lost: LostSlot,
     /// Encode-tier bus (task 1.3): Some = frames are produced into it.
     frame_bus: Option<Arc<FrameBus>>,
+    /// Preview-stills tier (task 3.5): latest-wins mailbox fed at ≤8fps,
+    /// gated BEFORE the pixel copy (§6: preview drops before encode).
+    preview: Option<Arc<PreviewMailbox>>,
     /// Set from the Format param_changed before the first process call.
     negotiated: Option<Negotiated>,
     /// First-occurrence diagnostics (§6: cadence law — these fire ONCE,
@@ -255,12 +259,14 @@ impl Drop for StreamGuard {
 /// most once if the stream errors or disconnects underneath us (e.g.
 /// compositor restart) — the `source/lost` event rides on it.
 /// `frame_bus`: the encode-tier bus to feed (task 1.3); `None` keeps the
-/// count-only behaviour (manual gate path).
+/// count-only behaviour (manual gate path). `preview`: the stills mailbox
+/// (task 3.5) — fed at ≤8fps regardless of the encode bus.
 pub fn start(
     node_id: u32,
     size: (u32, u32),
     remote_fd: OwnedFd,
     frame_bus: Option<Arc<FrameBus>>,
+    preview: Option<Arc<PreviewMailbox>>,
     on_lost: OnLost,
 ) -> Result<StreamGuard, CoreError> {
     let stop = Arc::new(AtomicBool::new(false));
@@ -272,7 +278,11 @@ pub fn start(
             let stop = stop.clone();
             let frames = frames.clone();
             let lost_slot = lost_slot.clone();
-            move || run_loop(node_id, size, remote_fd, frame_bus, stop, frames, lost_slot)
+            move || {
+                run_loop(
+                    node_id, size, remote_fd, frame_bus, preview, stop, frames, lost_slot,
+                )
+            }
         })
         .map_err(|_| {
             CoreError::pipewire(
@@ -293,11 +303,13 @@ pub fn start(
 /// rises. Loop-owned objects drop in declaration order on the way out
 /// (listener before stream before core/context) — clean teardown order.
 /// All early-return paths report through `on_lost`, never panic (§4.2).
+#[allow(clippy::too_many_arguments)] // thread entry point; grouping would refactor working teardown order
 fn run_loop(
     node_id: u32,
     size: (u32, u32),
     remote_fd: OwnedFd,
     frame_bus: Option<Arc<FrameBus>>,
+    preview: Option<Arc<PreviewMailbox>>,
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
     lost_slot: LostSlot,
@@ -311,6 +323,7 @@ fn run_loop(
         exited: false,
         on_lost: lost_slot.clone(),
         frame_bus,
+        preview,
         negotiated: None,
         first_drop_reason: None,
     };
@@ -430,15 +443,8 @@ fn run_loop(
             // Producer half of the 1.2 bus (task 1.3): one try, never
             // wait — a full ring drops the NEWEST frame and counts it
             // (§6 encode-tier precedence law, pipeline/mod.rs header).
-            // Copied out of `counting` before the mutable `note_drop`
-            // borrows below.
-            let (Some(neg), Some(bus)) = (counting.negotiated.as_ref(), counting.frame_bus.clone())
-            else {
-                counting.note_drop(if counting.negotiated.is_none() {
-                    "no format negotiated"
-                } else {
-                    "no frame bus attached"
-                });
+            let Some(neg) = counting.negotiated.as_ref() else {
+                counting.note_drop("no format negotiated");
                 return;
             };
             let (neg_width, neg_height, neg_layout) = (neg.width, neg.height, neg.layout);
@@ -469,6 +475,16 @@ fn run_loop(
                 counting.note_drop("buffer shorter than frame");
                 return;
             }
+            // Preview tier (3.5): check the ≤8fps gate BEFORE any pixel
+            // copy — idle capture stays count-only between stills, and
+            // preview work never competes with the encode tier (§6).
+            let bus = counting.frame_bus.clone();
+            let mailbox = counting.preview.clone();
+            let now_ms = preview::wall_ms();
+            let preview_due = mailbox.as_ref().is_some_and(|mb| mb.is_due(now_ms));
+            if bus.is_none() && !preview_due {
+                return;
+            }
             let frame = Frame {
                 width: neg_width,
                 height: neg_height,
@@ -476,6 +492,13 @@ fn run_loop(
                 layout: neg_layout,
                 pts_us: frame_pts_us(),
                 data: pixels[..need].to_vec(),
+            };
+            if preview_due && let Some(mb) = mailbox {
+                // Latest-wins: the old still drops here, never queued.
+                mb.offer(frame.clone(), now_ms);
+            }
+            let Some(bus) = bus else {
+                return;
             };
             match bus.try_push(frame) {
                 Push::Pushed => {

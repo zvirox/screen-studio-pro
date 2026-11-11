@@ -1,4 +1,5 @@
 use super::pipewire;
+use super::preview::PreviewMailbox;
 use super::{LiveSource, SourceCapabilities, SourceKind, SourcePreview, SourceSelected};
 #[cfg(feature = "encode")]
 use crate::pipeline::{DEFAULT_CAPACITY, FrameBus};
@@ -10,7 +11,6 @@ use ashpd::desktop::screencast::{
 use ashpd::desktop::{CreateSessionOptions, PersistMode, ResponseError, Session};
 use ashpd::{Error as PortalError, WindowIdentifier, enumflags2::BitFlags};
 use std::os::fd::OwnedFd;
-#[cfg(feature = "encode")]
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,6 +31,9 @@ pub struct MonitorSession {
     source_id: String,
     session: Session<Screencast>,
     stream: pipewire::StreamGuard,
+    /// Preview-stills tier (task 3.5): fed by the same PipeWire callback
+    /// at ≤8fps, independent of the encode feature (API §2.1).
+    preview: Arc<PreviewMailbox>,
     /// Encode-tier wiring (task 1.3): the frame bus recordings drain and
     /// the negotiated geometry. Only the `encode` feature consumes them —
     /// without it the capture path stays count-only.
@@ -84,6 +87,10 @@ impl LiveSource for MonitorSession {
     #[cfg(feature = "encode")]
     fn geometry(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    fn preview_mailbox(&self) -> Option<Arc<PreviewMailbox>> {
+        Some(self.preview.clone())
     }
 }
 
@@ -177,6 +184,9 @@ pub async fn select_monitor(
     // — bounded by design (§6 memory law), enough to ride out a stall.
     // Without the `encode` feature there is no consumer, so the capture
     // path stays count-only (header-less sandboxes still work).
+    // Preview-stills mailbox (3.5): exists in every build — stills are
+    // independent of the encode feature.
+    let preview = Arc::new(PreviewMailbox::new());
     #[cfg(feature = "encode")]
     let frame_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
     #[cfg(feature = "encode")]
@@ -185,11 +195,18 @@ pub async fn select_monitor(
         (width, height),
         remote_fd,
         Some(frame_bus.clone()),
+        Some(preview.clone()),
         Box::new(on_lost),
     )?;
     #[cfg(not(feature = "encode"))]
-    let stream_guard =
-        pipewire::start(node_id, (width, height), remote_fd, None, Box::new(on_lost))?;
+    let stream_guard = pipewire::start(
+        node_id,
+        (width, height),
+        remote_fd,
+        None,
+        Some(preview.clone()),
+        Box::new(on_lost),
+    )?;
 
     tracing::info!(
         %source_id,
@@ -227,6 +244,7 @@ pub async fn select_monitor(
             source_id,
             session,
             stream: stream_guard,
+            preview,
             #[cfg(feature = "encode")]
             frame_bus,
             #[cfg(feature = "encode")]
@@ -320,6 +338,9 @@ pub async fn select_window(
         .await
         .map_err(portal_error)?;
 
+    // Preview-stills mailbox (3.5): exists in every build — stills are
+    // independent of the encode feature.
+    let preview = Arc::new(PreviewMailbox::new());
     #[cfg(feature = "encode")]
     let frame_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
     #[cfg(feature = "encode")]
@@ -328,11 +349,18 @@ pub async fn select_window(
         (width, height),
         remote_fd,
         Some(frame_bus.clone()),
+        Some(preview.clone()),
         Box::new(on_lost),
     )?;
     #[cfg(not(feature = "encode"))]
-    let stream_guard =
-        pipewire::start(node_id, (width, height), remote_fd, None, Box::new(on_lost))?;
+    let stream_guard = pipewire::start(
+        node_id,
+        (width, height),
+        remote_fd,
+        None,
+        Some(preview.clone()),
+        Box::new(on_lost),
+    )?;
 
     tracing::info!(
         %source_id,
@@ -364,6 +392,7 @@ pub async fn select_window(
             source_id,
             session,
             stream: stream_guard,
+            preview,
             #[cfg(feature = "encode")]
             frame_bus,
             #[cfg(feature = "encode")]

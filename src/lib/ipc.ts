@@ -21,6 +21,7 @@ import {
   type SettingsPatch,
   type SettingsSection,
   type SourceKind,
+  type SourcePreviewStill,
   type SourceSelected,
 } from "../types/ipc";
 
@@ -110,6 +111,13 @@ export function sourceSelect(kind: SourceKind, target?: string): Promise<SourceS
     Idempotent for an unknown or already-released source id. */
 export function sourceRelease(sourceId: string): Promise<{ ok: boolean }> {
   return call<{ ok: boolean }>("source_release", { sourceId });
+}
+
+/** `cmd://source_preview` — latest encoded still of a live source
+    (API §2.1, task 3.5). Rate law: poll ≤8fps while live + mounted;
+    `ipc.bad_state` until the first frame is normal — never toast it. */
+export function sourcePreview(sourceId: string): Promise<SourcePreviewStill> {
+  return call<SourcePreviewStill>("source_preview", { sourceId });
 }
 
 /** `cmd://audio_list_devices` — cpal mics + PipeWire sinks with defaults

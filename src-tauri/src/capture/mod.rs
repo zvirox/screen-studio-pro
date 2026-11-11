@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod pipewire;
 pub mod portal;
+pub mod preview;
 
 use crate::util::error::CoreError;
 use serde::Serialize;
@@ -96,6 +97,11 @@ pub trait LiveSource: Send {
     fn geometry(&self) -> (u32, u32) {
         (0, 0)
     }
+    /// The preview-stills mailbox this source feeds (task 3.5, API §2.1
+    /// `source_preview`). None = source produces no preview stills.
+    fn preview_mailbox(&self) -> Option<std::sync::Arc<crate::capture::preview::PreviewMailbox>> {
+        None
+    }
 }
 
 /* ---------- the single-session slot (§2.1 portal.busy rule) ---------- */
@@ -116,9 +122,11 @@ pub struct CaptureHandle {
     slot: Mutex<Slot>,
     /// M3: region crop rect in source coordinates. Applied in the pipeline
     /// composite stage (pipeline/composite.rs). None = full source.
+    #[cfg(feature = "encode")]
     region_rect: Mutex<Option<RegionRect>>,
 }
 
+#[cfg(feature = "encode")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegionRect {
@@ -149,21 +157,25 @@ impl CaptureHandle {
     pub fn new() -> Self {
         Self {
             slot: Mutex::new(Slot::Free),
+            #[cfg(feature = "encode")]
             region_rect: Mutex::new(None),
         }
     }
 
     /// M3: get the current region crop rect.
+    #[cfg(feature = "encode")]
     pub fn region_rect(&self) -> Option<RegionRect> {
         *self.region_rect.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     /// M3: set the region crop rect (validated by caller).
+    #[cfg(feature = "encode")]
     pub fn set_region_rect(&self, rect: Option<RegionRect>) {
         *self.region_rect.lock().unwrap_or_else(|p| p.into_inner()) = rect;
     }
 
     /// M3: check if the active source matches the given id.
+    #[cfg(feature = "encode")]
     pub fn is_active_source(&self, source_id: &str) -> bool {
         let slot = self.locked();
         match &*slot {
@@ -173,10 +185,26 @@ impl CaptureHandle {
     }
 
     /// M3: get the active source's geometry if the id matches.
+    #[cfg(feature = "encode")]
     pub fn active_geometry_if_matches(&self, source_id: &str) -> Option<(u32, u32)> {
         let slot = self.locked();
         match &*slot {
             Slot::Active(source) if source.source_id() == source_id => Some(source.geometry()),
+            _ => None,
+        }
+    }
+
+    /// Task 3.5: the preview mailbox of the matching LIVE source — a lost
+    /// stream never serves stale stills.
+    pub fn preview_mailbox_if_matches(
+        &self,
+        source_id: &str,
+    ) -> Option<std::sync::Arc<crate::capture::preview::PreviewMailbox>> {
+        let slot = self.locked();
+        match &*slot {
+            Slot::Active(source) if source.source_id() == source_id && source.is_live() => {
+                source.preview_mailbox()
+            }
             _ => None,
         }
     }
@@ -302,6 +330,7 @@ mod tests {
     struct FakeSource {
         id: String,
         stopped: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        mailbox: Option<std::sync::Arc<crate::capture::preview::PreviewMailbox>>,
     }
 
     #[async_trait::async_trait]
@@ -316,6 +345,11 @@ mod tests {
             self.stopped.store(true, Ordering::Relaxed);
         }
         async fn close(&mut self) {}
+        fn preview_mailbox(
+            &self,
+        ) -> Option<std::sync::Arc<crate::capture::preview::PreviewMailbox>> {
+            self.mailbox.clone()
+        }
     }
 
     fn fake(id: &str) -> (FakeSource, std::sync::Arc<std::sync::atomic::AtomicBool>) {
@@ -324,9 +358,29 @@ mod tests {
             FakeSource {
                 id: id.to_string(),
                 stopped: stopped.clone(),
+                mailbox: None,
             },
             stopped,
         )
+    }
+
+    #[test]
+    fn preview_mailbox_reaches_only_the_matching_live_source() {
+        let handle = CaptureHandle::new();
+        assert!(handle.preview_mailbox_if_matches("src_a").is_none());
+        handle.begin().unwrap();
+        let (mut source, lost) = fake("src_a");
+        source.mailbox = Some(std::sync::Arc::new(
+            crate::capture::preview::PreviewMailbox::new(),
+        ));
+        handle.commit(Box::new(source));
+        assert!(handle.preview_mailbox_if_matches("src_a").is_some());
+        assert!(handle.preview_mailbox_if_matches("src_b").is_none());
+        lost.store(true, Ordering::Relaxed);
+        assert!(
+            handle.preview_mailbox_if_matches("src_a").is_none(),
+            "a lost stream never serves stale stills"
+        );
     }
 
     #[test]

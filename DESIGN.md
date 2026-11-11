@@ -231,6 +231,7 @@ Vertical stack, all idle-visible, nothing hidden behind "more":
 3. **Audio strip** — Pane panel: two channel cards (Mic / Desktop): device name `body-sm`, level meter 4px bar (`accent` fill; peak segments `signal` above −6dB), per-channel switch, device-select popover.
 4. **Camera slab** — live PiP preview inline when enabled; otherwise ghost "Add camera" chip (lucide video).
 5. **Action row** — full-width primary **Record** (48px) · quality preset select left (plain language: "For YouTube — 1080p60") · encoder chip right (`mono-sm`: VAAPI/NVENC/x264; x264 shows warning-state inline notice with zap-off icon: "Falling back to CPU encode").
+6. **Stats line** (task 3.5, recording-state only) — one `mono-sm` tabular line under the action row while a take is active: fps · dropped · bitrate · encode time (e.g. "59.8 fps · 0 dropped · 12.1 Mbps · 5.2 ms"), fed by `recording/stats` at its 0.5 Hz cadence. Not rendered when idle — state-driven visibility, not hidden content. Values use existing tokens only; no new chip anatomy.
 Compact: source chips become a segmented control; audio strip horizontal-scrolls; action row sticky bottom.
 
 ### 6.2 Library

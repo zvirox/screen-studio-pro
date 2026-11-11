@@ -35,10 +35,10 @@ describe("useRecordingState (event → store wiring)", () => {
     useSspStore.setState({ source: INITIAL_SOURCE, session: INITIAL_SESSION });
   });
 
-  it("subscribes to the six session/shell topics once per mount", async () => {
+  it("subscribes to the seven session/shell topics once per mount", async () => {
     renderHook(() => useRecordingState());
     await vi.waitFor(() => {
-      expect(listenEvent).toHaveBeenCalledTimes(6);
+      expect(listenEvent).toHaveBeenCalledTimes(7);
     });
     const topics = vi
       .mocked(listenEvent)
@@ -49,6 +49,7 @@ describe("useRecordingState (event → store wiring)", () => {
       "recording/finished",
       "recording/meters",
       "recording/started",
+      "recording/stats",
       "recording/tick",
       "shell/error",
     ]);
@@ -60,14 +61,14 @@ describe("useRecordingState (event → store wiring)", () => {
   it("unsubscribes on unmount", async () => {
     const { unmount } = renderHook(() => useRecordingState());
     await vi.waitFor(() => {
-      expect(unlistens).toHaveLength(6);
+      expect(unlistens).toHaveLength(7);
     });
     unmount();
     // Whether disposal wins before or after the subscription promises
     // resolve, every unlisten must have run exactly once.
     await new Promise((resolve) => setTimeout(resolve, 0));
     const calls = unlistens.reduce<number>((n, fn) => n + (fn.mock.calls.length > 0 ? 1 : 0), 0);
-    expect(calls).toBe(6);
+    expect(calls).toBe(7);
   });
 
   it("routes a tick into the session projection", async () => {
@@ -81,7 +82,7 @@ describe("useRecordingState (event → store wiring)", () => {
     });
     renderHook(() => useRecordingState());
     await vi.waitFor(() => {
-      expect(listenEvent).toHaveBeenCalledTimes(6);
+      expect(listenEvent).toHaveBeenCalledTimes(7);
     });
     const call = vi.mocked(listenEvent).mock.calls.find(([t]) => t === "recording/tick");
     // the subscription is async; by now the handler is registered and the
@@ -104,7 +105,7 @@ describe("useRecordingState (event → store wiring)", () => {
     });
     renderHook(() => useRecordingState());
     await vi.waitFor(() => {
-      expect(listenEvent).toHaveBeenCalledTimes(6);
+      expect(listenEvent).toHaveBeenCalledTimes(7);
     });
     const handlers = new Map(vi.mocked(listenEvent).mock.calls.map(([t, h]) => [t, h]));
     const err = {
@@ -144,10 +145,33 @@ describe("useRecordingState (event → store wiring)", () => {
     expect(useSspStore.getState().session).toEqual(INITIAL_SESSION);
   });
 
+  it("routes recording/stats into the session projection (3.5)", async () => {
+    useSspStore.setState({
+      session: { ...INITIAL_SESSION, status: "recording", recordingId: "rec_1" },
+    });
+    renderHook(() => useRecordingState());
+    await vi.waitFor(() => {
+      expect(listenEvent).toHaveBeenCalledTimes(7);
+    });
+    const handlers = new Map(vi.mocked(listenEvent).mock.calls.map(([t, h]) => [t, h]));
+    (handlers.get("recording/stats") as (p: unknown) => void)({
+      fps: 59.8,
+      droppedFrames: 0,
+      bitrateKbps: 12_100,
+      encodeTimeMs: 5.2,
+    });
+    expect(useSspStore.getState().session.stats).toEqual({
+      fps: 59.8,
+      droppedFrames: 0,
+      bitrateKbps: 12_100,
+      encodeTimeMs: 5.2,
+    });
+  });
+
   it("routes recording/meters into the audio projection (2.2)", async () => {
     renderHook(() => useRecordingState());
     await vi.waitFor(() => {
-      expect(listenEvent).toHaveBeenCalledTimes(6);
+      expect(listenEvent).toHaveBeenCalledTimes(7);
     });
     const handlers = new Map(vi.mocked(listenEvent).mock.calls.map(([t, h]) => [t, h]));
     (handlers.get("recording/meters") as (p: unknown) => void)({

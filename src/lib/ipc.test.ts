@@ -16,6 +16,7 @@ import {
   recordingStop,
   settingsGet,
   settingsSet,
+  sourcePreview,
   sourceRelease,
   sourceSelect,
   systemCapabilities,
@@ -182,10 +183,22 @@ describe("lib/ipc", () => {
   });
 
   it("pins the webview contract version (API §5.1)", () => {
-    expect(IPC_CONTRACT_VERSION).toBe("1.4.0");
-    expect(isContractMatch("1.4.0")).toBe(true);
+    expect(IPC_CONTRACT_VERSION).toBe("1.5.0");
+    expect(isContractMatch("1.5.0")).toBe(true);
     expect(isContractMatch("1.0.0")).toBe(false);
     expect(isContractMatch("2.0.0")).toBe(false);
+  });
+
+  it("sourcePreview addresses the source id and returns the §2.1 still shape (3.5)", async () => {
+    const reply = {
+      jpegBase64: "/9j/4AAQ",
+      width: 640,
+      height: 360,
+      capturedAtMs: 1_762_000_000_000,
+    };
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(sourcePreview("src_01hv3")).resolves.toEqual(reply);
+    expect(invokeMock).toHaveBeenCalledWith("source_preview", { sourceId: "src_01hv3" });
   });
 
   it("presetsList calls the static preset verb", async () => {

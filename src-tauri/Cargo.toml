@@ -38,6 +38,10 @@ config = { version = "0.15.27", features = ["toml"] }
 # feature) — settings save needs serialized TOML output, which config
 # (read-oriented) doesn't provide. No new third-party code enters the tree.
 toml = "1.1.8"
+# Preview stills ride `source_preview` as base64 JPEG (API §2.1, task 3.5).
+# Already resolved in Cargo.lock via the tauri/ashpd tree — promoted to a
+# direct handle, no new third-party code enters the tree (same law as toml).
+base64 = "0.23.1"
 tauri-plugin-notification = "2.8.0"
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-global-shortcut = "2.4.1"

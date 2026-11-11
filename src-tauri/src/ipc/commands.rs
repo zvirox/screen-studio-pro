@@ -1,3 +1,4 @@
+use base64::Engine;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Mutex;
@@ -14,7 +15,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.4.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.5.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -172,6 +173,9 @@ pub fn system_capabilities() -> Capabilities {
 
 /* ---------- presets_list (API §2.5, M11) ---------- */
 
+// Presets resolve into the encode path (pipeline::presets is encode-gated),
+// so the command only exists in encode builds — same law as recording_*.
+#[cfg(feature = "encode")]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresetEntry {
@@ -184,6 +188,7 @@ pub struct PresetEntry {
 }
 
 /// `cmd://presets_list` — the four static quality presets (API §2.5).
+#[cfg(feature = "encode")]
 #[tauri::command]
 pub fn presets_list() -> Value {
     let presets: Vec<PresetEntry> = crate::pipeline::presets::list()
@@ -346,6 +351,7 @@ pub async fn source_release(source_id: String, app: tauri::AppHandle) -> Result<
 /// `cmd://source_region_set` (API §2.1) — set/adjust the crop rect for
 /// region mode (M3). The rect is in the source's native coordinate space
 /// (the monitor's geometry). Arrow-key adjustable per DESIGN §7.4.
+#[cfg(feature = "encode")]
 #[tauri::command]
 pub async fn source_region_set(
     source_id: String,
@@ -394,6 +400,7 @@ pub async fn source_region_set(
     Ok(serde_json::json!({ "ok": true }))
 }
 
+#[cfg(feature = "encode")]
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegionRectInput {
@@ -405,6 +412,7 @@ pub struct RegionRectInput {
 
 /// `cmd://source_region_clear` (API §2.1) — clear the region crop rect,
 /// returning to full-source capture.
+#[cfg(feature = "encode")]
 #[tauri::command]
 pub async fn source_region_clear(
     source_id: String,
@@ -427,6 +435,42 @@ fn capture_invalid_kind() -> CoreError {
         "capture.invalid_kind",
         false,
         "That source kind isn't available in this build. Monitor capture is ready; window and region capture arrive in a later update.",
+    )
+}
+
+/// `cmd://source_preview` (API §2.1, task 3.5) — the latest preview still
+/// for a live source. Thin wrapper over `preview_still_reply` so the
+/// reply logic stays testable without a Tauri runtime.
+#[tauri::command]
+pub fn source_preview(
+    source_id: String,
+    capture_state: State<'_, CaptureHandle>,
+) -> Result<Value, IpcError> {
+    preview_still_reply(&source_id, &capture_state).map_err(|err| err.to_ipc())
+}
+
+fn preview_still_reply(source_id: &str, capture: &CaptureHandle) -> Result<Value, CoreError> {
+    let mailbox = capture
+        .preview_mailbox_if_matches(source_id)
+        .ok_or_else(preview_not_ready)?;
+    let (frame, captured_at_ms) = mailbox.latest().ok_or_else(preview_not_ready)?;
+    let still = crate::capture::preview::encode_still(&frame)?;
+    Ok(serde_json::json!({
+        "jpegBase64": base64::engine::general_purpose::STANDARD.encode(&still.jpeg),
+        "width": still.width,
+        "height": still.height,
+        "capturedAtMs": captured_at_ms,
+    }))
+}
+
+fn preview_not_ready() -> CoreError {
+    // Retryable: the webview's next ≤8fps poll may find a frame. Poll
+    // failures never toast (API §2.1) — the education slot stays until
+    // the first still lands.
+    CoreError::ipc(
+        "ipc.bad_state",
+        true,
+        "No preview is available for that source yet.",
     )
 }
 
@@ -630,7 +674,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.4.0");
+        assert_eq!(v["ipcContract"], "1.5.0");
     }
 
     #[test]
@@ -643,12 +687,13 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["nvenc", "vaapi", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.4.0");
+        assert_eq!(v["version"]["ipcContract"], "1.5.0");
         assert_eq!(v["version"]["app"], "0.0.1-alpha.1");
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());
     }
 
+    #[cfg(feature = "encode")]
     #[test]
     fn presets_list_carries_the_four_m11_presets() {
         let v = presets_list();
@@ -659,5 +704,103 @@ mod tests {
             .map(|p| p["id"].as_str().unwrap())
             .collect();
         assert_eq!(ids, ["youtube", "discord", "lossless", "smallest"]);
+    }
+
+    /* ---------- source_preview (API §2.1, task 3.5) ---------- */
+
+    use crate::capture::preview::PreviewMailbox;
+    use base64::Engine;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    /// LiveSource double carrying a real mailbox — the reply path is
+    /// exercised end-to-end minus the portal itself.
+    struct PreviewFake {
+        id: String,
+        live: Arc<AtomicBool>,
+        mailbox: Arc<PreviewMailbox>,
+    }
+
+    #[async_trait::async_trait]
+    impl crate::capture::LiveSource for PreviewFake {
+        fn source_id(&self) -> &str {
+            &self.id
+        }
+        fn is_live(&self) -> bool {
+            self.live.load(Ordering::Relaxed)
+        }
+        fn stop_frames(&mut self) {}
+        async fn close(&mut self) {}
+        fn preview_mailbox(&self) -> Option<Arc<PreviewMailbox>> {
+            Some(self.mailbox.clone())
+        }
+    }
+
+    fn tiny_frame() -> crate::pipeline::Frame {
+        crate::pipeline::Frame {
+            width: 4,
+            height: 4,
+            stride: 16,
+            layout: crate::pipeline::FrameLayout::Bgrx,
+            pts_us: 0,
+            data: vec![0u8; 64],
+        }
+    }
+
+    fn committed_capture(mailbox: Arc<PreviewMailbox>, live: Arc<AtomicBool>) -> CaptureHandle {
+        let capture = CaptureHandle::new();
+        capture.begin().unwrap();
+        capture.commit(Box::new(PreviewFake {
+            id: "src_a".into(),
+            live,
+            mailbox,
+        }));
+        capture
+    }
+
+    #[test]
+    fn preview_reply_carries_the_api_2_1_shape() {
+        let mailbox = Arc::new(PreviewMailbox::new());
+        mailbox.offer(tiny_frame(), 1234);
+        let capture = committed_capture(mailbox, Arc::new(AtomicBool::new(true)));
+        let v = preview_still_reply("src_a", &capture).expect("reply");
+        assert_eq!(v["capturedAtMs"], 1234);
+        assert_eq!(v["width"], 4);
+        assert_eq!(v["height"], 4);
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(v["jpegBase64"].as_str().unwrap())
+            .expect("valid base64");
+        assert_eq!(&bytes[..2], &[0xFF, 0xD8], "JPEG magic");
+    }
+
+    #[test]
+    fn preview_reply_is_bad_state_unless_a_live_matching_source_has_a_still() {
+        let capture = CaptureHandle::new();
+        assert_eq!(
+            preview_still_reply("src_a", &capture).unwrap_err().code(),
+            "ipc.bad_state",
+            "free slot"
+        );
+        let mailbox = Arc::new(PreviewMailbox::new());
+        let live = Arc::new(AtomicBool::new(true));
+        let capture = committed_capture(mailbox.clone(), live.clone());
+        assert_eq!(
+            preview_still_reply("src_b", &capture).unwrap_err().code(),
+            "ipc.bad_state",
+            "wrong id"
+        );
+        assert_eq!(
+            preview_still_reply("src_a", &capture).unwrap_err().code(),
+            "ipc.bad_state",
+            "live but no frame captured yet"
+        );
+        mailbox.offer(tiny_frame(), 1);
+        assert!(preview_still_reply("src_a", &capture).is_ok());
+        live.store(false, Ordering::Relaxed);
+        assert_eq!(
+            preview_still_reply("src_a", &capture).unwrap_err().code(),
+            "ipc.bad_state",
+            "lost source serves no stale stills"
+        );
     }
 }

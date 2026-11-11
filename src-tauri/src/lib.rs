@@ -117,6 +117,7 @@ pub fn run() {
         ipc::commands::audio_set_channel,
         ipc::commands::source_select,
         ipc::commands::source_release,
+        ipc::commands::source_preview,
         ipc::commands::source_region_set,
         ipc::commands::source_region_clear,
         ipc::commands::presets_list,
@@ -139,7 +140,7 @@ pub fn run() {
         ipc::commands::audio_set_channel,
         ipc::commands::source_select,
         ipc::commands::source_release,
-        ipc::commands::presets_list,
+        ipc::commands::source_preview,
     ]);
 
     builder

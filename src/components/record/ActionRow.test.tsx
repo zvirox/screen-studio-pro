@@ -79,6 +79,44 @@ describe("ActionRow paused (§5.9 2.3)", () => {
   });
 });
 
+describe("Stats line (§6.1 #6, 3.5)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    setState(INITIAL_SOURCE, INITIAL_SESSION);
+  });
+
+  it("recording: one mono-sm tabular line with the DESIGN example values", () => {
+    setState(LIVE, {
+      ...INITIAL_SESSION,
+      status: "recording",
+      recordingId: "rec_1",
+      stats: { fps: 59.8, droppedFrames: 0, bitrateKbps: 12_100, encodeTimeMs: 5.2 },
+    });
+    render(<ActionRow />);
+    const line = screen.getByText("59.8 fps · 0 dropped · 12.1 Mbps · 5.2 ms");
+    expect(line).toHaveClass("font-mono", "text-mono-sm", "tabular-nums");
+  });
+
+  it("idle: no stats line even if a stale payload sits in the slice", () => {
+    setState(LIVE, {
+      ...INITIAL_SESSION,
+      stats: { fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1 },
+    });
+    render(<ActionRow />);
+    expect(screen.queryByText(/fps ·/)).toBeNull();
+  });
+
+  it("recording before the first 0.5 Hz beat: nothing renders yet", () => {
+    setState(LIVE, {
+      ...INITIAL_SESSION,
+      status: "recording",
+      recordingId: "rec_1",
+    });
+    render(<ActionRow />);
+    expect(screen.queryByText(/fps ·/)).toBeNull();
+  });
+});
+
 describe("ActionRow (§5.1/§6.5)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();

@@ -1,15 +1,17 @@
 import { Check, LoaderCircle, Monitor, AppWindow, Crop } from "lucide-react";
 import { useState, useCallback } from "react";
 import { useSspStore } from "../../lib/store";
+import { useSourcePreview } from "../../hooks/useSourcePreview";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 
 /* §6.1 #2 source deck — Monitor + Window (M2) + Region (M3) chips.
    Dead controls never render (§6.3). The preview frame is the only place
-   video frames may ever render. Whenever capture is not live, the §6.3
+   video frames may ever render: since 3.5 it shows real JPEG stills
+   polled at ≤8fps (API §2.1, the ARCHITECTURE §6 stills exception) —
+   never a fake gradient (§4.5). Whenever capture is not live, the §6.3
    education slot shows the neutral invitation copy — a denied session
    surfaces its §1 human copy once, as an error toast (§5.6); the slot
-   never becomes a second telling (ARCHITECTURE §4.2.4). Stills-based
-   preview content lands with PLAN 3.5. */
+   never becomes a second telling (ARCHITECTURE §4.2.4). */
 
 function capabilityLine(
   caps: { width: number; height: number; fps: number } | null,
@@ -157,7 +159,11 @@ export default function SourceDeck() {
   // §5.1: a mid-take source change would kill the live take — then the
   // chip is disabled; while idle it (re)arms the portal consent flow.
   const selectable = sessionStatus === "idle" && source.status !== "selecting";
-  const slotVisible = source.status !== "live";
+  // 3.5: poll stills only while a source is live; the hook stops on
+  // release/unmount (API §4 rate law). Until the first still lands the
+  // frame shows the §5.1 loading state, not the education copy.
+  const still = useSourcePreview(source.status === "live" ? source.sourceId : null);
+  const slotVisible = source.status !== "live" || !still;
   // M2: Window chip only when the compositor's portal offers window capture.
   const windowCaptureSupported = capabilities?.portal?.windowCapture ?? false;
   const isMonitorActive = (source.status === "live" && source.label?.startsWith("Monitor")) ?? false;
@@ -232,7 +238,24 @@ export default function SourceDeck() {
         aria-label="Source preview"
         className="mt-3 flex aspect-video w-full items-center justify-center rounded-sm bg-solid relative"
       >
+        {still ? (
+          <img
+            src={still.dataUrl}
+            alt="Source preview"
+            className="absolute inset-0 h-full w-full rounded-sm object-contain"
+          />
+        ) : null}
         {slotVisible ? (
+          source.status === "live" ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 text-body-sm text-ink-secondary"
+            >
+              <LoaderCircle size={16} strokeWidth={2} className="animate-spin [animation-duration:0.8s]" aria-hidden="true" />
+              Working…
+            </div>
+          ) : (
           <div className="flex flex-col items-center gap-2 p-4 text-center w-full h-full">
             {isWindowActive ? (
               <AppWindow size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
@@ -249,6 +272,7 @@ export default function SourceDeck() {
                 : "Click Monitor to allow capture through your compositor"}
             </p>
           </div>
+          )
         ) : null}
         {isRegionActive && regionRect && source.capabilities && (
           <RegionDragHandle

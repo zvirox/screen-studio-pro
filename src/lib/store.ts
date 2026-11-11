@@ -24,6 +24,7 @@ import type {
   RecordingFinishedEvt,
   RecordingMetersEvt,
   RecordingStartedEvt,
+  RecordingStatsEvt,
   RecordingTickEvt,
   ShellErrorEvt,
   SourceCapabilities,
@@ -88,6 +89,10 @@ export interface SessionSlice {
   /** Human copy of an asynchronous fault (API §3 1.4 note) or the
       authoritative stop-reply failure. Rendered once — §6.5 no-double-telling. */
   fault: IpcError | null;
+  /** Latest `recording/stats` payload (0.5 Hz, API §3); null until the
+      take's first beat. Resets with the slice — the §6.1 #6 stats line
+      renders only while a take is active. */
+  stats: RecordingStatsEvt | null;
 }
 
 export const INITIAL_SESSION: SessionSlice = {
@@ -98,6 +103,7 @@ export const INITIAL_SESSION: SessionSlice = {
   elapsedMs: 0,
   paused: false,
   fault: null,
+  stats: null,
 };
 
 /* ---------- Audio projection (§6.1 #3 strip; API §2.2 + §3, task 2.2) ---------- */
@@ -238,6 +244,7 @@ interface SspState {
   onShellError: (evt: ShellErrorEvt) => void;
   showError: (err: IpcError) => void;
   onTick: (evt: RecordingTickEvt) => void;
+  onStats: (evt: RecordingStatsEvt) => void;
   onSessionError: (err: IpcError) => void;
   onFinished: (evt: RecordingFinishedEvt) => void;
 
@@ -744,6 +751,14 @@ export const useSspStore = create<SspState>((set, get) => ({
         paused: evt.state === "paused",
       },
     });
+  },
+
+  onStats(evt) {
+    const { session } = get();
+    // Stats only mean something inside a live take — a late beat after
+    // teardown must not resurrect the §6.1 #6 line on the idle row.
+    if (session.status !== "recording") return;
+    set({ session: { ...session, stats: evt } });
   },
 
   onSessionError(err) {

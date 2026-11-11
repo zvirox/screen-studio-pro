@@ -1,6 +1,15 @@
 # API.md — ScreenStudio Pro IPC Contract
 
-**Version:** 1.4.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+**Version:** 1.5.0 · **Authority chain:** PRD.md (features) → ARCHITECTURE.md (§3/§4 IPC law) → this file (the full surface)
+
+**v1.5.0 (task 3.5, MINOR — additive):** `cmd://source_preview` is now live —
+the latest preview still (downscaled JPEG, longest side ≤640px) for a live
+source, polled by the webview at ≤8fps (§4). This is the documented stills
+exception of ARCHITECTURE §6: encoded stills at the documented cadence, never
+a frame channel; event payloads still carry no media bytes (§6 standing
+flag 3). `recording/stats` gains its first UI consumer (Record view stats
+line, DESIGN §6.1) — payload shape unchanged. Adds `capture.preview_failed`
+to the canonical set (§1, add-only). No existing payload changed.
 
 **v1.4.0 (task 3.4, MINOR — additive):** `cmd://presets_list` is now live
 (M11). The four static quality presets are surfaced with plain-language
@@ -37,7 +46,7 @@ Every error response — command failure or `error` event payload — is one sha
 | `userMessage` | `string` | Human copy, DESIGN §7.9 vocabulary — UI renders **only** this; raw errors stay in the tracing log |
 | `details` | `object \| null` | Optional structured extras (encoder chain attempted, free bytes, compositor name) |
 
-**Canonical error codes (initial set):** `portal.unavailable`, `portal.denied`, `portal.timeout`, `portal.busy` · `encoder.unavailable`, `encoder.init_failed`, `encoder.encode_failed`, `encoder.fallback_applied` · `pipewire.stream_lost`, `pipewire.audio_device_gone`, `pipewire.audio_enum_failed` · `capture.region_invalid`, `capture.camera_unavailable`, `capture.invalid_kind` · `disk.no_space`, `disk.write_failed`, `disk.path_unwritable` · `settings.invalid_value`, `settings.schema_mismatch` · `ipc.contract_mismatch`, `ipc.unknown_command`, `ipc.bad_state`. *(Set is add-only; codes exist before their UI surfaces them.)*
+**Canonical error codes (initial set):** `portal.unavailable`, `portal.denied`, `portal.timeout`, `portal.busy` · `encoder.unavailable`, `encoder.init_failed`, `encoder.encode_failed`, `encoder.fallback_applied` · `pipewire.stream_lost`, `pipewire.audio_device_gone`, `pipewire.audio_enum_failed` · `capture.region_invalid`, `capture.camera_unavailable`, `capture.invalid_kind`, `capture.preview_failed` · `disk.no_space`, `disk.write_failed`, `disk.path_unwritable` · `settings.invalid_value`, `settings.schema_mismatch` · `ipc.contract_mismatch`, `ipc.unknown_command`, `ipc.bad_state`. *(Set is add-only; codes exist before their UI surfaces them.)*
 
 *(Additions since v1.0.0: `portal.busy` — §2.1 always intended it ("a session is already active — code added to canonical set §1") but the list above missed it; corrected at task 1.1. `capture.invalid_kind` — added at task 1.1 for window/region kinds before their portal flavours land (M2/M3). Codes are add-only (§1 rule). `capture.no_frames` — added at task 1.5: a stop that encoded zero frames fails loudly instead of finalizing an unreadable header-only container; the partial file is removed, retryable=true (§2.4). **v1.1.0 (task 2.3, MINOR — additive):** `cmd://recording_pause` + `cmd://recording_resume` went live, and `recording/tick`'s `state` carries the real phase (`paused` when the take is paused, previously pinned to `"recording"`). No existing command/event/error changed shape.)*
 
@@ -91,6 +100,16 @@ Legend: **PRD** = feature ID it serves (M = MVP, V = V2 seam exercised) · **DB*
 - **Purpose:** set/adjust the crop rect for region mode (arrow-key adjustable, DESIGN §7.4).
 - Body: `{ "sourceId": "src_01HV3…", "rect": { "x": 120, "y": 80, "w": 1280, "h": 720 } }`
 - **Success 200:** `{ "ok": true }` · **Errors:** `capture.region_invalid`
+
+#### `cmd://source_preview`
+- **Method:** command · **PRD:** M1–M3 (preview law, ARCHITECTURE §6) · **DB:** — · **Flag:** ⚠
+- **Purpose:** return the latest preview still for a live source — a downscaled JPEG (longest side ≤640px, aspect preserved). The documented stills exception to the no-media law: encoded stills at the §4 cadence only, never a frame channel. The Rust mailbox is latest-wins (drop-oldest) and fed at ≤8fps from the capture loop — preview work never competes with the encode bus (ARCHITECTURE §6 backpressure law).
+- Body: `{ "sourceId": "src_01HV3…" }` → **200:**
+```json
+{ "jpegBase64": "/9j/4AAQ…", "width": 640, "height": 360, "capturedAtMs": 1762000000000 }
+```
+`capturedAtMs` = wall-clock milliseconds when the still's frame was captured; the webview discards replies older than the still it already shows. A poll faster than the mailbox feed returns the previous still unchanged.
+- **Errors:** `ipc.bad_state` (no live source with that id, or no frame captured yet — the UI keeps the education placeholder and retries on the next poll; poll failures never toast) · `capture.preview_failed` (still generation failed — retryable, next poll retries)
 
 #### `cmd://source_release`
 - **Method:** command · **PRD:** M1–M3 · **DB:** — · **Flag:** ⚠
@@ -287,7 +306,7 @@ All event payloads are JSON, all carry the topic-scoped kind already shown; the 
 - **Pagination:** only `library_list` paginates — offset/limit (default 50, max 100), response always echoes `page`. Backend caps hidden growth by returning only `status='ready' AND deleted_at IS NULL` (DATABASE §5 partial index). No cursor pagination: offsets are safe here because the index is write-behind-history and small; revisit only if trash-purge ever reorders rows.
 - **Filtering:** `library_list.filter` supports `status`, `kind`, `search` (case-insensitive LIKE). `prefs_get` filters by namespace prefix (`hud.*`, `pip.*`, `last.*`). No other endpoint accepts filters (the surface stays small by design).
 - **Sorting:** only `library_list.sort` allows client choice, whitelisted to `created_at | duration | size` × `asc | desc`; default `created_at desc`. Whitelist is exhaustive — arbitrary columns are rejected, matching the exact-indexes discipline of DATABASE §5.
-- **Rate limits:** commands are human-initiated — no limiter (a desktop IPC has no strangers), **except** `prefs_set` batched at ≤60Hz as noted; and `source_select` no more than once per 500ms (portal sessions are heavyweight). Events have hard coalescing ceilings **in Rust, not the webview** (meters ≤30Hz, stats 2s, tick 1s, hotplug debounced 1s) — ARCHITECTURE §6 law, restated here as the API contract.
+- **Rate limits:** commands are human-initiated — no limiter (a desktop IPC has no strangers), **except** `prefs_set` batched at ≤60Hz as noted; `source_select` no more than once per 500ms (portal sessions are heavyweight); and `source_preview` polled at **≤8fps per live source** (task 3.5 — the Rust mailbox feeds at ≤8fps, so faster polls are cheap no-ops returning the same still; the webview stops polling when the source is not live or the Record view is unmounted). Events have hard coalescing ceilings **in Rust, not the webview** (meters ≤30Hz, stats 2s, tick 1s, hotplug debounced 1s) — ARCHITECTURE §6 law, restated here as the API contract.
 
 ---
 
@@ -325,6 +344,7 @@ All event payloads are JSON, all carry the topic-scoped kind already shown; the 
 | Endpoint | PRD feature | DB table | Flag |
 |---|---|---|---|
 | `source_select` / `source_region_set` / `source_release` | M1/M2/M3 | — | ⚠ runtime only, expected |
+| `source_preview` | M1–M3 (ARCHITECTURE §6 preview law) | — | ⚠ stills only at ≤8fps, never a frame channel |
 | `audio_list_devices` / `audio_set_channel` | M4 | — | ⚠ devices are system state |
 | `camera_open` / `camera_close` | M5 | — | ⚠ runtime only, expected |
 | `recording_start` | M1–M5, M7–M11 | recordings INSERT | ✓ |

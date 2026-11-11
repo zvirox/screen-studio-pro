@@ -1,4 +1,4 @@
-/* Contract mirror of API.md v1.2.0 — the webview half of ARCHITECTURE §2's
+/* Contract mirror of API.md v1.5.0 — the webview half of ARCHITECTURE §2's
    `types/ipc.ts` ↔ `src-tauri/ipc/` pairing (TESTING §1 P1: #1 breakage risk).
    JSON-projection law (API §5.2): Rust truth is a superset — consumers must
    tolerate unknown/additional fields; this file pins the webview's subset.
@@ -6,7 +6,7 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.4.0";
+export const IPC_CONTRACT_VERSION = "1.5.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
@@ -365,4 +365,15 @@ export interface SourceSelected {
   label: string;
   capabilities: SourceCapabilities;
   preview: SourcePreview;
+}
+
+/** `cmd://source_preview` 200 reply (API §2.1, task 3.5) — an encoded
+    still, the ARCHITECTURE §6 exception: media crosses IPC only as
+    ≤8fps JPEG stills via this COMMAND (events never carry bytes). */
+export interface SourcePreviewStill {
+  jpegBase64: string;
+  width: number;
+  height: number;
+  /** Wall-clock ms of the tapped frame — polls discard stale stamps. */
+  capturedAtMs: number;
 }

@@ -1,7 +1,7 @@
 import { Dot, LoaderCircle, Square, Zap, Cpu } from "lucide-react";
 import { useEffect } from "react";
 import { useSspStore } from "../../lib/store";
-import { formatElapsed } from "../../lib/format";
+import { formatElapsed, formatStats } from "../../lib/format";
 import type { PresetId } from "../../types/ipc";
 
 /* §5.1/§6.1 #5 action row — 1.5 slice: the 48px primary Record button only
@@ -160,6 +160,13 @@ export default function ActionRow() {
           {label}
         </button>
       </div>
+      {/* §6.1 #6 (3.5): stats line under the action row, recording-state
+          only — state-driven visibility, never hidden content. */}
+      {recording && session.stats ? (
+        <p className="font-mono text-mono-sm tabular-nums text-ink-secondary">
+          {formatStats(session.stats)}
+        </p>
+      ) : null}
     </section>
   );
 }
