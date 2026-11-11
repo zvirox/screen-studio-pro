@@ -6,20 +6,22 @@ import {
   INITIAL_SESSION,
   INITIAL_SOURCE,
 } from "../../lib/store";
-import type {
-  SourceCapabilities,
-  SourceSelected,
-} from "../../types/ipc";
+import type { SourceCapabilities, SourceSelected } from "../../types/ipc";
+import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ minimize: vi.fn().mockResolvedValue(undefined) }),
 }));
 
-vi.mock("../../lib/ipc", () => ({
-  sourceSelect: vi.fn(),
-  recordingStart: vi.fn(),
-  recordingStop: vi.fn(),
-}));
+vi.mock("../../lib/ipc", async (importOriginal) => {
+  const actual = await importOriginal<typeof ipcModule>();
+  return {
+    ...actual,
+    sourceSelect: vi.fn(),
+    recordingStart: vi.fn(),
+    recordingStop: vi.fn(),
+  };
+});
 
 import {
   recordingStart,
@@ -27,10 +29,10 @@ import {
   sourceSelect,
 } from "../../lib/ipc";
 
-/* §6.1 Record view, 1.5 slice: source deck + action row (audio strip and
-   camera slab arrive with M4/M5). The §6.3 education slot is the
-   first-run experience; the flow smoke below walks click → consent →
-   recording → stop at the component level. */
+/* §6.1 Record view, 1.5 slice: source deck + audio strip + camera slab
+   (4.2, PiP floats over the preview frame) + action row. The §6.3
+   education slot is the first-run experience; the flow smoke below walks
+   click → consent → recording → stop at the component level. */
 
 const CAPS: SourceCapabilities = {
   fps: 60,
@@ -60,6 +62,8 @@ describe("RecordView (§6.1 slice)", () => {
     expect(
       screen.getByRole("region", { name: "Recording controls" }),
     ).toBeInTheDocument();
+    // §6.1 #4 camera slab present (idle = ghost chip)
+    expect(screen.getByRole("button", { name: /Add camera/ })).toBeInTheDocument();
     // first-run education slot visible (§6.3)
     expect(
       screen.getByText(/Click Monitor to allow capture through your compositor/),

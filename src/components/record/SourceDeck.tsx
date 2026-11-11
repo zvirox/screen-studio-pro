@@ -2,6 +2,7 @@ import { Check, LoaderCircle, Monitor, AppWindow, Crop } from "lucide-react";
 import { useState, useCallback } from "react";
 import { useSspStore } from "../../lib/store";
 import { useSourcePreview } from "../../hooks/useSourcePreview";
+import CameraPip from "../huds/CameraPip";
 import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 
 /* §6.1 #2 source deck — Monitor + Window (M2) + Region (M3) chips.
@@ -149,6 +150,7 @@ function RegionDragHandle({
 export default function SourceDeck() {
   const source = useSspStore((s) => s.source);
   const sessionStatus = useSspStore((s) => s.session.status);
+  const camera = useSspStore((s) => s.camera);
   const selectMonitor = useSspStore((s) => s.selectMonitor);
   const selectWindow = useSspStore((s) => s.selectWindow);
   const selectRegion = useSspStore((s) => s.selectRegion);
@@ -282,6 +284,14 @@ export default function SourceDeck() {
             previewHeight={source.capabilities.height}
           />
         )}
+        {/* §6.6 Camera PiP (4.2) — floats inside the preview frame so its
+            corner+margin position maps 1:1 onto the 4.3 composite stage
+            (the frame IS the output frame's preview). The open reply
+            implies a servable still, so a brief mount spinner is the
+            only non-still state. */}
+        {camera.status === "open" && camera.cameraId ? (
+          <CameraPip cameraId={camera.cameraId} recording={sessionStatus === "recording"} />
+        ) : null}
       </div>
     </section>
   );

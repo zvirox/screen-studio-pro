@@ -2,6 +2,9 @@ import { create } from "zustand";
 import {
   audioListDevices,
   audioSetChannel,
+  cameraListDevices,
+  cameraOpen,
+  cameraClose,
   presetsList,
   recordingStart,
   recordingStop,
@@ -17,6 +20,7 @@ import {
 import type {
   AudioChannelSpec,
   AudioListDevicesReply,
+  CameraDeviceInfo,
   Capabilities,
   IpcError,
   Preset,
@@ -150,6 +154,47 @@ export const INITIAL_AUDIO: AudioSlice = {
   devicesLoading: false,
 };
 
+/* ---------- Camera projection (§6.1 #4 slab / §6.6 PiP; API §2.2, 4.1) ---------- */
+
+/** "opening" is command-in-flight UI (DESIGN §5.1 loading); "open" is the
+    Rust-truth status — the reply resolves only after the reader decoded
+    its first frame (API §2.2), so "open" implies a servable still. */
+export type CameraStatus = "idle" | "opening" | "open" | "error";
+
+export interface CameraSlice {
+  status: CameraStatus;
+  /** The §2.2 stills handle — the PiP's poll and the stills hook key off
+      this. Non-null ⇔ the camera is open. */
+  cameraId: string | null;
+  /** The `v4l2_/dev/videoN` id that produced the handle — the
+      device/changed membership check (§3 camera half) keys off it. */
+  deviceId: string | null;
+  /** Device label as listed by `camera_list_devices`. */
+  label: string | null;
+  /** Negotiated capture dims from the open reply (§2.2). */
+  width: number | null;
+  height: number | null;
+  /** §1 error from the last failed open — the slab renders its copy
+      inline (§5.5); cleared by the next open attempt. */
+  error: IpcError | null;
+  /** §2.2 device-list snapshot — re-listed per popover open and on the
+      device/changed camera half (the reply is a snapshot, never live). */
+  devices: CameraDeviceInfo[] | null;
+  devicesLoading: boolean;
+}
+
+export const INITIAL_CAMERA: CameraSlice = {
+  status: "idle",
+  cameraId: null,
+  deviceId: null,
+  label: null,
+  width: null,
+  height: null,
+  error: null,
+  devices: null,
+  devicesLoading: false,
+};
+
 /* ---------- Presets projection (API §2.5, task 3.4 / M11) ---------- */
 
 export type PresetsStatus = "idle" | "loading" | "ready" | "error";
@@ -212,6 +257,21 @@ interface SspState {
   /** §6.1 #3 audio strip (2.2) — §2.6 settings projection + meters/events. */
   audio: AudioSlice;
 
+  /* §6.1 #4 camera slab (4.1/4.2) — device snapshot + the one open
+     handle. PiP position/shape/size are LOCAL UI state (CameraPip) until
+     4.4 persists them via ui_prefs. */
+  camera: CameraSlice;
+
+  /* Camera actions (4.2) — camera_open/close; device lists re-list per
+     popover open and on device/changed (hooks/useRecordingState). */
+  loadCameraDevices: () => Promise<void>;
+  openCamera: (deviceId: string) => Promise<void>;
+  closeCamera: () => Promise<void>;
+  /** `evt://device/changed` reducer (camera half, API §3): re-list, and
+      auto-close when the open camera's device vanished (unplug law —
+      the 4.1 reader self-exits; the UI leaves with ONE telling). */
+  onDeviceChanged: () => Promise<void>;
+
   /* Audio actions (2.2) — audio_set_channel persists; ON ONE SUBSCRIPTION
      through hooks/useRecordingState (onMeters). */
   loadAudio: () => Promise<void>;
@@ -272,6 +332,7 @@ export const useSspStore = create<SspState>((set, get) => ({
   source: INITIAL_SOURCE,
   session: INITIAL_SESSION,
   audio: INITIAL_AUDIO,
+  camera: INITIAL_CAMERA,
   capabilities: null,
   presets: INITIAL_PRESETS,
 
@@ -438,6 +499,107 @@ export const useSspStore = create<SspState>((set, get) => ({
     // ≤30 Hz pushes land here and nowhere else (hooks/useRecordingState);
     // the strip reads the projection — never its own subscription.
     set({ audio: { ...get().audio, meters: evt } });
+  },
+
+  /* ---------- Camera actions (4.2) ---------- */
+
+  async loadCameraDevices() {
+    if (get().camera.devicesLoading) return;
+    set({ camera: { ...get().camera, devicesLoading: true } });
+    try {
+      // Always re-list: the reply is a snapshot (API §2.2), and both the
+      // popover-open path and the hotplug reducer want fresh data.
+      const { devices } = await cameraListDevices();
+      set({ camera: { ...get().camera, devices, devicesLoading: false } });
+    } catch (err) {
+      // §2.2: enumeration failure keeps the previously loaded list; the
+      // popover renders the §1 copy inline (§5.5).
+      set({ camera: { ...get().camera, devicesLoading: false, error: err as IpcError } });
+    }
+  },
+
+  async openCamera(deviceId) {
+    if (get().camera.status === "opening" || get().camera.status === "open") return;
+    set({ camera: { ...get().camera, status: "opening", error: null, deviceId } });
+    try {
+      // The reply resolves after the reader's first decoded frame (API
+      // §2.2) — the PiP's first poll can never race the decoder.
+      const reply = await cameraOpen(deviceId);
+      const label =
+        get().camera.devices?.find((d) => d.id === deviceId)?.label ?? deviceId;
+      set({
+        camera: {
+          ...get().camera,
+          status: "open",
+          cameraId: reply.cameraId,
+          deviceId,
+          label,
+          width: reply.width,
+          height: reply.height,
+          error: null,
+        },
+      });
+    } catch (err) {
+      set({
+        camera: {
+          ...INITIAL_CAMERA,
+          devices: get().camera.devices,
+          status: "error",
+          error: err as IpcError,
+        },
+      });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async closeCamera() {
+    const camera = get().camera;
+    if (camera.status === "idle") return;
+    set({ camera: { ...INITIAL_CAMERA, devices: camera.devices } });
+    if (camera.cameraId) {
+      try {
+        // Idempotent per API §2.2 — an unknown/already-closed id still
+        // succeeds, so a raced close needs no rollback.
+        await cameraClose(camera.cameraId);
+      } catch (err) {
+        set((s) =>
+          pushToast(s, {
+            kind: "error",
+            title: (err as IpcError).userMessage,
+            code: (err as IpcError).code,
+          }),
+        );
+      }
+    }
+  },
+
+  async onDeviceChanged() {
+    // §3 camera half: re-list, then leave with ONE telling if the open
+    // camera's device vanished (the 4.1 reader already self-exited; its
+    // stills simply went stale).
+    await get().loadCameraDevices();
+    const camera = get().camera;
+    if (
+      camera.status === "open" &&
+      camera.deviceId &&
+      camera.devices &&
+      !camera.devices.some((d) => d.id === camera.deviceId)
+    ) {
+      await get().closeCamera();
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: "Camera disconnected. Replug it and pick it again from the camera list.",
+          code: "capture.camera_unavailable",
+        }),
+      );
+    }
   },
 
   ...INITIAL_TOASTS,
