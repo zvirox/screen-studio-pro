@@ -171,16 +171,12 @@ function SkeletonCard() {
 }
 
 export default function LibraryGrid() {
-  const { library, loadLibrary, setLibraryOffset, openDrawer, closeDrawer, deleteRecording } =
-    useSspStore((s) => ({
-      library: s.library,
-      loadLibrary: s.loadLibrary,
-      setLibraryOffset: s.setLibraryOffset,
-      openDrawer: s.openDrawer,
-      closeDrawer: s.closeDrawer,
-      deleteRecording: s.deleteRecording,
-    }));
-  const setView = useSspStore((s) => s.setView);
+  const library = useSspStore((s) => s.library);
+  const loadLibrary = useSspStore((s) => s.loadLibrary);
+  const setLibraryOffset = useSspStore((s) => s.setLibraryOffset);
+  const openDrawer = useSspStore((s) => s.openDrawer);
+  const closeDrawer = useSspStore((s) => s.closeDrawer);
+  const deleteRecording = useSspStore((s) => s.deleteRecording);
   const { drawerOpen } = library;
 
   const [search, setSearch] = useState("");
