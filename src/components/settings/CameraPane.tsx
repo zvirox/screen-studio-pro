@@ -37,6 +37,7 @@ export default function CameraPane() {
         <button
           type="button"
           role="switch"
+          aria-label="Self-insert camera in recording"
           aria-checked={selfInsert}
           disabled={toggling || camera.status === "idle"}
           onClick={() => {
