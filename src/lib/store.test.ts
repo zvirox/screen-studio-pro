@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { INITIAL_SESSION, INITIAL_SOURCE, INITIAL_SETTINGS, INITIAL_PREFS, INITIAL_TOASTS, useSspStore } from "./store";
 import type {
   AudioListDevicesReply,
+  CaptureSettings,
   IpcError,
+  PrefEntry,
+  PrefsGetReply,
   RecordingStartReply,
   Settings,
   SourceCapabilities,
 } from "../types/ipc";
 import type * as ipcModule from "./ipc";
+import type { SettingsSlice } from "./store";
 
 vi.mock("./ipc", async (importOriginal) => ({
   ...(await importOriginal<typeof ipcModule>()),
@@ -814,7 +818,7 @@ describe("presets (§2.5; M11)", () => {
       encoder: "auto",
       qualityPreset: "discord",
       cameraSelfInsert: false,
-    } as any);
+    } as CaptureSettings);
     await useSspStore.getState().loadPresets();
     const p = useSspStore.getState().presets;
     expect(p.status).toBe("ready");
@@ -884,20 +888,20 @@ describe("Settings projection (§6.4 / 4.4)", () => {
       encoder: "auto",
       qualityPreset: "youtube",
       cameraSelfInsert: false,
-    } as any);
+    } as CaptureSettings);
     await useSspStore.getState().loadCaptureSettings();
     expect(mockedSettingsGet).toHaveBeenCalledWith("capture");
     expect(useSspStore.getState().settings.capture?.cameraSelfInsert).toBe(false);
   });
 
   it("setCameraSelfInsert toggles and persists", async () => {
-    mockedSettingsSet.mockResolvedValue({} as any);
+    mockedSettingsSet.mockResolvedValue({} as Settings);
     useSspStore.setState({
       settings: {
         capture: { frameRate: 60, encoder: "auto", qualityPreset: "youtube", cameraSelfInsert: false },
         captureLoading: false,
-      },
-    } as any);
+      } as SettingsSlice,
+    });
     await useSspStore.getState().setCameraSelfInsert(true);
     expect(mockedSettingsSet).toHaveBeenCalledWith({ capture: { cameraSelfInsert: true } });
     expect(useSspStore.getState().settings.capture?.cameraSelfInsert).toBe(true);
@@ -909,23 +913,23 @@ describe("Settings projection (§6.4 / 4.4)", () => {
       code: "settings.invalid_value",
       userMessage: "Bad value.",
       details: null,
-    } as any);
+    } as IpcError);
     useSspStore.setState({
       settings: {
         capture: { frameRate: 60, encoder: "auto", qualityPreset: "youtube", cameraSelfInsert: false },
         captureLoading: false,
-      },
-    } as any);
+      } as SettingsSlice,
+    });
     await useSspStore.getState().setCameraSelfInsert(true);
     expect(useSspStore.getState().settings.capture?.cameraSelfInsert).toBe(false);
   });
 
   it("loadPipPrefs loads all three pip prefs", async () => {
-    mockedPrefsGet.mockResolvedValue({ key: "pip.position", value: "corner:bottom-right,margin:24" } as any);
+    mockedPrefsGet.mockResolvedValue({ key: "pip.position", value: "corner:bottom-right,margin:24" } as PrefsGetReply);
     mockedPrefsGet
-      .mockResolvedValueOnce({ key: "pip.position", value: "corner:bottom-right,margin:24" } as any)
-      .mockResolvedValueOnce({ key: "pip.shape", value: "circle" } as any)
-      .mockResolvedValueOnce({ key: "pip.size", value: 240 } as any);
+      .mockResolvedValueOnce({ key: "pip.position", value: "corner:bottom-right,margin:24" } as PrefsGetReply)
+      .mockResolvedValueOnce({ key: "pip.shape", value: "circle" } as PrefsGetReply)
+      .mockResolvedValueOnce({ key: "pip.size", value: 240 } as PrefsGetReply);
     await useSspStore.getState().loadPipPrefs();
     expect(useSspStore.getState().prefs.pipPosition).toBe("corner:bottom-right,margin:24");
     expect(useSspStore.getState().prefs.pipShape).toBe("circle");
@@ -933,21 +937,21 @@ describe("Settings projection (§6.4 / 4.4)", () => {
   });
 
   it("setPipPosition persists corner+margin wire shape", async () => {
-    mockedPrefsSet.mockResolvedValue({} as any);
+    mockedPrefsSet.mockResolvedValue({} as PrefEntry);
     await useSspStore.getState().setPipPosition("corner:top-left,margin:24");
     expect(mockedPrefsSet).toHaveBeenCalledWith("pip.position", "corner:top-left,margin:24");
     expect(useSspStore.getState().prefs.pipPosition).toBe("corner:top-left,margin:24");
   });
 
   it("setPipShape persists circle/rounded", async () => {
-    mockedPrefsSet.mockResolvedValue({} as any);
+    mockedPrefsSet.mockResolvedValue({} as PrefEntry);
     await useSspStore.getState().setPipShape("rounded");
     expect(mockedPrefsSet).toHaveBeenCalledWith("pip.shape", "rounded");
     expect(useSspStore.getState().prefs.pipShape).toBe("rounded");
   });
 
   it("setPipSize persists size clamped 160-320", async () => {
-    mockedPrefsSet.mockResolvedValue({} as any);
+    mockedPrefsSet.mockResolvedValue({} as PrefEntry);
     await useSspStore.getState().setPipSize(320);
     expect(mockedPrefsSet).toHaveBeenCalledWith("pip.size", 320);
     expect(useSspStore.getState().prefs.pipSize).toBe(320);

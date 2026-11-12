@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RecordingDrawer from "./RecordingDrawer";
-import { useSspStore } from "../../lib/store";
+import { useSspStore, type LibrarySlice } from "../../lib/store";
+import type { LibraryGetReply } from "../../types/ipc";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -16,13 +17,26 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 const mockReveal = vi.mocked(revealItemInDir);
 
-function setLibraryState(library: any) {
-  useSspStore.setState({ library });
+function setLibraryState(library: Partial<LibrarySlice>) {
+  useSspStore.setState({ library: { ...EMPTY_LIBRARY, ...library } as LibrarySlice });
 }
 
-function setRecording(rec: any) {
+function setRecording(rec: LibraryGetReply) {
   useSspStore.setState({ library: { ...useSspStore.getState().library, selectedRecording: rec } });
 }
+
+const EMPTY_LIBRARY: LibrarySlice = {
+  status: "ready",
+  error: null,
+  items: [],
+  total: 0,
+  limit: 50,
+  offset: 0,
+  filter: {},
+  sort: { field: "created_at", direction: "desc" },
+  selectedRecording: null,
+  drawerOpen: false,
+};
 
 const RECORDING = {
   id: 17,

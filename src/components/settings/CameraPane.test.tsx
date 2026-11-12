@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPane from "./CameraPane";
-import { useSspStore, INITIAL_SESSION } from "../../lib/store";
+import { useSspStore, type CameraSlice, INITIAL_CAMERA } from "../../lib/store";
+import type { CaptureSettings } from "../../types/ipc";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -13,18 +14,18 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { settingsSet } from "../../lib/ipc";
 const mockedSettingsSet = vi.mocked(settingsSet);
 
-function setCameraState(camera: any) {
-  useSspStore.setState({ camera });
+function setCameraState(camera: Partial<CameraSlice>) {
+  useSspStore.setState({ camera: { ...INITIAL_CAMERA, ...camera } as CameraSlice });
 }
-function setCaptureSettings(capture: any) {
-  useSspStore.setState({ settings: { capture, captureLoading: false } });
+function setCaptureSettings(capture: Partial<CaptureSettings>) {
+  useSspStore.setState({ settings: { capture: capture as CaptureSettings, captureLoading: false } });
 }
 
 /* §6.4 Camera pane — self-insert toggle reads/writes
    settings.capture.camera_self_insert; shows camera status. */
 describe("CameraPane (§6.4 / 4.4)", () => {
   beforeEach(() => {
-    setCameraState({ ...INITIAL_SESSION, status: "idle", cameraId: null } as any);
+    setCameraState({ status: "idle", cameraId: null });
     setCaptureSettings({ cameraSelfInsert: false });
     vi.clearAllMocks();
   });
@@ -45,16 +46,14 @@ describe("CameraPane (§6.4 / 4.4)", () => {
   });
 
   it("toggles self-insert and persists via settingsSet", async () => {
-    mockedSettingsSet.mockResolvedValue({} as any);
     setCameraState({
-      ...INITIAL_SESSION,
       status: "open",
       cameraId: "cam_1",
       deviceId: "v1",
       label: "Webcam",
       width: 640,
       height: 480,
-    } as any);
+    });
 
     render(<CameraPane />);
     expect(screen.getByRole("switch")).not.toBeDisabled();
@@ -72,16 +71,15 @@ describe("CameraPane (§6.4 / 4.4)", () => {
       code: "settings.invalid_value",
       userMessage: "Bad value.",
       details: null,
-    } as any);
+    });
     setCameraState({
-      ...INITIAL_SESSION,
       status: "open",
       cameraId: "cam_1",
       deviceId: "v1",
       label: "Webcam",
       width: 640,
       height: 480,
-    } as any);
+    });
 
     render(<CameraPane />);
     fireEvent.click(screen.getByRole("switch", { name: /Self-insert camera in recording/ }));
