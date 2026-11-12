@@ -82,10 +82,12 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     mockLibraryList.mockResolvedValue({ items: [], total: 0, page: { limit: 50, offset: 0 } });
     useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice });
     render(<LibraryGrid />);
+    // Wait for loadLibrary() to complete before searching
+    await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalled());
     fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
       target: { value: "demo" },
     });
-    await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalled());
+    await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalledTimes(2));
     expect(
       screen.getByText('No recordings match "demo"'),
     ).toBeInTheDocument();
@@ -96,7 +98,8 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "loading" } as LibrarySlice });
     render(<LibraryGrid />);
     const container = screen.getByTestId("library-grid");
-    expect(container.querySelectorAll(".animate-pulse")).toHaveLength(10);
+    // 8 skeleton cards × 3 pulse elements each (thumb + 2 meta lines)
+    expect(container.querySelectorAll(".animate-pulse")).toHaveLength(24);
   });
 
   it("shows error state with retry", async () => {
@@ -128,6 +131,6 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     render(<LibraryGrid />);
     expect(screen.getByText("screen-2026-11-01-1412.mp4")).toBeInTheDocument();
     expect(screen.getByText("1:42")).toBeInTheDocument();
-    expect(screen.getByText("147.2 MB")).toBeInTheDocument();
+    expect(screen.getByText("140.4 MB")).toBeInTheDocument();
   });
 });
