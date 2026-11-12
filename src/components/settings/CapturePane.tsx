@@ -1,5 +1,5 @@
 import { useSspStore } from "../../lib/store";
-import type { CaptureSettings, PresetId } from "../../types/ipc";
+import type { PresetId } from "../../types/ipc";
 
 /* §6.4 Settings — Capture pane. Frame rate / encoder / quality preset are
    capture settings (§2.6). Presets come from `presets_list` via the presets
