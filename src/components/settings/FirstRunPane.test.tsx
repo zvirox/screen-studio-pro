@@ -16,6 +16,7 @@ const mockedPrefsSet = vi.mocked(prefsSet);
 describe("FirstRunPane (§6.4)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset store to fresh state for each test
     useSspStore.setState({
       prefs: {
         pipPosition: null,
