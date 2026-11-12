@@ -51,11 +51,9 @@ describe("FirstRunPane (§6.4)", () => {
     });
     render(<FirstRunPane />);
     fireEvent.click(screen.getByRole("button", { name: /I've reviewed these/ }));
-    await waitFor(() =>
-      expect(mockedPrefsSet).toHaveBeenCalledWith("firstRunCompleted", true),
-    );
-    expect(screen.getByText("First run complete")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("First run complete")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /First run complete/ })).toBeDisabled();
+    await waitFor(() => expect(mockedPrefsSet).toHaveBeenCalledWith("firstRunCompleted", true));
   });
 
   it("does not show education states when already completed", () => {
