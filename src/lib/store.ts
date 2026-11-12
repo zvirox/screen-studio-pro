@@ -9,6 +9,7 @@ import {
   prefsSet,
   presetsList,
   libraryList,
+  libraryGet,
   libraryDelete,
   recordingStart,
   recordingStop,
@@ -37,6 +38,7 @@ import type {
   RecordingTickEvt,
   ShellErrorEvt,
   SourceCapabilities,
+  LibraryGetReply,
   LibraryListFilter,
   LibraryListItem,
   LibraryListSort,
@@ -248,6 +250,10 @@ export interface LibrarySlice {
   offset: number;
   filter: LibraryListFilter;
   sort: LibraryListSort;
+  /** The recording currently opened in the detail drawer. */
+  selectedRecording: LibraryGetReply | null;
+  /** Whether the drawer is open. */
+  drawerOpen: boolean;
 }
 
 export const INITIAL_LIBRARY: LibrarySlice = {
@@ -259,6 +265,8 @@ export const INITIAL_LIBRARY: LibrarySlice = {
   offset: 0,
   filter: {},
   sort: { field: "created_at", direction: "desc" },
+  selectedRecording: null,
+  drawerOpen: false,
 };
 
 /* ---------- Presets projection (API §2.5, task 3.4 / M11) ---------- */
@@ -361,6 +369,12 @@ interface SspState {
   setLibraryOffset: (offset: number) => void;
   setLibraryFilter: (filter: Partial<LibraryListFilter>) => void;
   setLibrarySort: (sort: Partial<LibraryListSort>) => void;
+  /** Task 5.3: fetch a single recording's details for the drawer. */
+  libraryGet: (id: number) => Promise<void>;
+  /** Task 5.3: open the drawer with the given recording loaded. */
+  openDrawer: (id: number) => Promise<void>;
+  /** Task 5.3: close the drawer and clear the selection. */
+  closeDrawer: () => void;
 
   /* ui_prefs actions (4.4). */
   loadPipPrefs: () => Promise<void>;
@@ -432,6 +446,7 @@ export const useSspStore = create<SspState>((set, get) => ({
   settings: INITIAL_SETTINGS,
   prefs: INITIAL_PREFS,
   library: INITIAL_LIBRARY,
+  ...INITIAL_TOASTS,
   capabilities: null,
   presets: INITIAL_PRESETS,
 
@@ -924,7 +939,40 @@ export const useSspStore = create<SspState>((set, get) => ({
     }
   },
 
-  ...INITIAL_TOASTS,
+  /** Task 5.3: fetch a single recording's details for the drawer. */
+  async libraryGet(id: number) {
+    set({ library: { ...get().library, status: "loading", error: null } });
+    try {
+      const reply = await libraryGet(id);
+      set({
+        library: {
+          ...get().library,
+          status: "ready",
+          selectedRecording: reply,
+        },
+      });
+    } catch (err) {
+      set({ library: { ...get().library, status: "error", error: err as IpcError } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /** Task 5.3: open the drawer with the given recording loaded. */
+  async openDrawer(id: number) {
+    await get().libraryGet(id);
+    set({ library: { ...get().library, drawerOpen: true } });
+  },
+
+  /** Task 5.3: close the drawer and clear the selection. */
+  closeDrawer() {
+    set({ library: { ...get().library, drawerOpen: false, selectedRecording: null } });
+  },
 
   dismissToast(id) {
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));

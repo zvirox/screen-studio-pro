@@ -6,6 +6,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useSspStore } from "../../lib/store";
+import RecordingDrawer from "./RecordingDrawer";
 import type { LibraryListItem } from "../../types/ipc";
 import { cn } from "../../lib/cn";
 
@@ -45,7 +46,7 @@ function formatDate(iso: string): string {
   });
 }
 
-function LibraryCard({ item }: { item: LibraryListItem }) {
+function LibraryCard({ item, onOpen }: { item: LibraryListItem; onOpen: (id: number) => void }) {
   const deleteRecording = useSspStore((s) => s.deleteRecording);
   const [hovered, setHovered] = useState(false);
 
@@ -61,6 +62,14 @@ function LibraryCard({ item }: { item: LibraryListItem }) {
     <article
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => onOpen(item.id)}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(item.id);
+        }
+      }}
       className={cn(
         "relative group cursor-pointer bg-solid border border-subtle rounded-md shadow-[var(--shadow-elev-1)] p-4",
         hovered ? "border-accent -translate-y-1" : "",
@@ -154,11 +163,15 @@ function SkeletonCard() {
 }
 
 export default function LibraryGrid() {
-  const { library, loadLibrary, setLibraryOffset } = useSspStore((s) => ({
-    library: s.library,
-    loadLibrary: s.loadLibrary,
-    setLibraryOffset: s.setLibraryOffset,
-  }));
+  const { library, loadLibrary, setLibraryOffset, openDrawer, closeDrawer } =
+    useSspStore((s) => ({
+      library: s.library,
+      loadLibrary: s.loadLibrary,
+      setLibraryOffset: s.setLibraryOffset,
+      openDrawer: s.openDrawer,
+      closeDrawer: s.closeDrawer,
+    }));
+  const { drawerOpen } = library;
 
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<"created_at" | "duration" | "size">("created_at");
@@ -265,7 +278,7 @@ export default function LibraryGrid() {
           // Grid of recording cards.
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {library.items.map((item) => (
-              <LibraryCard key={item.id} item={item} />
+              <LibraryCard key={item.id} item={item} onOpen={openDrawer} />
             ))}
             {library.items.length < library.total && (
               <button
@@ -288,6 +301,9 @@ export default function LibraryGrid() {
         Showing {library.items.length} of {library.total} recording
         {library.total !== 1 ? "s" : ""}.
       </div>
+
+      {/* Detail drawer (5.3) */}
+      <RecordingDrawer open={drawerOpen} onClose={closeDrawer} />
     </section>
   );
 }
