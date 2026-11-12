@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
-import { useSspStore, type LibrarySlice } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -12,6 +12,10 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 
 import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
+
+vi.mock("../../lib/store", () => ({
+  useSspStore: vi.fn(),
+}));
 
 const EMPTY_LIBRARY = {
   status: "ready" as const,
@@ -54,6 +58,19 @@ const MISSING_RECORDING = {
   fileName: "screen-2026-11-01-1413.mp4",
   status: "missing" as const,
 };
+
+function mockStore(cameraState: LibrarySlice) {
+  vi.mocked(useSspStore).mockReturnValue({
+    library: cameraState,
+    loadLibrary: vi.fn(),
+    setLibraryOffset: vi.fn(),
+    openDrawer: vi.fn(),
+    closeDrawer: vi.fn(),
+    deleteRecording: vi.fn(),
+    setLibraryFilter: vi.fn(),
+    setLibrarySort: vi.fn(),
+  });
+}
 
 describe("LibraryGrid (§5.5 / §6.3)", () => {
   beforeEach(() => {
