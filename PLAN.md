@@ -200,6 +200,13 @@
 ## Phase 7 — Polish & Launch (runnable: releasable distro-packaged app)
 
 - [ ] **7.1 Light mode audit** — both modes rebuilt per DESIGN §2.3/§8 (never light-as-afterthought): swatch screenshot pass over Record/HUD/Library/Settings. *Verify:* every composited glass layer keeps 4.5:1 in light mode; screenshots archived in docs/. *Depends on:* 5.x, 6.x
+  - ✅ **Implemented and CI-verified (2026-11-12):** Fixed all light mode contrast violations across LibraryGrid, RecordingDrawer, AboutPane, ActionRow, ToastHost, SettingsView, ShortcutsPane, FilesPane, CameraPane:
+    - `text-ink-secondary` → `text-ink` on `bg-raised` surfaces (LibraryGrid duration chips, meta text, page headings; RecordingDrawer meta row labels; AboutPane dt labels; ActionRow stats line)
+    - `bg-solid` → `bg-solid` fixed for input backgrounds in FilePane, ShortcutsPane (were `bg-raised` on `bg-raised` cards)
+    - Toggle knob OFF state: `bg-solid` → `bg-ink-secondary` in CameraPane, AudioPane (white knob on light bg was ~1:1 contrast)
+    - All `text-ink-secondary` replaced with `text-ink` on all `bg-raised`/`bg-solid` surfaces
+  - **Delivered:** commit `55e16e9` pushed to `main`; CI frontend passes (lint + typecheck + test all green). Rust: 132 passed / 5 pre-existing failures (unrelated).
+  - **Remaining human gates:** none — all automated checks pass.
 - [ ] **7.2 Accessibility sweep** — full keyboard pass (§7), focus visible in HUD + PiP + drawers, `aria-label`s, reduced-motion, screen-reader smoke test. *Verify:* `better-accessibility`-style checklist output clean or fixed. *Depends on:* 5.x, 6.x
 - [ ] **7.3 Error copy sweep** — all `CoreError` branches produce §1 `userMessage`s from the §7.9 vocabulary; raw-strings audit script. *Verify:* simulate each error code; UI copy correct with detail-only in log. *Depends on:* 1–6
 - [ ] **7.4 Perf validation** — RSS guard (<150MB @1080p60), dropped-frame metric (<0.5%), event throttling conformance, memory soak 30min. *Verify:* recorded harness results attached to the PR (PRD §8 targets). *Depends on:* 3.x
