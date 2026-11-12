@@ -10,8 +10,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   prefsSet: vi.fn(),
 }));
 
-import { prefsGet, prefsSet } from "../../lib/ipc";
-const mockedPrefsGet = vi.mocked(prefsGet);
+import { prefsSet } from "../../lib/ipc";
 const mockedPrefsSet = vi.mocked(prefsSet);
 
 function setFirstRunCompleted(value: boolean | null) {

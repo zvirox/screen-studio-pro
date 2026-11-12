@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronRight, FileText, Info, Monitor, Mic, ShieldAlert } from "lucide-react";
+import { ChevronRight, Monitor, Mic, ShieldAlert } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 
 /* §6.4 First-run education moments (§6.3). Three education surfaces:
@@ -45,33 +45,30 @@ export default function FirstRunPane() {
 
           <div className="flex flex-col gap-3">
             <EducationItem
-              icon={<Monitor size={16} strokeWidth={1.5} aria-hidden="true" />}
+              icon={<Monitor size={16} strokeWidth={1.5} />}
               label="Choose a capture source"
               description={
                 "In the Record tab, click Monitor (or Window/Region) to open a " +
                 "capture session. The preview frame will show a live still once " +
                 "the compositor grants permission."
               }
-              ariaLabel="Preview-not-granted education"
             />
             <EducationItem
-              icon={<Mic size={16} strokeWidth={1.5} aria-hidden="true" />}
+              icon={<Mic size={16} strokeWidth={1.5} />}
               label="Test your microphone"
               description={
                 "In the Audio tab, enable the microphone channel. Speak and watch " +
                 "the level bar move — that's post-gain audio, exactly what " +
                 "lands in the recording."
               }
-              ariaLabel="Mic silent hint education"
             />
             <EducationItem
-              icon={<ShieldAlert size={16} strokeWidth={1.5} aria-hidden="true" />}
+              icon={<ShieldAlert size={16} strokeWidth={1.5} />}
               label="Check runtime capabilities"
               description={
                 "In the About tab, review what your compositor supports: " +
                 "screencast capture, global shortcuts, and window capture."
               }
-              ariaLabel="Capability transparency education"
             />
           </div>
         </section>
@@ -101,12 +98,10 @@ function EducationItem({
   icon,
   label,
   description,
-  ariaLabel,
 }: {
   icon: React.ReactNode;
   label: string;
   description: string;
-  ariaLabel: string;
 }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-sm border border-subtle bg-solid">
