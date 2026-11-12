@@ -1041,7 +1041,7 @@ export const useSspStore = create<SspState>((set, get) => ({
       prefs: {
         ...get().prefs,
         firstRunCompleted:
-          "value" in reply && typeof reply.value === "boolean"
+          reply && "value" in reply && typeof reply.value === "boolean"
             ? reply.value
             : null,
       },
