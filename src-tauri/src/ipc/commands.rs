@@ -12,7 +12,6 @@ use crate::util::error::{CoreError, IpcError};
 use ashpd::desktop::global_shortcuts::{
     BindShortcutsOptions, GlobalShortcuts, NewShortcut, Shortcut,
 };
-use ashpd::desktop::CreateSessionOptions;
 /* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
 0.6 brought the handshake + capability probe; 0.7 adds `settings_get/set`
 (API §2.6) over the TOML store. Command names are the `cmd://` verbs of
@@ -778,7 +777,7 @@ pub async fn shortcuts_apply(
         })?;
 
     let session = global_shortcuts
-        .create_session(CreateSessionOptions::default())
+        .create_session(Default::default())
         .await
         .map_err(|err| {
             CoreError::portal(

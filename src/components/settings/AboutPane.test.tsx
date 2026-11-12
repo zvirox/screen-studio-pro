@@ -33,7 +33,7 @@ describe("AboutPane (§6.4 / 6.1)", () => {
 
   it("renders IPC contract version", () => {
     render(<AboutPane />);
-    expect(screen.getByText("1.6.0")).toBeInTheDocument();
+    expect(screen.getAllByText("1.6.0").length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders capability matrix", () => {
