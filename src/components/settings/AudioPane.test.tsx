@@ -12,7 +12,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { audioSetChannel } from "../../lib/ipc";
 const mockedAudioSetChannel = vi.mocked(audioSetChannel);
 
-function setAudioState(audio: { mic: { enabled: boolean; muted: boolean; deviceId: string | null; level: number }; desktop: { enabled: boolean; muted: boolean; deviceId: string | null; level: number }; status?: string; error?: { kind: string; code: string; userMessage: string; details: any; retryable: boolean } | null }) {
+function setAudioState(audio: { mic: { enabled: boolean; muted: boolean; deviceId: string | null; level: number }; desktop: { enabled: boolean; muted: boolean; deviceId: string | null; level: number }; status?: string; error?: { kind: string; code: string; userMessage: string; details: unknown; retryable: boolean } | null }) {
   useSspStore.setState({ audio: { ...INITIAL_AUDIO, ...audio } });
 }
 

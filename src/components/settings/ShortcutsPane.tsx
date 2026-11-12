@@ -41,7 +41,7 @@ export default function ShortcutsPane() {
             <input
               type="text"
               value={b.value}
-              onChange={(e) => {
+              onChange={() => {
                 // optimistic local edit; applied on Apply
               }}
               readOnly
@@ -68,7 +68,7 @@ export default function ShortcutsPane() {
           onClick={async () => {
             setToggling(true);
             try {
-              const { granted, denied } = await shortcutsApply(
+              const { denied } = await shortcutsApply(
                 bindings.map((b) => ({ action: b.action, combo: b.value })),
               );
               setApplied(true);
