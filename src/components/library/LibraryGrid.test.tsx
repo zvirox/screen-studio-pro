@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
-import { useSspStore, type LibrarySlice } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
+import type { LibraryListItem } from "../../types/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
   ...(await importOriginal<typeof ipcModule>()),
@@ -12,7 +13,6 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 
 import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
-
 
 const EMPTY_LIBRARY = {
   status: "ready" as const,
@@ -56,12 +56,9 @@ const MISSING_RECORDING = {
   status: "missing" as const,
 };
 
-/* §6.3 Empty & education states + §5.5 loading/error states. */
 describe("LibraryGrid (§5.5 / §6.3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Suppress React "not wrapped in act()" warnings from store updates
-    // triggered by loadLibrary in useEffect during mount.
     vi.spyOn(console, 'error').mockImplementation((msg: unknown) => {
       if (typeof msg === 'string' && msg.includes('not wrapped in act')) {
         return;
@@ -100,7 +97,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "loading" } as LibrarySlice });
     render(<LibraryGrid />);
     const container = screen.getByTestId("library-grid");
-    expect(container.querySelectorAll(".animate-pulse")).toHaveLength(10); // 8 cards + 2 meta lines
+    expect(container.querySelectorAll(".animate-pulse")).toHaveLength(10);
   });
 
   it("shows error state with retry", async () => {
