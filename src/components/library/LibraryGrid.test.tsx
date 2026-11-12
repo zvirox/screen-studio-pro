@@ -84,7 +84,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
 
   it("shows search empty state with Clear search chip", async () => {
     mockLibraryList.mockResolvedValue({ items: [], total: 0, page: { limit: 50, offset: 0 } });
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0 } as LibrarySlice });
+    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice });
     render(<LibraryGrid />);
     fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
       target: { value: "demo" },
