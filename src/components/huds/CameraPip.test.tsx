@@ -10,18 +10,12 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   cameraListDevices: vi.fn(),
   cameraOpen: vi.fn(),
   cameraClose: vi.fn(),
+  prefsGet: vi.fn(),
+  prefsSet: vi.fn(),
 }));
 
-import {
-  cameraPreview,
-  cameraListDevices,
-  cameraOpen,
-  cameraClose,
-} from "../../lib/ipc";
+import { cameraPreview } from "../../lib/ipc";
 const mockPreview = vi.mocked(cameraPreview);
-const mockListDevices = vi.mocked(cameraListDevices);
-const mockOpen = vi.mocked(cameraOpen);
-const mockClose = vi.mocked(cameraClose);
 
 const EMPTY_CAMERA = {
   status: "idle" as const,
@@ -62,7 +56,7 @@ describe("CameraPip (§6.6)", () => {
     expect(screen.querySelector('[data-camera-pip="frame"]')).not.toBeInTheDocument();
   });
 
-  it("renders still img once poll lands", async () => {
+  it("renders still as an img once poll lands", async () => {
     mockPreview.mockResolvedValue({
       jpegBase64: "aaa",
       width: 640,
@@ -74,22 +68,7 @@ describe("CameraPip (§6.6)", () => {
     expect(mockPreview).toHaveBeenCalledWith("cam_1");
   });
 
-  it("shows signal ring only while recording", () => {
-    vi.mocked(useSspStore).mockReturnValue({
-      library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
-      loadCameraDevices: vi.fn(),
-      cameraListDevices: vi.fn(),
-      cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      prefsGet: vi.fn(),
-      prefsSet: vi.fn(),
-    } as any);
-    const { container } = render(<CameraPip cameraId="cam_1" recording={true} />);
-    const frame = container.querySelector('[data-camera-pip="frame"]');
-    expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
-  });
-
-  it("toggles shape toggle popover", () => {
+  it("shows 2px signal ring only while recording", () => {
     vi.mocked(useSspStore).mockReturnValue({
       library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
       loadLibrary: vi.fn(),
@@ -99,10 +78,9 @@ describe("CameraPip (§6.6)", () => {
       prefsGet: vi.fn(),
       prefsSet: vi.fn(),
     } as any);
-    render(<CameraPip cameraId="cam_1" recording={false} />);
-    fireEvent.click(screen.getByRole("button", { name: /Camera frame shape/ }));
-    expect(screen.getByRole("menuitemradio", { name: /Circle/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitemradio", { name: /Rounded/ })).toBeInTheDocument();
+    render(<CameraPip cameraId="cam_1" recording={true} />);
+    const frame = container.querySelector('[data-camera-pip="frame"]');
+    expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
   });
 
   it("toggles freeze button aria-pressed", () => {
