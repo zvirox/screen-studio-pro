@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useSspStore } from "../../lib/store";
 
 /* §6.4 Settings — Files pane. Output directory, naming pattern, and
@@ -7,7 +6,6 @@ import { useSspStore } from "../../lib/store";
 export default function FilesPane() {
   const files = useSspStore((s) => s.settings.files);
   const setFilesSettings = useSspStore((s) => s.setFilesSettings);
-  const [toggling, setToggling] = useState(false);
 
   return (
     <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
@@ -35,12 +33,10 @@ export default function FilesPane() {
             }}
             placeholder="/home/user/Videos/SSP"
             className="flex-1 h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-            disabled={toggling}
           />
           <button
             type="button"
             onClick={() => {}}
-            disabled={toggling}
             className="h-10 px-4 rounded-sm border border-subtle bg-raised text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             Browse…
@@ -62,7 +58,6 @@ export default function FilesPane() {
           }}
           placeholder="screen-%Y-%m-%d-%H%M"
           className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          disabled={toggling}
         />
       </div>
 
@@ -75,7 +70,6 @@ export default function FilesPane() {
             void setFilesSettings({ container: e.target.value });
           }}
           className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          disabled={toggling}
         >
           <option value="mkv">MKV (native, no remux)</option>
           <option value="mp4">MP4 (remux after stop)</option>

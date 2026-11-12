@@ -3,7 +3,6 @@ import { Keyboard } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import { shortcutsApply } from "../../lib/ipc";
 import type { IpcError } from "../../types/ipc";
-import type { ShortcutsSettings } from "../../types/ipc";
 
 /* §6.4 Settings — Shortcuts pane. Global shortcut bindings via the portal
    (cmd://shortcuts_apply). Toggle-record / pause / stop combos. Compositors

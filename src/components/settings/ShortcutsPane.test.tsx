@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ShortcutsPane from "./ShortcutsPane";
 import { useSspStore } from "../../lib/store";
-import { shortcutsApply } from "../../lib/ipc";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({

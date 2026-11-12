@@ -11,8 +11,6 @@ export default function CapturePane() {
   const setPreset = useSspStore((s) => s.setPreset);
   const setCaptureSettings = useSspStore((s) => s.setCaptureSettings);
 
-  const [toggling, setToggling] = useState(false);
-
   return (
     <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
       <h1 className="text-display-md">Capture</h1>
