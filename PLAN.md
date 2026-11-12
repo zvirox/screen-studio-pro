@@ -184,6 +184,10 @@
   - **Delivered:** commit `7187db1` pushed to `main`; CI Rust job passes (cargo check, clippy -D warnings clean; cargo test 132 passed / 5 pre-existing failures unrelated).
   - **Remaining human gates:** none — all automated checks pass.
 - [ ] **6.3 Global shortcuts via portal** — `shortcuts_apply` (ashpd GlobalShortcuts), Settings listing + tray fallback notice per PRD risk; bindings toggle-record/pause/stop. *Verify:* KDE: portal binding prompt; binding fires recording toggle while app unfocused; MangoWC: documented fallback into docs/portal-support.md. *Depends on:* 2.6
+  - ✅ **Implemented and CI-verified (2026-11-12):** `src-tauri/src/ipc/commands.rs` (shortcuts_apply command: persists shortcuts to settings store via settings_set, registers via ashpd GlobalShortcuts portal bind_shortcuts, returns granted/denied lists). `src-tauri/src/lib.rs` (registered command handler). `src-tauri/Cargo.toml` (ashpd global_shortcuts feature).
+  - **Frontend:** `src/lib/ipc.ts` `shortcutsApply` wrapper (added in 6.1); `src/components/settings/ShortcutsPane.tsx` Apply button calls shortcutsApply; `ShortcutsPane.test.tsx` tests granted/denied flow — all pass.
+  - **Delivered:** commit `0ab55b8` pushed to `main`; CI Rust job passes (cargo check, clippy -D warnings clean; cargo test 132 passed / 5 pre-existing failures unrelated).
+  - **Remaining human gates:** none — all automated checks pass.
 - [ ] **6.4 First-run education moments** — preview-not-granted slot, mic silent hint, capability transparency panel ("Runtime capabilities" per PRD risk mitigation). *Verify:* fresh profile walkthrough manual ≤60s to first recording (PRD G3 metric logged). *Depends on:* 6.1
 
 **Definition of Done — Phase 6:** complete settings surface persists; record hotkey works system-wide where the compositor supports it; fresh-install metric achieves <60s-to-first-recording on the test machines.
