@@ -1,9 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
-import { useSspStore } from "../../lib/store";
+import { useSspStore, type LibrarySlice } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
-import type { LibrarySlice } from "../../lib/store";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
   ...(await importOriginal<typeof ipcModule>()),
@@ -15,7 +14,16 @@ import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
 
 vi.mock("../../lib/store", () => ({
-  useSspStore: vi.fn(),
+  useSspStore: vi.fn(() => ({
+    library: EMPTY_LIBRARY,
+    loadLibrary: vi.fn(),
+    setLibraryOffset: vi.fn(),
+    openDrawer: vi.fn(),
+    closeDrawer: vi.fn(),
+    deleteRecording: vi.fn(),
+    setLibraryFilter: vi.fn(),
+    setLibrarySort: vi.fn(),
+  })),
 }));
 
 const EMPTY_LIBRARY = {
@@ -116,7 +124,16 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   });
 
   it("shows skeleton grid while loading", () => {
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "loading" } as LibrarySlice });
+    vi.mocked(useSspStore).mockReturnValue({
+      library: { ...EMPTY_LIBRARY, status: "loading" } as LibrarySlice,
+      loadLibrary: vi.fn(),
+      setLibraryOffset: vi.fn(),
+      openDrawer: vi.fn(),
+      closeDrawer: vi.fn(),
+      deleteRecording: vi.fn(),
+      setLibraryFilter: vi.fn(),
+      setLibrarySort: vi.fn(),
+    });
     render(<LibraryGrid />);
     const container = screen.getByTestId("library-grid");
     expect(container.querySelectorAll(".animate-pulse")).toHaveLength(10);
@@ -131,7 +148,16 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       retryable: true,
     };
     mockLibraryList.mockRejectedValue(err);
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "error", error: err } as LibrarySlice });
+    vi.mocked(useSspStore).mockReturnValue({
+      library: { ...EMPTY_LIBRARY, status: "error", error: err } as LibrarySlice,
+      loadLibrary: vi.fn(),
+      setLibraryOffset: vi.fn(),
+      openDrawer: vi.fn(),
+      closeDrawer: vi.fn(),
+      deleteRecording: vi.fn(),
+      setLibraryFilter: vi.fn(),
+      setLibrarySort: vi.fn(),
+    });
     render(<LibraryGrid />);
     expect(screen.getByRole("heading", { name: "Could not load recordings" })).toBeInTheDocument();
     expect(screen.getByText("Disk write failed.")).toBeInTheDocument();
@@ -140,8 +166,15 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   });
 
   it("shows missing-file chip on missing recording card", () => {
-    useSspStore.setState({
+    vi.mocked(useSspStore).mockReturnValue({
       library: { ...EMPTY_LIBRARY, items: [MISSING_RECORDING] } as LibrarySlice,
+      loadLibrary: vi.fn(),
+      setLibraryOffset: vi.fn(),
+      openDrawer: vi.fn(),
+      closeDrawer: vi.fn(),
+      deleteRecording: vi.fn(),
+      setLibraryFilter: vi.fn(),
+      setLibrarySort: vi.fn(),
     });
     render(<LibraryGrid />);
     expect(screen.getByText("File missing")).toBeInTheDocument();
@@ -149,7 +182,16 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   });
 
   it("renders recording cards normally", () => {
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [RECORDING] } as LibrarySlice });
+    vi.mocked(useSspStore).mockReturnValue({
+      library: { ...EMPTY_LIBRARY, items: [RECORDING] } as LibrarySlice,
+      loadLibrary: vi.fn(),
+      setLibraryOffset: vi.fn(),
+      openDrawer: vi.fn(),
+      closeDrawer: vi.fn(),
+      deleteRecording: vi.fn(),
+      setLibraryFilter: vi.fn(),
+      setLibrarySort: vi.fn(),
+    });
     render(<LibraryGrid />);
     expect(screen.getByText("screen-2026-11-01-1412.mp4")).toBeInTheDocument();
     expect(screen.getByText("1:42")).toBeInTheDocument();
