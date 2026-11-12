@@ -163,7 +163,7 @@ export default function ActionRow() {
       {/* §6.1 #6 (3.5): stats line under the action row, recording-state
           only — state-driven visibility, never hidden content. */}
       {recording && session.stats ? (
-        <p className="font-mono text-mono-sm tabular-nums text-ink-secondary">
+        <p className="font-mono text-mono-sm tabular-nums text-ink">
           {formatStats(session.stats)}
         </p>
       ) : null}

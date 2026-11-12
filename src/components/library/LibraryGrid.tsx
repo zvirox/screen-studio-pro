@@ -86,8 +86,8 @@ function LibraryCard({
             loading="lazy"
           />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-ink-secondary">
-            <ExternalLink size={24} strokeWidth={1.5} className="opacity-50" />
+          <div className="h-full w-full flex items-center justify-center text-ink">
+            <ExternalLink size={24} strokeWidth={1.5} className="opacity-60" />
           </div>
         )}
         {/* Duration chip bottom-right (mono-sm, ground) */}
@@ -110,7 +110,7 @@ function LibraryCard({
           {item.fileName}
         </h3>
         {/* Meta row (label/mono-sm): date · size · fps · encoder */}
-        <p className="mt-1 text-label text-ink-secondary truncate">
+        <p className="mt-1 text-label text-ink truncate">
           {formatDate(item.createdAt)} ·
           {formatSize(item.sizeBytes)} ·
           {item.fps}fps ·
@@ -221,7 +221,7 @@ export default function LibraryGrid() {
             onChange={handleSearch}
             className="h-10 w-full rounded-sm border border-subtle bg-solid pl-9 pr-3 text-body-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-secondary">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink">
             <ExternalLink size={16} strokeWidth={1.5} aria-hidden="true" />
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function LibraryGrid() {
 
       {/* Grid header */}
       <div className="flex-shrink-0 px-6 py-2 border-b border-subtle bg-raised">
-        <div className="flex items-center justify-between text-label font-medium text-ink-secondary">
+        <div className="flex items-center justify-between text-label font-medium text-ink">
           <span>Recordings</span>
           <div className="flex items-center gap-2 text-xs">
             <button
@@ -270,7 +270,7 @@ export default function LibraryGrid() {
           <div className="flex flex-col items-center justify-center h-full text-center py-20">
             <ExternalLink size={48} strokeWidth={1.5} className="text-error mb-4" aria-hidden="true" />
             <h2 className="text-heading font-medium text-ink">Could not load recordings</h2>
-            <p className="mt-2 text-body-sm text-ink-secondary max-w-md">
+            <p className="mt-2 text-body-sm text-ink max-w-md">
               {library.error?.userMessage ?? "Failed to load recordings."}
             </p>
             <button
@@ -294,7 +294,7 @@ export default function LibraryGrid() {
           search ? (
             // Search empty.
             <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <ExternalLink size={48} strokeWidth={1.5} className="text-ink-secondary mb-4" aria-hidden="true" />
+              <ExternalLink size={48} strokeWidth={1.5} className="text-ink mb-4" aria-hidden="true" />
               <h2 className="text-heading font-medium text-ink">
                 No recordings match “{search}”
               </h2>
@@ -309,9 +309,9 @@ export default function LibraryGrid() {
           ) : (
             // Library empty.
             <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <ExternalLink size={48} strokeWidth={1.5} className="text-ink-secondary mb-4" aria-hidden="true" />
+              <ExternalLink size={48} strokeWidth={1.5} className="text-ink mb-4" aria-hidden="true" />
               <h2 className="text-heading font-medium text-ink">Nothing recorded yet</h2>
-              <p className="mt-2 text-body-sm text-ink-secondary max-w-md">
+              <p className="mt-2 text-body-sm text-ink max-w-md">
                 Choose a source on the Record tab, then hit Record. Your clips
                 will land here.
               </p>
@@ -352,7 +352,7 @@ export default function LibraryGrid() {
       </div>
 
       {/* Status bar */}
-      <div className="flex-shrink-0 px-6 py-2 text-xs text-ink-secondary">
+      <div className="flex-shrink-0 px-6 py-2 text-xs text-ink">
         Showing {library.items.length} of {library.total} recording
         {library.total !== 1 ? "s" : ""}.
       </div>

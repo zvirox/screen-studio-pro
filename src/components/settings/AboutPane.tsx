@@ -30,7 +30,7 @@ export default function AboutPane() {
             <dd className="text-body-sm text-ink text-mono-sm">0.0.1-alpha.1</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-body-sm text-ink-secondary">IPC contract</dt>
+            <dt className="text-body-sm text-ink">IPC contract</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
               {capabilities?.version?.ipcContract ?? "1.6.0"}
             </dd>
@@ -46,25 +46,25 @@ export default function AboutPane() {
         <h2 className="text-heading text-ink mb-3">Capabilities</h2>
         <dl className="space-y-2">
           <div className="flex justify-between">
-            <dt className="text-body-sm text-ink-secondary">Screencast</dt>
+            <dt className="text-body-sm text-ink">Screencast</dt>
             <dd className="text-body-sm text-ink">
               {capabilities?.portal?.screencast ? "Available" : "Unavailable"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-body-sm text-ink-secondary">Global shortcuts</dt>
+            <dt className="text-body-sm text-ink">Global shortcuts</dt>
             <dd className="text-body-sm text-ink">
               {capabilities?.portal?.globalShortcuts ?? "partial"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-body-sm text-ink-secondary">Compositor</dt>
+            <dt className="text-body-sm text-ink">Compositor</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
               {capabilities?.portal?.compositor ?? "unknown"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-body-sm text-ink-secondary">Encoders</dt>
+            <dt className="text-body-sm text-ink">Encoders</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
               {capabilities?.encoders
                 ?.map((e) => `${e.backend}${e.isHardware ? " (HW)" : ""}`)
@@ -72,7 +72,7 @@ export default function AboutPane() {
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-body-sm text-ink-secondary">IPC contract</dt>
+            <dt className="text-body-sm text-ink">IPC contract</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
               {capabilities?.version?.ipcContract ?? "1.6.0"}
             </dd>

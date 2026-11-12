@@ -71,7 +71,7 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
                 loading="lazy"
               />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-ink-secondary">
+              <div className="h-full w-full flex items-center justify-center text-ink">
                 <ExternalLink size={28} strokeWidth={1.5} className="opacity-50" aria-hidden="true" />
               </div>
             )}
@@ -81,47 +81,47 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
           <table className="w-full text-left text-body-sm divide-y divide-subtle">
             <tbody>
               <tr>
-                <td className="py-2 w-1/3 text-label text-ink-secondary">File name</td>
+                <td className="py-2 w-1/3 text-label text-ink">File name</td>
                 <td className="py-2 text-ink font-medium truncate" title={recording.fileName}>
                   {recording.fileName}
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Container</td>
+                <td className="py-2 text-label text-ink">Container</td>
                 <td className="py-2 text-mono-sm text-ink font-mono">{recording.container.toUpperCase()}</td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Duration</td>
+                <td className="py-2 text-label text-ink">Duration</td>
                 <td className="py-2 text-mono-sm text-ink font-mono tabular-nums">
                   {formatDuration(recording.durationMs)}
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Resolution</td>
+                <td className="py-2 text-label text-ink">Resolution</td>
                 <td className="py-2 text-mono-sm text-ink font-mono">
                   {recording.width ?? "—"}×{recording.height ?? "—"}
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Frame rate</td>
+                <td className="py-2 text-label text-ink">Frame rate</td>
                 <td className="py-2 text-mono-sm text-ink font-mono tabular-nums">
                   {recording.fps ?? "—"} fps
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Encoder</td>
+                <td className="py-2 text-label text-ink">Encoder</td>
                 <td className="py-2 text-mono-sm text-ink font-mono">
                   {recording.encoder} {recording.isHwEncoder ? "· HW" : "· SW"}
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Size</td>
+                <td className="py-2 text-label text-ink">Size</td>
                 <td className="py-2 text-mono-sm text-ink font-mono tabular-nums">
                   {formatSize(recording.sizeBytes)}
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-label text-ink-secondary">Created</td>
+                <td className="py-2 text-label text-ink">Created</td>
                 <td className="py-2 text-mono-sm text-ink font-mono">
                   {new Date(recording.createdAt).toLocaleString()}
                 </td>
@@ -148,7 +148,7 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
             disabled
             aria-label="Trim later"
             title="Planned for V2"
-            className="flex items-center gap-2 rounded-sm border border-subtle bg-accent-muted px-3 py-2 text-body-sm text-ink-secondary cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex items-center gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm text-ink-disabled cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             <Scissors size={16} strokeWidth={1.5} aria-hidden="true" />
             Trim later
