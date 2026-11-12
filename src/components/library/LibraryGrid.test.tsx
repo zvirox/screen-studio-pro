@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
-import { useSspStore, type LibrarySlice } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -12,19 +12,6 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 
 import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
-
-vi.mock("../../lib/store", () => ({
-  useSspStore: vi.fn(() => ({
-    library: EMPTY_LIBRARY,
-    loadLibrary: vi.fn(),
-    setLibraryOffset: vi.fn(),
-    openDrawer: vi.fn(),
-    closeDrawer: vi.fn(),
-    deleteRecording: vi.fn(),
-    setLibraryFilter: vi.fn(),
-    setLibrarySort: vi.fn(),
-  })),
-}));
 
 const EMPTY_LIBRARY = {
   status: "ready" as const,
