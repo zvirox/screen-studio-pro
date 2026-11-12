@@ -64,6 +64,7 @@ pub fn setup(app: &tauri::App) -> tauri::Result<()> {
                     source_id: None,
                     output_dir: None,
                     region_rect: None,
+                    camera_id: None,
                 },
             ),
             #[cfg(feature = "encode")]

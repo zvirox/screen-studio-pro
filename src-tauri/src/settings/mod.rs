@@ -37,6 +37,11 @@ pub struct Capture {
     pub encoder: String,
     /// M11 preset ids (API §2.5 presets_list).
     pub quality_preset: String,
+    /// 4.3: when true, the open camera's PiP is composited into the
+    /// encoded video at its UI position (bottom-right, margin 24,
+    /// size 240, circle — the 4.2 defaults). Default off; the Camera
+    /// settings pane (4.4) adds the toggle.
+    pub camera_self_insert: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

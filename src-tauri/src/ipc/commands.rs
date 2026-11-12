@@ -628,13 +628,14 @@ pub async fn recording_start(
     output_dir: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<Value, IpcError> {
-    let _ = (audio, camera_id, preset_id); // 1.3 scope note
+    let _ = (audio, preset_id); // 1.3 scope note — camera_id is honoured by 4.3
     crate::app_state::run(
         app,
         crate::app_state::Action::Start {
             source_id: Some(source_id),
             output_dir,
             region_rect,
+            camera_id,
         },
         false,
     )

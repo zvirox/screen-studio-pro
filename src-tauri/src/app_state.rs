@@ -41,6 +41,7 @@ pub enum Action {
         source_id: Option<String>,
         output_dir: Option<String>,
         region_rect: Option<crate::capture::RegionRect>,
+        camera_id: Option<String>,
     },
     #[cfg(feature = "encode")]
     Pause(String),
@@ -189,11 +190,12 @@ impl Lifecycle {
                 source_id,
                 output_dir,
                 region_rect,
+                camera_id,
             } => {
                 self.can_start()?;
                 let capture = app.state::<CaptureHandle>();
                 let rect = region_rect.or_else(|| capture.region_rect());
-                let info = start(app, source_id, output_dir, rect)?;
+                let info = start(app, source_id, output_dir, rect, camera_id)?;
                 events::recording_started(app, &info);
                 return Ok(
                     serde_json::json!({"recordingId": info.recording_id, "status": "recording", "encoder": {"backend": info.encoder.backend, "isHardware": info.encoder.is_hardware}, "startedAt": info.started_at}),
@@ -282,6 +284,7 @@ fn start(
     source_id: Option<String>,
     output_dir: Option<String>,
     region_rect: Option<crate::capture::RegionRect>,
+    camera_id: Option<String>,
 ) -> Result<crate::pipeline::session::StartInfo, CoreError> {
     let capture = app.state::<CaptureHandle>();
     let source = capture
@@ -311,6 +314,7 @@ fn start(
         sink,
         audio,
         region_rect,
+        camera_id,
         Some(app),
     )
 }
@@ -347,7 +351,16 @@ mod tests {
         let recordings = RecordingHandle::new();
         let bus = Arc::new(FrameBus::new(16));
         let info = recordings
-            .start(bus.clone(), (64, 64), dir, Arc::new(Sink), None, None, None)
+            .start(
+                bus.clone(),
+                (64, 64),
+                dir,
+                Arc::new(Sink),
+                None,
+                None,
+                None,
+                None,
+            )
             .expect("start");
         for n in 0..8 {
             assert!(matches!(

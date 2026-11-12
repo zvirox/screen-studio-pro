@@ -1,9 +1,12 @@
 use super::audio::{MIX_WINDOW_SAMPLES, MeterReading, MixSource};
 use super::stats::{EventSink, SessionEvent, StatsMeter, Throttle};
+use crate::capture::CameraHandle;
 use crate::capture::audio::AudioProducer;
+use crate::capture::preview::PreviewMailbox;
 use crate::encode::sw_aac::{self, SwAac};
 use crate::encode::sw_x264::SwX264;
 use crate::encode::{AudioEncoder, EncodedPacket, Encoder};
+use crate::pipeline::composite::{PipShape, overlay_camera};
 use crate::pipeline::muxer::{AudioSpec, Muxer, MuxerBuilder, VideoSpec};
 use crate::util::error::CoreError;
 use ffmpeg_next as ff;
@@ -499,6 +502,34 @@ pub struct ChapterMarker {
     pub label: String,
 }
 
+/// 4.3: configuration for compositing the camera PiP into the encode.
+/// The pipeline is Tauri-agnostic: it receives the stills mailbox (not
+/// the CameraHandle) and a position/size/shape derived from the UI.
+#[derive(Clone)]
+pub struct CameraOverlayConfig {
+    pub mailbox: Option<Arc<PreviewMailbox>>,
+    /// PiP width in output pixels (160–320, default 240).
+    pub pip_size: u32,
+    /// Snap margin in output pixels (default 24).
+    pub pip_margin: u32,
+    /// `r.full` circle (4.2 default) / `r.lg` rounded.
+    pub pip_shape: PipShape,
+    /// self-insert flag from settings — default false.
+    pub enabled: bool,
+}
+
+impl Default for CameraOverlayConfig {
+    fn default() -> Self {
+        Self {
+            mailbox: None,
+            pip_size: 240,
+            pip_margin: 24,
+            pip_shape: PipShape::Circle,
+            enabled: false,
+        }
+    }
+}
+
 /// The 2.3 pause gate (PLAN 2.3). Laws:
 /// - The pause is measured in WALL µs — the same clock the video pts are
 ///   stamped in, so the take's rel timeline (raw − base − paused_total)
@@ -650,6 +681,7 @@ impl RecordingHandle {
         events: Arc<dyn EventSink>,
         audio: Option<AudioPlan>,
         region_rect: Option<crate::capture::RegionRect>,
+        camera_id: Option<String>,
         app: Option<&tauri::AppHandle>,
     ) -> Result<StartInfo, CoreError> {
         let mut slot = self.locked();
@@ -670,7 +702,7 @@ impl RecordingHandle {
         // Encoder + quality preset from the SETTINGS SNAPSHOT (M8/M11;
         // ARCHITECTURE §4.1: the take resolves its targets at start).
         // The preset's height cap wins; the source is never upscaled.
-        let (encoder_name, preset) = if let Some(app) = app {
+        let (encoder_name, preset, camera_self_insert) = if let Some(app) = app {
             let settings = app
                 .state::<Mutex<crate::settings::SettingsStore>>()
                 .lock()
@@ -680,14 +712,40 @@ impl RecordingHandle {
             (
                 settings.capture.encoder,
                 crate::pipeline::presets::resolve(&settings.capture.quality_preset),
+                settings.capture.camera_self_insert,
             )
         } else {
             (
                 "auto".to_string(),
                 crate::pipeline::presets::resolve("youtube"),
+                false,
             )
         };
         let dims = crate::pipeline::presets::output_size(dims, &preset);
+
+        // 4.3: camera overlay config. Mailbox looked up from CameraHandle;
+        // self-insert from settings. Defaults: bottom-right, margin 24,
+        // size 240, circle. Disabled unless camera_self_insert is true and
+        // a camera is open.
+        let camera_overlay = if camera_self_insert {
+            if let Some(app) = app {
+                let camera = app.state::<CameraHandle>();
+                let mailbox = camera_id
+                    .as_deref()
+                    .and_then(|id| camera.mailbox_if_matches(id));
+                Some(CameraOverlayConfig {
+                    mailbox,
+                    pip_size: 240,
+                    pip_margin: 24,
+                    pip_shape: PipShape::Circle,
+                    enabled: true,
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         // Muxer spec: the codec ID is always H264; the backend is chosen
         // at encoder open time (select_encoder handles NVENC/VAAPI/x264).
@@ -839,6 +897,7 @@ impl RecordingHandle {
                     worker_pause,
                     worker_region_rect,
                     worker_preset,
+                    camera_overlay.unwrap_or_default(),
                 )
             })
             .map_err(|err| {
@@ -1080,6 +1139,7 @@ fn run_session(
     pause: PauseState,
     region_rect: Option<crate::capture::RegionRect>,
     preset: crate::pipeline::presets::Preset,
+    camera_overlay: CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
     let outcome = capture_take(
@@ -1094,6 +1154,7 @@ fn run_session(
         &pause,
         region_rect,
         preset,
+        &camera_overlay,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
     // reacts to the event can start the next take right away.
@@ -1130,6 +1191,7 @@ fn capture_take(
     pause: &PauseState,
     region_rect: Option<crate::capture::RegionRect>,
     preset: crate::pipeline::presets::Preset,
+    camera_overlay: &CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
     let mut frames: u64 = 0;
@@ -1250,6 +1312,36 @@ fn capture_take(
                         break;
                     }
                     continue;
+                }
+                // 4.3: composite the camera PiP onto the frame before encoding.
+                // Camera stills arrive at ≤8 fps; reusing the last still across
+                // video frames is correct — the PiP is a stills overlay, not
+                // a live video track.
+                if camera_overlay.enabled
+                    && let Some(mailbox) = &camera_overlay.mailbox
+                    && let Some((cam_frame, _stamp)) = mailbox.latest()
+                {
+                    let pip_w = camera_overlay.pip_size;
+                    let pip_h = (pip_w * 9) / 16;
+                    // Corner+margin model (API §2.6 pip.position):
+                    // bottom-right = source corner minus pip minus margin.
+                    let x = frame
+                        .width
+                        .saturating_sub(pip_w)
+                        .saturating_sub(camera_overlay.pip_margin);
+                    let y = frame
+                        .height
+                        .saturating_sub(pip_h)
+                        .saturating_sub(camera_overlay.pip_margin);
+                    let _ = overlay_camera(
+                        &mut frame,
+                        &cam_frame,
+                        x,
+                        y,
+                        pip_w,
+                        pip_h,
+                        camera_overlay.pip_shape,
+                    );
                 }
                 last_accepted_raw = Some(frame.pts_us);
                 let base = match first_pts {
@@ -1651,6 +1743,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         assert_eq!(info.encoder.backend, "x264");
@@ -1715,6 +1808,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("first start");
         produce(&bus, 5, 0);
@@ -1726,6 +1820,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -1768,6 +1863,7 @@ mod tests {
                     None,
                     None,
                     None,
+                    None,
                 )
                 .unwrap();
             produce(&bus, 5, base + 60_000_000);
@@ -1805,6 +1901,7 @@ mod tests {
                 dir.path(),
                 TestSink::new(),
                 Some(plan),
+                None,
                 None,
                 None,
             )
@@ -1846,6 +1943,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("first");
         produce(&bus, 5, 0);
@@ -1862,6 +1960,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -1898,6 +1997,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("clean start");
         // No frames are ever produced: the bus stays empty the whole take.
@@ -1921,6 +2021,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -1952,6 +2053,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -2086,6 +2188,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2163,6 +2266,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2230,6 +2334,7 @@ mod tests {
                 dir.path(),
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
                 None,
             )
@@ -2366,6 +2471,7 @@ mod tests {
                 Some(plan),
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2490,6 +2596,7 @@ mod tests {
                 Some(plan),
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2584,6 +2691,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         assert!(matches!(
@@ -2604,6 +2712,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 sink.clone(),
+                None,
                 None,
                 None,
                 None,
@@ -2657,6 +2766,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 sink.clone(),
+                None,
                 None,
                 None,
                 None,
@@ -2830,6 +2940,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         // Raw pts jump forward, then step BACK (a producer clock stepping
@@ -2904,6 +3015,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2967,6 +3079,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -3047,6 +3160,7 @@ mod tests {
                 dir.path(),
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
                 None,
             )
@@ -3168,6 +3282,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -3242,6 +3357,7 @@ mod tests {
                 (W, H),
                 dir.path(),
                 sink.clone(),
+                None,
                 None,
                 None,
                 None,
