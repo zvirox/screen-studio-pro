@@ -27,9 +27,12 @@ describe("CameraPip (§6.6)", () => {
     useSspStore.setState({ camera: INITIAL_CAMERA });
   });
 
-  it("renders nothing when no camera is open", () => {
+  it("renders loading slot when camera is open but no still yet", () => {
     const { container } = render(<CameraPip cameraId="cam_1" recording={false} />);
-    expect(container.querySelector('[data-camera-pip="frame"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-camera-pip="frame"]')).toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.getByText("Working…")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("renders still as an img once poll lands", async () => {
