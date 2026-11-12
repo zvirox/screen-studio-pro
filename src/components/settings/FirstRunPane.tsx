@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronRight, Monitor, Mic, ShieldAlert } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 
@@ -16,13 +16,7 @@ import { useSspStore } from "../../lib/store";
 
 export default function FirstRunPane() {
   const firstRunCompleted = useSspStore((s) => s.prefs.firstRunCompleted);
-  const loadFirstRunCompleted = useSspStore((s) => s.loadFirstRunCompleted);
   const setFirstRunCompleted = useSspStore((s) => s.setFirstRunCompleted);
-
-  // Mount-once: load the persisted flag.
-  useEffect(() => {
-    void loadFirstRunCompleted();
-  }, [loadFirstRunCompleted]);
 
   const isFirstRun = firstRunCompleted === null || firstRunCompleted === false;
 
@@ -37,7 +31,7 @@ export default function FirstRunPane() {
         you make your first recording in under 60 seconds.
       </p>
 
-      {!isFirstRun ? null : (
+      {isFirstRun && (
         <section className="mt-6 space-y-4">
           <h2 className="text-heading text-ink">Education states</h2>
 
@@ -109,10 +103,7 @@ function EducationItem({
     <div className="flex items-start gap-3 p-3 rounded-sm border border-subtle bg-solid">
       <div className="flex-shrink-0">{icon}</div>
       <div className="flex-1">
-        <p
-          className="text-body-sm font-medium text-ink"
-          data-testid={dataTestid}
-        >
+        <p className="text-body-sm font-medium text-ink" data-testid={dataTestid}>
           {label}
         </p>
         <p className="text-xs text-ink-secondary">{description}</p>
