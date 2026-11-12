@@ -16,7 +16,6 @@ const mockedPrefsSet = vi.mocked(prefsSet);
 describe("FirstRunPane (§6.4)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset store to fresh state for each test
     useSspStore.setState({
       prefs: {
         pipPosition: null,
@@ -39,6 +38,15 @@ describe("FirstRunPane (§6.4)", () => {
   });
 
   it("shows completed state after marking first run complete", async () => {
+    useSspStore.setState({
+      prefs: {
+        pipPosition: null,
+        pipShape: null,
+        pipSize: null,
+        prefsLoading: false,
+        firstRunCompleted: null,
+      },
+    });
     render(<FirstRunPane />);
     fireEvent.click(screen.getByRole("button", { name: /I've reviewed these/ }));
     await waitFor(() =>
