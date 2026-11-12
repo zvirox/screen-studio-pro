@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPip from "./CameraPip";
 import { useSspStore } from "../../lib/store";
-import type { CameraSlice } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -72,14 +71,14 @@ describe("CameraPip (§6.6)", () => {
   it("shows 2px signal ring only while recording", () => {
     vi.mocked(useSspStore).mockReturnValue({
       library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
-      loadCameraDevices: vi.fn(),
+      loadLibrary: vi.fn(),
       cameraListDevices: vi.fn(),
       cameraOpen: vi.fn(),
       cameraClose: vi.fn(),
       prefsGet: vi.fn(),
       prefsSet: vi.fn(),
     } as any);
-    render(<CameraPip cameraId="cam_1" recording={true} />);
+    const { container } = render(<CameraPip cameraId="cam_1" recording={true} />);
     const frame = container.querySelector('[data-camera-pip="frame"]');
     expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
   });
