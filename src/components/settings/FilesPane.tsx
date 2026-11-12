@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { Folder, FileText } from "lucide-react";
 import { useSspStore } from "../../lib/store";
-import type { FilesSettings } from "../../types/ipc";
 
 /* §6.4 Settings — Files pane. Output directory, naming pattern, and
    container format. Rolls back on rejection and toasts the §1 copy. */

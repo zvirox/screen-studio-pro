@@ -12,7 +12,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 
 import { shortcutsApply as mockedShortcutsApply } from "../../lib/ipc";
 
-function setShortcutsSettings(shortcuts: any) {
+function setShortcutsSettings(shortcuts: { quickRecord: string; pause: string; stop: string }) {
   useSspStore.setState({
     settings: {
       capture: null,

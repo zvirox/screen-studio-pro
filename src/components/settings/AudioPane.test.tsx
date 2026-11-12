@@ -12,7 +12,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { audioSetChannel } from "../../lib/ipc";
 const mockedAudioSetChannel = vi.mocked(audioSetChannel);
 
-function setAudioState(audio: any) {
+function setAudioState(audio: { mic: any; desktop: any; status?: string; error?: any }) {
   useSspStore.setState({ audio: { ...INITIAL_AUDIO, ...audio } });
 }
 

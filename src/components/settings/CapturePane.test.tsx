@@ -28,7 +28,7 @@ function setCaptureSettings(capture: Partial<CaptureSettings>) {
   });
 }
 
-function setPresets(presets: any) {
+function setPresets(presets: { status: string; presets: any[]; presetId: string }) {
   useSspStore.setState({ presets: { ...INITIAL_PRESETS, ...presets } });
 }
 

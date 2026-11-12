@@ -13,7 +13,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { settingsSet } from "../../lib/ipc";
 const mockedSettingsSet = vi.mocked(settingsSet);
 
-function setFilesSettings(files: any) {
+function setFilesSettings(files: { dir: string; namingPattern: string; container: string }) {
   useSspStore.setState({
     settings: {
       capture: null,

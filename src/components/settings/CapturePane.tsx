@@ -1,7 +1,4 @@
-import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
 import { useSspStore, type PresetId } from "../../lib/store";
-import type { CaptureSettings } from "../../types/ipc";
 
 /* §6.4 Settings — Capture pane. Frame rate / encoder / quality preset are
    capture settings (§2.6). Presets come from `presets_list` via the presets
@@ -34,7 +31,6 @@ export default function CapturePane() {
             void setCaptureSettings({ frameRate: Number(e.target.value) });
           }}
           className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          disabled={toggling}
         >
           <option value={30}>30 fps</option>
           <option value={60}>60 fps</option>
@@ -50,7 +46,6 @@ export default function CapturePane() {
             void setCaptureSettings({ encoder: e.target.value });
           }}
           className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          disabled={toggling}
         >
           <option value="auto">Auto (hardware preferred)</option>
           <option value="vaapi">VAAPI (Intel/AMD)</option>
@@ -69,7 +64,7 @@ export default function CapturePane() {
             void setPreset(id);
           }}
           className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          disabled={toggling || presets.status === "loading"}
+          disabled={presets.status === "loading"}
         >
           {presets.presets.map((p) => (
             <option key={p.id} value={p.id}>
