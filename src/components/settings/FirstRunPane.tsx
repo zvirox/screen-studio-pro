@@ -50,6 +50,7 @@ export default function FirstRunPane() {
                 "capture session. The preview frame will show a live still once " +
                 "the compositor grants permission."
               }
+              dataTestid="edu-source"
             />
             <EducationItem
               icon={<Mic size={16} strokeWidth={1.5} aria-hidden="true" />}
@@ -59,6 +60,7 @@ export default function FirstRunPane() {
                 "the level bar move — that's post-gain audio, exactly what " +
                 "lands in the recording."
               }
+              dataTestid="edu-mic"
             />
             <EducationItem
               icon={<ShieldAlert size={16} strokeWidth={1.5} aria-hidden="true" />}
@@ -67,6 +69,7 @@ export default function FirstRunPane() {
                 "In the About tab, review what your compositor supports: " +
                 "screencast capture, global shortcuts, and window capture."
               }
+              dataTestid="edu-capabilities"
             />
           </div>
         </section>
@@ -95,16 +98,23 @@ function EducationItem({
   icon,
   label,
   description,
+  dataTestid,
 }: {
   icon: React.ReactNode;
   label: string;
   description: string;
+  dataTestid?: string;
 }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-sm border border-subtle bg-solid">
       <div className="flex-shrink-0">{icon}</div>
       <div className="flex-1">
-        <p className="text-body-sm font-medium text-ink">{label}</p>
+        <p
+          className="text-body-sm font-medium text-ink"
+          data-testid={dataTestid}
+        >
+          {label}
+        </p>
         <p className="text-xs text-ink-secondary">{description}</p>
       </div>
     </div>
