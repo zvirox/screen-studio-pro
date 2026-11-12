@@ -68,10 +68,10 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       }
       console.error(msg);
     });
-    useSspStore.setState({ library: EMPTY_LIBRARY });
   });
 
   it("shows empty state with Go to Record chip", () => {
+    useSspStore.setState({ library: EMPTY_LIBRARY });
     render(<LibraryGrid />);
     expect(screen.getByRole("heading", { name: "Nothing recorded yet" })).toBeInTheDocument();
     expect(
