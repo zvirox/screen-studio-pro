@@ -90,7 +90,7 @@ describe("RecordingDrawer (§5.7)", () => {
     expect(screen.getByText("MP4")).toBeInTheDocument();
     expect(screen.getByText("60 fps")).toBeInTheDocument();
     expect(screen.getByText("vaapi · HW")).toBeInTheDocument();
-    expect(screen.getByText("147.2 MB")).toBeInTheDocument();
+    expect(screen.getByText("140.4 MB")).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {

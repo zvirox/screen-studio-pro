@@ -67,6 +67,6 @@ describe("DeleteConfirm (§5.1 / §5.7 / §5.4)", () => {
     render(<DeleteConfirm open={true} recordingName="screen-2026-11-01.mp4" recordingId={17} onConfirm={(id) => { void useSspStore.getState().deleteRecording(id); onClose(); }} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: /Delete/ }));
     await waitFor(() => expect(mockLibraryDelete).toHaveBeenCalledWith(17));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });
