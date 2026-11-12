@@ -925,11 +925,12 @@ describe("Settings projection (§6.4 / 4.4)", () => {
   });
 
   it("loadPipPrefs loads all three pip prefs", async () => {
-    mockedPrefsGet.mockResolvedValue({ key: "pip.position", value: "corner:bottom-right,margin:24" } as PrefsGetReply);
-    mockedPrefsGet
-      .mockResolvedValueOnce({ key: "pip.position", value: "corner:bottom-right,margin:24" } as PrefsGetReply)
-      .mockResolvedValueOnce({ key: "pip.shape", value: "circle" } as PrefsGetReply)
-      .mockResolvedValueOnce({ key: "pip.size", value: 240 } as PrefsGetReply);
+    mockedPrefsGet.mockImplementation((key: string) => {
+      if (key === "pip.position") return Promise.resolve({ key: "pip.position", value: "corner:bottom-right,margin:24" } as PrefsGetReply);
+      if (key === "pip.shape") return Promise.resolve({ key: "pip.shape", value: "circle" } as PrefsGetReply);
+      if (key === "pip.size") return Promise.resolve({ key: "pip.size", value: 240 } as PrefsGetReply);
+      return Promise.resolve({ key, value: null } as PrefsGetReply);
+    });
     await useSspStore.getState().loadPipPrefs();
     expect(useSspStore.getState().prefs.pipPosition).toBe("corner:bottom-right,margin:24");
     expect(useSspStore.getState().prefs.pipShape).toBe("circle");
