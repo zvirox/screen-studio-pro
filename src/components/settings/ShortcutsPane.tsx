@@ -45,7 +45,7 @@ export default function ShortcutsPane() {
                 // optimistic local edit; applied on Apply
               }}
               readOnly
-              className="w-40 h-9 rounded-sm border border-subtle bg-raised p-1 text-mono-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              className="w-40 h-9 rounded-sm border border-subtle bg-solid p-1 text-mono-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               disabled
             />
             <button
@@ -54,7 +54,7 @@ export default function ShortcutsPane() {
                 // click to edit — placeholder for future combo capture UI
               }}
               disabled={toggling}
-              className="h-9 px-3 rounded-sm border border-subtle bg-raised text-body-sm text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              className="h-9 px-3 rounded-sm border border-subtle bg-solid text-body-sm text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
             >
               Edit
             </button>

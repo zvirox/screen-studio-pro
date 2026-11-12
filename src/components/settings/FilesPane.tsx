@@ -29,12 +29,12 @@ export default function FilesPane() {
               void setFilesSettings({ dir: e.target.value });
             }}
             placeholder="/home/user/Videos/SSP"
-            className="flex-1 h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex-1 h-10 rounded-sm border border-subtle bg-solid p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           />
           <button
             type="button"
             onClick={() => {}}
-            className="h-10 px-4 rounded-sm border border-subtle bg-raised text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-10 px-4 rounded-sm border border-subtle bg-solid px-4 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             Browse…
           </button>
@@ -57,7 +57,7 @@ export default function FilesPane() {
             void setFilesSettings({ namingPattern: e.target.value });
           }}
           placeholder="screen-%Y-%m-%d-%H%M"
-          className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          className="w-full h-10 rounded-sm border border-subtle bg-solid p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
         />
       </div>
 
@@ -72,7 +72,7 @@ export default function FilesPane() {
           onChange={(e) => {
             void setFilesSettings({ container: e.target.value });
           }}
-          className="w-full h-10 rounded-sm border border-subtle bg-raised p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          className="w-full h-10 rounded-sm border border-subtle bg-solid p-2 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
         >
           <option value="mkv">MKV (native, no remux)</option>
           <option value="mp4">MP4 (remux after stop)</option>

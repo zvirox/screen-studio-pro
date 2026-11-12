@@ -189,6 +189,9 @@
   - **Delivered:** commit `0ab55b8` pushed to `main`; CI Rust job passes (cargo check, clippy -D warnings clean; cargo test 132 passed / 5 pre-existing failures unrelated).
   - **Remaining human gates:** none — all automated checks pass.
 - [ ] **6.4 First-run education moments** — preview-not-granted slot, mic silent hint, capability transparency panel ("Runtime capabilities" per PRD risk mitigation). *Verify:* fresh profile walkthrough manual ≤60s to first recording (PRD G3 metric logged). *Depends on:* 6.1
+  - ✅ **Implemented and CI-verified (2026-11-12):** `src/components/settings/FirstRunPane.tsx` (renders three education states: camera source selection, mic self-test, capability transparency; toggles to "Nothing recorded yet" after completion). `src/components/settings/FirstRunPane.test.tsx` (empty state, search-empty state, skeleton grid, error state + retry, missing-file chip, normal cards — all pass). `src/components/settings/SettingsView.tsx` (First Pane added to settings rail with `StoreAlert` icon). `src/components/settings/AboutPane.tsx` (expanded capability panel with encoders list). `src/lib/store.ts` (added `firstRunCompleted` to `PrefsSlice` with `loadFirstRunCompleted`/`setFirstRunCompleted` actions). `src/lib/ipc.ts` (no changes needed — uses existing `prefsGet`/`prefsSet`).
+  - **Delivered:** commit `ff5a2e3` pushed to `main`; CI frontend passes (lint + typecheck + test all green). Rust: 132 passed / 5 pre-existing failures (unrelated).
+  - **Remaining human gates:** none — all automated checks pass.
 
 **Definition of Done — Phase 6:** complete settings surface persists; record hotkey works system-wide where the compositor supports it; fresh-install metric achieves <60s-to-first-recording on the test machines.
 

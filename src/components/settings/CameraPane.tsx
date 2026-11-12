@@ -52,7 +52,7 @@ export default function CameraPane() {
           `}
         >
           <span
-            className={`block h-6 w-6 rounded-full bg-white transition-transform
+            className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
               ${selfInsert ? "translate-x-8" : "translate-x-2"}`}
             aria-hidden="true"
           />

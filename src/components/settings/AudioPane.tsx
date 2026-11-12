@@ -59,7 +59,7 @@ export default function AudioPane() {
                 `}
               >
                 <span
-                  className={`block h-6 w-6 rounded-full bg-white transition-transform
+                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
                     ${mic.enabled ? "translate-x-8" : "translate-x-2"}`}
                   aria-hidden="true"
                 />
@@ -77,7 +77,7 @@ export default function AudioPane() {
                     e.target.value === "default" ? null : e.target.value,
                   );
                 }}
-                className="w-full h-9 rounded-sm border border-subtle bg-raised p-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                className="w-full h-9 rounded-sm border border-subtle bg-solid p-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                 disabled={toggling || !mic.enabled}
               >
                 <option value="default">System default</option>
@@ -103,7 +103,7 @@ export default function AudioPane() {
                 `}
               >
                 <span
-                  className={`block h-6 w-6 rounded-full bg-white transition-transform
+                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
                     ${mic.muted ? "translate-x-8" : "translate-x-2"}`}
                   aria-hidden="true"
                 />
@@ -154,7 +154,7 @@ export default function AudioPane() {
                 `}
               >
                 <span
-                  className={`block h-6 w-6 rounded-full bg-white transition-transform
+                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
                     ${desktop.enabled ? "translate-x-8" : "translate-x-2"}`}
                   aria-hidden="true"
                 />
@@ -172,7 +172,7 @@ export default function AudioPane() {
                     e.target.value === "default" ? null : e.target.value,
                   );
                 }}
-                className="w-full h-9 rounded-sm border border-subtle bg-raised p-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                className="w-full h-9 rounded-sm border border-subtle bg-solid p-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                 disabled={toggling || !desktop.enabled}
               >
                 <option value="default">System default</option>
@@ -198,7 +198,7 @@ export default function AudioPane() {
                 `}
               >
                 <span
-                  className={`block h-6 w-6 rounded-full bg-white transition-transform
+                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
                     ${desktop.muted ? "translate-x-8" : "translate-x-2"}`}
                   aria-hidden="true"
                 />
