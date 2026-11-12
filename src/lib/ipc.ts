@@ -26,6 +26,11 @@ import {
   type SourceKind,
   type SourcePreviewStill,
   type SourceSelected,
+  type LibraryListFilter,
+  type LibraryListSort,
+  type LibraryListReply,
+  type LibraryGetReply,
+  type LibraryDeleteReply,
 } from "../types/ipc";
 
 /* Typed wrappers over invoke() — mirrors src-tauri/ipc (ARCHITECTURE §2).
@@ -177,6 +182,26 @@ export function recordingStart(input: RecordingStartInput): Promise<RecordingSta
     with the take's path/duration/size; the row id/thumb joins in PLAN 1.6. */
 export function recordingStop(recordingId: string): Promise<RecordingStopReply> {
   return call<RecordingStopReply>("recording_stop", { recordingId });
+}
+
+/** Task 5.2 — `cmd://library_list` — paged library grid query (API §2.4). */
+export function libraryList(
+  limit: number,
+  offset: number,
+  filter: LibraryListFilter,
+  sort: LibraryListSort,
+): Promise<LibraryListReply> {
+  return call<LibraryListReply>("library_list", { limit, offset, filter, sort });
+}
+
+/** Task 5.2 — `cmd://library_get` — fetch a single library row (API §2.4). */
+export function libraryGet(id: number): Promise<LibraryGetReply> {
+  return call<LibraryGetReply>("library_get", { id });
+}
+
+/** Task 5.2 — `cmd://library_delete` — soft-delete a library row (API §2.4). */
+export function libraryDelete(id: number): Promise<LibraryDeleteReply> {
+  return call<LibraryDeleteReply>("library_delete", { id });
 }
 
 /** `cmd://recording_pause` / `cmd://recording_resume` (API §2.3) — the

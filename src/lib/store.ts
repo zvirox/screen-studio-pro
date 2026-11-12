@@ -8,6 +8,8 @@ import {
   prefsGet,
   prefsSet,
   presetsList,
+  libraryList,
+  libraryDelete,
   recordingStart,
   recordingStop,
   recordingPause,
@@ -26,7 +28,6 @@ import type {
   Capabilities,
   CaptureSettings,
   IpcError,
-  PrefEntry,
   Preset,
   PresetId,
   RecordingFinishedEvt,
@@ -36,6 +37,10 @@ import type {
   RecordingTickEvt,
   ShellErrorEvt,
   SourceCapabilities,
+  LibraryListFilter,
+  LibraryListItem,
+  LibraryListSort,
+  LibraryUpdatedEvt,
 } from "../types/ipc";
 
 /* lib/store.ts — Zustand UI-state wiring (ARCHITECTURE §2).
@@ -230,6 +235,32 @@ export const INITIAL_PREFS: PrefsSlice = {
   prefsLoading: false,
 };
 
+/* ---------- Library projection (§6.2 / API §2.4, DATABASE §2.1) ---------- */
+
+export type LibraryStatus = "idle" | "loading" | "ready" | "error";
+
+export interface LibrarySlice {
+  status: LibraryStatus;
+  error: IpcError | null;
+  items: LibraryListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  filter: LibraryListFilter;
+  sort: LibraryListSort;
+}
+
+export const INITIAL_LIBRARY: LibrarySlice = {
+  status: "idle",
+  error: null,
+  items: [],
+  total: 0,
+  limit: 50,
+  offset: 0,
+  filter: {},
+  sort: { field: "created_at", direction: "desc" },
+};
+
 /* ---------- Presets projection (API §2.5, task 3.4 / M11) ---------- */
 
 export type PresetsStatus = "idle" | "loading" | "ready" | "error";
@@ -301,8 +332,15 @@ interface SspState {
      the 4.3/4.4 self-insert flag). */
   settings: SettingsSlice;
 
+  /* §6.4 settings actions (4.4). */
+  loadCaptureSettings: () => Promise<void>;
+  setCameraSelfInsert: (value: boolean) => Promise<void>;
+
   /* §6.6 ui_prefs — PiP position/shape/size persisted via prefs_set. */
   prefs: PrefsSlice;
+
+  /* §6.2 library grid (5.2) — recordings index projected from `library_list`. */
+  library: LibrarySlice;
 
   /* Camera actions (4.2) — camera_open/close; device lists re-list per
      popover open and on device/changed (hooks/useRecordingState). */
@@ -313,6 +351,22 @@ interface SspState {
       auto-close when the open camera's device vanished (unplug law —
       the 4.1 reader self-exits; the UI leaves with ONE telling). */
   onDeviceChanged: () => Promise<void>;
+  /** `evt://library/updated` reducer (5.2): remove deleted items from
+      the grid; new items trigger a re-list via loadLibrary. */
+  onLibraryUpdated: (evt: LibraryUpdatedEvt) => void;
+
+  /* Library actions (5.2). */
+  loadLibrary: () => Promise<void>;
+  deleteRecording: (id: number) => Promise<void>;
+  setLibraryOffset: (offset: number) => void;
+  setLibraryFilter: (filter: Partial<LibraryListFilter>) => void;
+  setLibrarySort: (sort: Partial<LibraryListSort>) => void;
+
+  /* ui_prefs actions (4.4). */
+  loadPipPrefs: () => Promise<void>;
+  setPipPosition: (value: string) => Promise<void>;
+  setPipShape: (value: "circle" | "rounded") => Promise<void>;
+  setPipSize: (value: number) => Promise<void>;
 
   /* Audio actions (2.2) — audio_set_channel persists; ON ONE SUBSCRIPTION
      through hooks/useRecordingState (onMeters). */
@@ -377,6 +431,7 @@ export const useSspStore = create<SspState>((set, get) => ({
   camera: INITIAL_CAMERA,
   settings: INITIAL_SETTINGS,
   prefs: INITIAL_PREFS,
+  library: INITIAL_LIBRARY,
   capabilities: null,
   presets: INITIAL_PRESETS,
 
@@ -646,6 +701,22 @@ export const useSspStore = create<SspState>((set, get) => ({
     }
   },
 
+  onLibraryUpdated(evt) {
+    if (evt.deleted) {
+      // A recording was soft-deleted — remove it from the grid.
+      set((s) => ({
+        library: {
+          ...s.library,
+          items: s.library.items.filter((it) => it.id !== evt.id),
+          total: Math.max(0, s.library.total - 1),
+        },
+      }));
+    } else {
+      // A new recording was added — refresh the grid.
+      void get().loadLibrary();
+    }
+  },
+
   /* ---------- Settings actions (4.4) ---------- */
 
   async loadCaptureSettings() {
@@ -764,6 +835,85 @@ export const useSspStore = create<SspState>((set, get) => ({
       await prefsSet("pip.size", value);
     } catch (err) {
       set({ prefs: { ...get().prefs, pipSize: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /* ---------- Library actions (5.2) ---------- */
+
+  async loadLibrary() {
+    if (get().library.status === "loading") return;
+    set({ library: { ...get().library, status: "loading", error: null } });
+    try {
+      const { items, total, page } = await libraryList(
+        get().library.limit,
+        get().library.offset,
+        get().library.filter,
+        get().library.sort,
+      );
+      set({
+        library: {
+          ...get().library,
+          status: "ready",
+          items,
+          total,
+          limit: page.limit,
+          offset: page.offset,
+        },
+      });
+    } catch (err) {
+      set({ library: { ...get().library, status: "error", error: err as IpcError } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /** Task 5.2: soft-delete a recording. Optimistic removal, rollback on
+      rejection with a toast. */
+  setLibraryOffset(offset) {
+    set({ library: { ...get().library, offset } });
+  },
+  setLibraryFilter(filter) {
+    set({ library: { ...get().library, filter, offset: 0 } });
+  },
+  setLibrarySort(sort) {
+    set({
+      library: {
+        ...get().library,
+        sort: {
+          field: sort.field ?? "created_at",
+          direction: sort.direction ?? "desc",
+        },
+        offset: 0,
+      },
+    });
+  },
+
+  async deleteRecording(id: number) {
+    const priorItems = get().library.items;
+    set({
+      library: {
+        ...get().library,
+        items: priorItems.filter((it) => it.id !== id),
+      },
+    });
+    try {
+      await libraryDelete(id);
+      // Refresh to reflect server-side state.
+      void get().loadLibrary();
+    } catch (err) {
+      set({ library: { ...get().library, items: priorItems } });
       set((s) =>
         pushToast(s, {
           kind: "error",

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPane from "./CameraPane";
-import { useSspStore, INITIAL_SESSION, type SessionSlice } from "../../lib/store";
+import { useSspStore, INITIAL_SESSION } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -10,8 +10,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   settingsSet: vi.fn(),
 }));
 
-import { settingsGet, settingsSet } from "../../lib/ipc";
-const mockedSettingsGet = vi.mocked(settingsGet);
+import { settingsSet } from "../../lib/ipc";
 const mockedSettingsSet = vi.mocked(settingsSet);
 
 function setCameraState(camera: any) {

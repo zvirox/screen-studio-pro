@@ -3,6 +3,7 @@ mod store;
 mod thumbs;
 
 pub use store::LibraryHandle;
+pub use store::{LibraryListFilter, LibraryListSort};
 #[cfg(feature = "encode")]
 pub use thumbs::extract_thumbnail;
 // The finalized-row write joins the pipeline flow (task 1.6) — with no

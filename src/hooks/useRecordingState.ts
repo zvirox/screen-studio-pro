@@ -28,6 +28,7 @@ export function useRecordingState() {
       listenEvent("recording/error", store.getState().onSessionError),
       listenEvent("recording/finished", store.getState().onFinished),
       listenEvent("device/changed", () => void store.getState().onDeviceChanged()),
+      listenEvent("library/updated", (evt) => void store.getState().onLibraryUpdated(evt)),
     ]).then((fns) => {
       // A fast unmount must not leak listeners subscribed after disposal.
       if (disposed) {

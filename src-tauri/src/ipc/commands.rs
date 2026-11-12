@@ -745,6 +745,132 @@ pub async fn recording_stop(
     .map_err(Into::into)
 }
 
+/// `cmd://library_list` (API §2.4, task 5.2) — paged library grid query.
+#[cfg(feature = "encode")]
+#[tauri::command]
+#[allow(dead_code)]
+pub async fn library_list(
+    limit: Option<i64>,
+    offset: Option<i64>,
+    filter: Option<Value>,
+    sort: Option<Value>,
+    library: State<'_, crate::library::LibraryHandle>,
+) -> Result<Value, IpcError> {
+    let limit = limit.unwrap_or(50).clamp(1, 100);
+    let offset = offset.unwrap_or(0).max(0);
+
+    let f = filter.unwrap_or_else(|| serde_json::json!({}));
+    let s =
+        sort.unwrap_or_else(|| serde_json::json!({ "field": "created_at", "direction": "desc" }));
+
+    let filter = crate::library::LibraryListFilter {
+        status: f
+            .get("status")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        kind: f
+            .get("kind")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        search: f
+            .get("search")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+    };
+    let sort = crate::library::LibraryListSort {
+        field: s
+            .get("field")
+            .and_then(|v| v.as_str())
+            .unwrap_or("created_at")
+            .to_string(),
+        direction: s
+            .get("direction")
+            .and_then(|v| v.as_str())
+            .unwrap_or("desc")
+            .to_string(),
+    };
+
+    let (items, total) = library.library_list(filter, sort, limit, offset)?;
+
+    Ok(serde_json::json!({
+        "total": total,
+        "items": items.into_iter().map(|it| serde_json::json!({
+            "id": it.id,
+            "path": it.path,
+            "fileName": it.file_name,
+            "kind": it.kind,
+            "container": it.container,
+            "status": it.status,
+            "durationMs": it.duration_ms,
+            "width": it.width,
+            "height": it.height,
+            "fps": it.fps,
+            "sizeBytes": it.size_bytes,
+            "encoder": it.encoder,
+            "isHwEncoder": it.is_hw_encoder == 1,
+            "audioJson": it.audio_json,
+            "chapterJson": it.chapter_json,
+            "thumbPath": it.thumb_path,
+            "deletedAt": it.deleted_at,
+            "createdAt": it.created_at,
+            "updatedAt": it.updated_at,
+        })).collect::<Vec<_>>(),
+        "page": { "limit": limit, "offset": offset },
+    }))
+}
+
+/// `cmd://library_get` (API §2.4, task 5.2) — fetch a single library row.
+#[cfg(feature = "encode")]
+#[tauri::command]
+#[allow(dead_code)]
+pub async fn library_get(
+    id: i64,
+    library: State<'_, crate::library::LibraryHandle>,
+) -> Result<Value, IpcError> {
+    let row = library.library_get(id)?;
+    match row {
+        Some(it) => Ok(serde_json::json!({
+            "id": it.id,
+            "path": it.path,
+            "fileName": it.file_name,
+            "kind": it.kind,
+            "container": it.container,
+            "status": it.status,
+            "durationMs": it.duration_ms,
+            "width": it.width,
+            "height": it.height,
+            "fps": it.fps,
+            "sizeBytes": it.size_bytes,
+            "encoder": it.encoder,
+            "isHwEncoder": it.is_hw_encoder == 1,
+            "audioJson": it.audio_json,
+            "chapterJson": it.chapter_json,
+            "thumbPath": it.thumb_path,
+            "deletedAt": it.deleted_at,
+            "createdAt": it.created_at,
+            "updatedAt": it.updated_at,
+        })),
+        None => Err(CoreError::ipc(
+            "library.not_found",
+            false,
+            "No recording with that id exists.",
+        )
+        .into()),
+    }
+}
+
+/// `cmd://library_delete` (API §2.4, task 5.2) — soft-delete a library row.
+#[cfg(feature = "encode")]
+#[tauri::command]
+#[allow(dead_code)]
+pub async fn library_delete(
+    id: i64,
+    library: State<'_, crate::library::LibraryHandle>,
+) -> Result<Value, IpcError> {
+    library.library_delete(id)?;
+    Ok(serde_json::json!({ "ok": true }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

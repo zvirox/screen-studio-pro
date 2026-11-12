@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import NavBar from "./components/chrome/NavBar";
 import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
+import LibraryGrid from "./components/library/LibraryGrid";
 import SettingsView from "./components/settings/SettingsView";
 import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
@@ -36,6 +37,7 @@ function ViewStub({ title, note }: { title: string; note: string }) {
 const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
   library:
     "The recordings grid lands with the library feature — seeded from the SQLite index (task 0.8).",
+  settings: "",
 };
 
 export default function App() {
@@ -55,12 +57,14 @@ export default function App() {
         <motion.div key={view} {...enter}>
           {view === "record" ? (
             <RecordView />
+          ) : view === "library" ? (
+            <LibraryGrid />
           ) : view === "settings" ? (
             <SettingsView />
           ) : (
             <ViewStub
-              title={view.charAt(0).toUpperCase() + view.slice(1)}
-              note={STUB_NOTES[view]}
+              title={((view as unknown) as string).charAt(0).toUpperCase() + ((view as unknown) as string).slice(1)}
+              note={STUB_NOTES[view as Exclude<ViewId, "record">]}
             />
           )}
         </motion.div>

@@ -5,16 +5,16 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /* §6.5 Thumbnail service (task 5.1, PRD M14 / API §2.1): after the muxer
-   trailer is written and the MKV sits complete on disk, decode ONE frame
-   from the video stream, downscale it to a sane thumbnail size, and
-   write a PNG beside the library index. Extraction is NON-FATAL — the
-   library row is created without a thumb if this fails (DATABASE §2.1:
-   thumb_path is nullable), because a recording must never be lost to a
-   thumbnail bug.
+trailer is written and the MKV sits complete on disk, decode ONE frame
+from the video stream, downscale it to a sane thumbnail size, and
+write a PNG beside the library index. Extraction is NON-FATAL — the
+library row is created without a thumb if this fails (DATABASE §2.1:
+thumb_path is nullable), because a recording must never be lost to a
+thumbnail bug.
 
-   Thumbnails live beside library.db: $XDG_DATA_HOME/screen-studio-pro/thumbs/
-   per DATABASE §1 ("thumbnails beside it"). Filename is the source file's
-   stem plus .png, so the same recording never gets two thumbs. */
+Thumbnails live beside library.db: $XDG_DATA_HOME/screen-studio-pro/thumbs/
+per DATABASE §1 ("thumbnails beside it"). Filename is the source file's
+stem plus .png, so the same recording never gets two thumbs. */
 
 /// Longest side of the served thumbnail, aspect preserved, never upscaled.
 const THUMB_MAX_SIDE: u32 = 320;
@@ -40,8 +40,7 @@ pub fn extract_thumbnail(
 
     // Open the file input, probe streams, find the video stream, open a
     // decoder — all in one helper.
-    let (mut input, video_index, width, height, mut decoder) =
-        open_video_input(video_path)?;
+    let (mut input, video_index, width, height, mut decoder) = open_video_input(video_path)?;
 
     let mut scaler = ff::software::scaling::Context::get(
         decoder.format(),
@@ -154,14 +153,13 @@ fn open_video_input(
     ),
     CoreError,
 > {
-    let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes())
-        .map_err(|_| {
-            CoreError::capture(
-                "capture.preview_failed",
-                false,
-                "Thumbnail source path is not usable.",
-            )
-        })?;
+    let c_path = std::ffi::CString::new(path.to_string_lossy().as_bytes()).map_err(|_| {
+        CoreError::capture(
+            "capture.preview_failed",
+            false,
+            "Thumbnail source path is not usable.",
+        )
+    })?;
     let mut ps: *mut ff::sys::AVFormatContext = std::ptr::null_mut();
     // No demuxer override — let ffmpeg probe the container (MKV/MP4/WebM).
     let open_res = unsafe {
@@ -179,7 +177,9 @@ fn open_video_input(
         return Err(CoreError::capture(
             "capture.preview_failed",
             true,
-            format!("The recording could not be opened for thumbnail extraction (ffmpeg error {open_res})."),
+            format!(
+                "The recording could not be opened for thumbnail extraction (ffmpeg error {open_res})."
+            ),
         ));
     }
     let res = unsafe { ff::sys::avformat_find_stream_info(ps, std::ptr::null_mut()) };
@@ -278,7 +278,7 @@ mod tests {
         for y in 0..16u32 {
             for x in 0..16u32 {
                 let o = (y as usize * 64) + (x as usize * 4);
-                frame.data[o] = 0x00;     // B
+                frame.data[o] = 0x00; // B
                 frame.data[o + 1] = 0x00; // G
                 frame.data[o + 2] = 0xff; // R
                 frame.data[o + 3] = 0xff; // X
@@ -311,19 +311,11 @@ mod tests {
         match extract_thumbnail(&video_path, &thumbs_dir, &stop) {
             Ok(out) => {
                 assert!(out.exists(), "thumb file must exist: {}", out.display());
-                assert_eq!(
-                    out.extension().and_then(|e| e.to_str()),
-                    Some("png")
-                );
+                assert_eq!(out.extension().and_then(|e| e.to_str()), Some("png"));
                 // The PNG should decode back to a non-empty image.
-                let img = image::ImageReader::open(&out)
-                    .unwrap()
-                    .decode()
-                    .unwrap();
+                let img = image::ImageReader::open(&out).unwrap().decode().unwrap();
                 assert!(img.width() > 0 && img.height() > 0);
-                assert!(
-                    img.width() <= THUMB_MAX_SIDE && img.height() <= THUMB_MAX_SIDE
-                );
+                assert!(img.width() <= THUMB_MAX_SIDE && img.height() <= THUMB_MAX_SIDE);
             }
             Err(err) => {
                 // Thumbnail extraction is non-fatal — on systems without
@@ -343,12 +335,8 @@ mod tests {
         let stop = AtomicBool::new(false);
 
         // Point at a nonexistent file → error, not a crash.
-        let err = extract_thumbnail(
-            &tmp.path().join("does-not-exist.mkv"),
-            &thumbs_dir,
-            &stop,
-        )
-        .unwrap_err();
+        let err = extract_thumbnail(&tmp.path().join("does-not-exist.mkv"), &thumbs_dir, &stop)
+            .unwrap_err();
         assert_eq!(err.code(), "capture.preview_failed");
         // No thumb file was created.
         let entries = std::fs::read_dir(&thumbs_dir).unwrap();

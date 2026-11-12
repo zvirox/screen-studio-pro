@@ -1,5 +1,6 @@
 use crate::util::error::CoreError;
 use rusqlite::Connection;
+use rusqlite::OptionalExtension;
 use serde_json::Value;
 use std::path::Path;
 use std::sync::Mutex;
@@ -118,6 +119,30 @@ impl LibraryHandle {
     pub fn record_finalize(&self, rec: &FinalizedRecording) -> Result<i64, CoreError> {
         self.with_store(|store| store.record_finalize(rec))
     }
+
+    /// Task 5.2: paged library grid query (API §2.4 `library_list`).
+    #[allow(dead_code)]
+    pub fn library_list(
+        &self,
+        filter: LibraryListFilter,
+        sort: LibraryListSort,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<LibraryListItem>, i64), CoreError> {
+        self.with_store(|store| store.library_list(&filter, &sort, limit, offset))
+    }
+
+    /// Task 5.2: fetch a single library row by id (API §2.4 `library_get`).
+    #[allow(dead_code)]
+    pub fn library_get(&self, id: i64) -> Result<Option<LibraryListItem>, CoreError> {
+        self.with_store(|store| store.library_get(id))
+    }
+
+    /// Task 5.2: soft-delete a library row (API §2.4 `library_delete`).
+    #[allow(dead_code)]
+    pub fn library_delete(&self, id: i64) -> Result<(), CoreError> {
+        self.with_store(|store| store.library_delete(id))
+    }
 }
 
 pub struct LibraryStore {
@@ -150,6 +175,48 @@ pub struct FinalizedRecording {
     /// DATABASE §2.1 `thumb_path` — the thumbnail PNG path (None = no
     /// thumb extracted yet; 5.1 sets it on finalize).
     pub thumb_path: Option<String>,
+}
+
+/// Task 5.2 — filter for `library_list` (API §2.4).
+#[allow(dead_code)]
+#[derive(Debug, Clone, Default)]
+pub struct LibraryListFilter {
+    pub status: Option<String>,
+    pub kind: Option<String>,
+    pub search: Option<String>,
+}
+
+/// Task 5.2 — sort for `library_list` (API §2.4).
+#[allow(dead_code)]
+#[derive(Debug, Clone, Default)]
+pub struct LibraryListSort {
+    pub field: String,
+    pub direction: String,
+}
+
+/// Task 5.2 — one row of the library grid (API §2.4 `library_list` item).
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct LibraryListItem {
+    pub id: i64,
+    pub path: String,
+    pub file_name: String,
+    pub kind: String,
+    pub container: String,
+    pub status: String,
+    pub duration_ms: i64,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+    pub fps: Option<i64>,
+    pub size_bytes: i64,
+    pub encoder: String,
+    pub is_hw_encoder: i64,
+    pub audio_json: Option<String>,
+    pub chapter_json: Option<String>,
+    pub thumb_path: Option<String>,
+    pub deleted_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl LibraryStore {
@@ -237,6 +304,190 @@ impl LibraryStore {
         self.conn
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Task 5.2 — paged library grid query (API §2.4).
+    /// Only `status='ready' AND deleted_at IS NULL` rows are served
+    /// (DATABASE §5 partial index). `search` is LIKE on file_name/path.
+    pub fn library_list(
+        &self,
+        filter: &LibraryListFilter,
+        sort: &LibraryListSort,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<LibraryListItem>, i64), CoreError> {
+        let conn = self.lock();
+
+        // Build the WHERE clause from the filter.
+        let mut where_sql = String::from("status = 'ready' AND deleted_at IS NULL");
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if let Some(status) = &filter.status {
+            where_sql.push_str(" AND status = ?");
+            params.push(Box::new(status.clone()));
+        }
+        if let Some(kind) = &filter.kind {
+            where_sql.push_str(" AND kind = ?");
+            params.push(Box::new(kind.clone()));
+        }
+        if let Some(search) = &filter.search {
+            where_sql.push_str(" AND (file_name LIKE ? OR path LIKE ?)");
+            let like = format!("%{}%", search);
+            params.push(Box::new(like.clone()));
+            params.push(Box::new(like));
+        }
+
+        // Count total matching rows.
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let total: i64 = conn
+            .query_row(
+                &format!("SELECT COUNT(*) FROM recordings WHERE {where_sql}"),
+                param_refs.as_slice(),
+                |row| row.get(0),
+            )
+            .map_err(db_error)?;
+
+        // Build ORDER BY from the sort.
+        let order_by = match sort.field.as_str() {
+            "duration" => "duration_ms",
+            "size" => "size_bytes",
+            _ => "created_at", // default
+        };
+        let direction = if sort.direction == "asc" {
+            "ASC"
+        } else {
+            "DESC"
+        };
+
+        // Fetch the page.
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT id, path, file_name, kind, container, status, duration_ms,
+                 width, height, fps, size_bytes, encoder, is_hw_encoder,
+                 audio_json, chapter_json, thumb_path, deleted_at,
+                 created_at, updated_at
+                 FROM recordings WHERE {where_sql}
+                 ORDER BY {order_by} {direction}
+                 LIMIT ? OFFSET ?"
+            ))
+            .map_err(db_error)?;
+
+        let mut all_param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(|p| p.as_ref()).collect();
+        all_param_refs.push(&limit);
+        all_param_refs.push(&offset);
+
+        let rows = stmt
+            .query_map(all_param_refs.as_slice(), |row| {
+                Ok(LibraryListItem {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    file_name: row.get(2)?,
+                    kind: row.get(3)?,
+                    container: row.get(4)?,
+                    status: row.get(5)?,
+                    duration_ms: row.get(6)?,
+                    width: row.get(7)?,
+                    height: row.get(8)?,
+                    fps: row.get(9)?,
+                    size_bytes: row.get(10)?,
+                    encoder: row.get(11)?,
+                    is_hw_encoder: row.get(12)?,
+                    audio_json: row.get(13)?,
+                    chapter_json: row.get(14)?,
+                    thumb_path: row.get(15)?,
+                    deleted_at: row.get(16)?,
+                    created_at: row.get(17)?,
+                    updated_at: row.get(18)?,
+                })
+            })
+            .map_err(db_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db_error)?;
+
+        Ok((rows, total))
+    }
+
+    /// Task 5.2 — fetch a single library row by id (API §2.4 `library_get`).
+    pub fn library_get(&self, id: i64) -> Result<Option<LibraryListItem>, CoreError> {
+        let conn = self.lock();
+        let query_result = conn.query_row(
+            "SELECT id, path, file_name, kind, container, status, duration_ms,
+             width, height, fps, size_bytes, encoder, is_hw_encoder,
+             audio_json, chapter_json, thumb_path, deleted_at,
+             created_at, updated_at
+             FROM recordings WHERE id = ?1",
+            [id],
+            |row| {
+                Ok(LibraryListItem {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    file_name: row.get(2)?,
+                    kind: row.get(3)?,
+                    container: row.get(4)?,
+                    status: row.get(5)?,
+                    duration_ms: row.get(6)?,
+                    width: row.get(7)?,
+                    height: row.get(8)?,
+                    fps: row.get(9)?,
+                    size_bytes: row.get(10)?,
+                    encoder: row.get(11)?,
+                    is_hw_encoder: row.get(12)?,
+                    audio_json: row.get(13)?,
+                    chapter_json: row.get(14)?,
+                    thumb_path: row.get(15)?,
+                    deleted_at: row.get(16)?,
+                    created_at: row.get(17)?,
+                    updated_at: row.get(18)?,
+                })
+            },
+        );
+        let row: Option<LibraryListItem> = match query_result {
+            Ok(row) => Some(row),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(err) => return Err(db_error(err)),
+        };
+        Ok(row)
+    }
+
+    /// Task 5.2 — soft-delete a library row (API §2.4 `library_delete`).
+    /// Sets `deleted_at` instead of removing the row (DATABASE §2.1).
+    /// Returns an error if a recording is still in progress (ipc.bad_state).
+    pub fn library_delete(&self, id: i64) -> Result<(), CoreError> {
+        let conn = self.lock();
+        let affected = conn
+            .execute(
+                "UPDATE recordings SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ','now')
+                 WHERE id = ?1 AND deleted_at IS NULL AND status != 'recording'",
+                [id],
+            )
+            .map_err(db_error)?;
+        if affected == 0 {
+            // Check if the row exists but is still recording.
+            let status: Option<String> = conn
+                .query_row("SELECT status FROM recordings WHERE id = ?1", [id], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(db_error)?;
+            match status {
+                Some(s) if s == "recording" => {
+                    return Err(CoreError::ipc(
+                        "ipc.bad_state",
+                        false,
+                        "Cannot delete a recording that is still in progress.",
+                    ));
+                }
+                _ => {
+                    return Err(CoreError::ipc(
+                        "library.not_found",
+                        false,
+                        "No recording with that id exists.",
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Task 1.6 — the stop-path upsert (PLAN: "status finalizing→ready").

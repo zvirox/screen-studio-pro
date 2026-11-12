@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { INITIAL_SESSION, INITIAL_SOURCE, INITIAL_TOASTS, useSspStore } from "./store";
+import { INITIAL_SESSION, INITIAL_SOURCE, INITIAL_SETTINGS, INITIAL_PREFS, INITIAL_TOASTS, useSspStore } from "./store";
 import type {
   AudioListDevicesReply,
   IpcError,
@@ -813,7 +813,8 @@ describe("presets (§2.5; M11)", () => {
       frameRate: 60,
       encoder: "auto",
       qualityPreset: "discord",
-    });
+      cameraSelfInsert: false,
+    } as any);
     await useSspStore.getState().loadPresets();
     const p = useSspStore.getState().presets;
     expect(p.status).toBe("ready");

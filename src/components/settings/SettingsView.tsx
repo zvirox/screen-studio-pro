@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { SlidersHorizontal, Mic, Video, FileText, Keyboard, Info } from "lucide-react";
-import { useSspStore, type ViewId } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 import CameraPane from "./CameraPane";
 import PaneStub from "./PaneStub";
 
@@ -18,10 +18,6 @@ const RAIL_ITEMS: Array<{ id: string; label: string; icon: React.ComponentType<{
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "about", label: "About", icon: Info },
 ];
-
-const PANES: Record<string, React.ComponentType> = {
-  camera: CameraPane,
-};
 
 export default function SettingsView() {
   const view = useSspStore((s) => s.view);

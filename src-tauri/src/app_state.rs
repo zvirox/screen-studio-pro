@@ -10,7 +10,7 @@ use crate::{capture::CaptureHandle, util::error::CoreError};
 #[cfg(feature = "encode")]
 use crate::{
     ipc::events,
-    library::{extract_thumbnail, LibraryHandle},
+    library::{LibraryHandle, extract_thumbnail},
     pipeline::session::{RecordingHandle, StopOutcome},
 };
 

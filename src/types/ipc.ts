@@ -326,6 +326,77 @@ export interface LibraryUpdatedEvt {
   deleted: boolean;
 }
 
+/** Task 5.2 — filter for `library_list` (API §2.4). */
+export interface LibraryListFilter {
+  status?: string;
+  kind?: string;
+  search?: string;
+}
+
+/** Task 5.2 — sort for `library_list` (API §2.4). */
+export interface LibraryListSort {
+  field: string;
+  direction: string;
+}
+
+/** Task 5.2 — one row of the library grid (API §2.4 `library_list` item). */
+export interface LibraryListItem {
+  id: number;
+  path: string;
+  fileName: string;
+  kind: string;
+  container: string;
+  status: string;
+  durationMs: number;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  sizeBytes: number;
+  encoder: string;
+  isHwEncoder: boolean;
+  audioJson: string | null;
+  chapterJson: string | null;
+  thumbPath: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Task 5.2 — `library_list` reply (API §2.4). */
+export interface LibraryListReply {
+  total: number;
+  items: LibraryListItem[];
+  page: { limit: number; offset: number };
+}
+
+/** Task 5.2 — `library_get` reply (API §2.4). */
+export interface LibraryGetReply {
+  id: number;
+  path: string;
+  fileName: string;
+  kind: string;
+  container: string;
+  status: string;
+  durationMs: number;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  sizeBytes: number;
+  encoder: string;
+  isHwEncoder: boolean;
+  audioJson: string | null;
+  chapterJson: string | null;
+  thumbPath: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Task 5.2 — `library_delete` reply (API §2.4). */
+export interface LibraryDeleteReply {
+  ok: boolean;
+}
+
 export interface SourceLostEvt {
   sourceId: string;
   reason: string;

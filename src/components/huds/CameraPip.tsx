@@ -139,7 +139,6 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
     }
     if (prefs.pipShape) setShape(prefs.pipShape);
     if (prefs.pipSize) setSize(prefs.pipSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sensors = useSensors(
