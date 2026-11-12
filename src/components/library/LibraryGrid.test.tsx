@@ -89,7 +89,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     });
     await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalledTimes(1));
     expect(
-      screen.getByText('No recordings match "demo"'),
+      screen.getByText('No recordings match “demo”'),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Clear search/ })).toBeInTheDocument();
   });
@@ -131,6 +131,6 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     render(<LibraryGrid />);
     expect(screen.getByText("screen-2026-11-01-1412.mp4")).toBeInTheDocument();
     expect(screen.getByText("1:42")).toBeInTheDocument();
-    expect(screen.getByText("140.4 MB")).toBeInTheDocument();
+    expect(screen.getByText(/140\.4 MB/)).toBeInTheDocument();
   });
 });
