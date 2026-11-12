@@ -1,4 +1,5 @@
 use base64::Engine;
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Mutex;
@@ -8,6 +9,10 @@ use crate::capture::CaptureHandle;
 use crate::library::LibraryHandle;
 use crate::settings::SettingsStore;
 use crate::util::error::{CoreError, IpcError};
+use ashpd::desktop::global_shortcuts::{
+    BindShortcutsOptions, GlobalShortcuts, NewShortcut, Shortcut,
+};
+use ashpd::desktop::CreateSessionOptions;
 /* #[tauri::command] handlers — thin per ARCHITECTURE §2: validate → delegate.
 0.6 brought the handshake + capability probe; 0.7 adds `settings_get/set`
 (API §2.6) over the TOML store. Command names are the `cmd://` verbs of
@@ -724,6 +729,113 @@ pub async fn recording_flag(
             "label": label,
         }
     }))
+}
+
+/// `cmd://shortcuts_apply` (API §2.7) — register global shortcuts via the
+/// portal; returns { granted, denied }.
+#[tauri::command]
+pub async fn shortcuts_apply(
+    bindings: Vec<ShortcutBinding>,
+    _app: tauri::AppHandle,
+    store: State<'_, Mutex<SettingsStore>>,
+) -> Result<Value, IpcError> {
+    // Persist shortcuts to settings store.
+    let patch = serde_json::json!({
+        "shortcuts": {
+            "quickRecord": bindings
+                .iter()
+                .find(|b| b.action == "toggle_record")
+                .map(|b| b.combo.clone())
+                .unwrap_or_default(),
+            "pause": bindings
+                .iter()
+                .find(|b| b.action == "pause")
+                .map(|b| b.combo.clone())
+                .unwrap_or_default(),
+            "stop": bindings
+                .iter()
+                .find(|b| b.action == "stop")
+                .map(|b| b.combo.clone())
+                .unwrap_or_default(),
+        }
+    });
+    store
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .apply_patch(&patch)
+        .map_err(|err| err.to_ipc())?;
+
+    // Register via GlobalShortcuts portal.
+    let global_shortcuts = GlobalShortcuts::new()
+        .await
+        .map_err(|err| {
+            CoreError::portal(
+                "portal.unavailable",
+                false,
+                format!("Global shortcuts portal unavailable: {err}"),
+            )
+            .to_ipc()
+        })?;
+
+    let session = global_shortcuts
+        .create_session(CreateSessionOptions::default())
+        .await
+        .map_err(|err| {
+            CoreError::portal(
+                "portal.unavailable",
+                false,
+                format!("Global shortcuts session creation failed: {err}"),
+            )
+            .to_ipc()
+        })?;
+
+    let requested: Vec<NewShortcut> = bindings
+        .iter()
+        .map(|b| NewShortcut::new(&b.action, &b.action).preferred_trigger(b.combo.as_str()))
+        .collect();
+
+    let options = BindShortcutsOptions::default();
+
+    let request = global_shortcuts
+        .bind_shortcuts(&session, &requested, None, options)
+        .await
+        .map_err(|err| {
+            CoreError::portal(
+                "portal.unavailable",
+                false,
+                format!("Global shortcuts bind request failed: {err}"),
+            )
+            .to_ipc()
+        })?;
+
+    let granted: Vec<Shortcut> = request
+        .response()
+        .map_err(|err| {
+            CoreError::portal(
+                "portal.unavailable",
+                false,
+                format!("Global shortcuts bind response failed: {err}"),
+            )
+            .to_ipc()
+        })?
+        .shortcuts()
+        .to_vec();
+
+    let granted_ids: Vec<String> = granted.iter().map(|s| s.id().to_string()).collect();
+    let denied: Vec<String> = bindings
+        .iter()
+        .filter(|b| !granted_ids.contains(&b.action))
+        .map(|b| b.action.clone())
+        .collect();
+
+    Ok(serde_json::json!({ "granted": granted_ids, "denied": denied }))
+}
+
+/// Shortcut binding payload (API §2.7).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ShortcutBinding {
+    pub action: String,
+    pub combo: String,
 }
 
 /// `cmd://recording_stop` (API §2.3) — flush + trailer + join; the reply's
