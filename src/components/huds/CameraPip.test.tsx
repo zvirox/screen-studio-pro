@@ -1,8 +1,7 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPip from "./CameraPip";
 import { useSspStore } from "../../lib/store";
-import type { CameraSlice } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -26,16 +25,6 @@ const EMPTY_CAMERA = {
   error: null,
   devices: null,
   devicesLoading: false,
-};
-
-const CAMERA_OPEN = {
-  ...EMPTY_CAMERA,
-  status: "open" as const,
-  cameraId: "cam_1",
-  deviceId: "v1",
-  label: "Webcam",
-  width: 640,
-  height: 480,
 };
 
 describe("CameraPip (§6.6)", () => {
@@ -68,30 +57,14 @@ describe("CameraPip (§6.6)", () => {
   });
 
   it("shows 2px signal ring only while recording", () => {
-    vi.mocked(useSspStore).mockReturnValue({
-      library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
-      loadLibrary: vi.fn(),
-      cameraListDevices: vi.fn(),
-      cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      prefsGet: vi.fn(),
-      prefsSet: vi.fn(),
-    } as any);
-    const { container } = render(<CameraPip cameraId="cam_1" recording={true} />);
-    const frame = container.querySelector('[data-camera-pip="frame"]');
+    useSspStore.setState({ library: { ...EMPTY_CAMERA, status: "open" } });
+    render(<CameraPip cameraId="cam_1" recording={true} />);
+    const frame = screen.querySelector('[data-camera-pip="frame"]');
     expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
   });
 
   it("toggles freeze button aria-pressed", () => {
-    vi.mocked(useSspStore).mockReturnValue({
-      library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
-      loadLibrary: vi.fn(),
-      cameraListDevices: vi.fn(),
-      cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      prefsGet: vi.fn(),
-      prefsSet: vi.fn(),
-    } as any);
+    useSspStore.setState({ library: { ...EMPTY_CAMERA, status: "open" } });
     render(<CameraPip cameraId="cam_1" recording={false} />);
     const freeze = screen.getByRole("button", { name: /Freeze camera preview/ });
     expect(freeze).toHaveAttribute("aria-pressed", "false");
