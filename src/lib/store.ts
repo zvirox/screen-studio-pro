@@ -873,6 +873,7 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   async loadLibrary() {
     if (get().library.status === "loading") return;
+    if (get().library.status === "ready") return;
     set({ library: { ...get().library, status: "loading", error: null } });
     try {
       const { items, total, page } = await libraryList(
