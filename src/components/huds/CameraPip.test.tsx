@@ -30,7 +30,7 @@ describe("CameraPip (§6.6)", () => {
   it("renders loading slot when camera is open but no still yet", () => {
     const { container } = render(<CameraPip cameraId="cam_1" recording={false} />);
     expect(container.querySelector('[data-camera-pip="frame"]')).toBeInTheDocument();
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(container.getByRole("status")).toBeInTheDocument();
     expect(screen.getByText("Working…")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
