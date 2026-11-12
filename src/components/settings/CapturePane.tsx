@@ -23,8 +23,11 @@ export default function CapturePane() {
 
       {/* Frame rate */}
       <div className="mt-6">
-        <label className="block text-label text-ink mb-1.5">Frame rate</label>
+        <label htmlFor="capture-frame-rate" className="block text-label text-ink mb-1.5">
+          Frame rate
+        </label>
         <select
+          id="capture-frame-rate"
           value={capture?.frameRate ?? 60}
           onChange={(e) => {
             void setCaptureSettings({ frameRate: Number(e.target.value) });
@@ -38,8 +41,11 @@ export default function CapturePane() {
 
       {/* Encoder */}
       <div className="mt-6">
-        <label className="block text-label text-ink mb-1.5">Encoder</label>
+        <label htmlFor="capture-encoder" className="block text-label text-ink mb-1.5">
+          Encoder
+        </label>
         <select
+          id="capture-encoder"
           value={capture?.encoder ?? "auto"}
           onChange={(e) => {
             void setCaptureSettings({ encoder: e.target.value });
@@ -55,8 +61,11 @@ export default function CapturePane() {
 
       {/* Quality preset */}
       <div className="mt-6">
-        <label className="block text-label text-ink mb-1.5">Quality preset</label>
+        <label htmlFor="capture-preset" className="block text-label text-ink mb-1.5">
+          Quality preset
+        </label>
         <select
+          id="capture-preset"
           value={presets.presetId ?? "youtube"}
           onChange={(e) => {
             const id = e.target.value as PresetId;
