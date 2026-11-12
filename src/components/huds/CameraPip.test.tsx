@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPip from "./CameraPip";
 import { useSspStore } from "../../lib/store";
+import type { CameraSlice } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -10,8 +11,6 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   cameraListDevices: vi.fn(),
   cameraOpen: vi.fn(),
   cameraClose: vi.fn(),
-  prefsGet: vi.fn(),
-  prefsSet: vi.fn(),
 }));
 
 import { cameraPreview } from "../../lib/ipc";
