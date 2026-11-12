@@ -147,6 +147,9 @@ pub struct FinalizedRecording {
     /// DATABASE §2.1 `chapter_json` — the take's chapter markers, as the
     /// JSON array text (None = no flags on the take, column stays NULL).
     pub chapter_json: Option<String>,
+    /// DATABASE §2.1 `thumb_path` — the thumbnail PNG path (None = no
+    /// thumb extracted yet; 5.1 sets it on finalize).
+    pub thumb_path: Option<String>,
 }
 
 impl LibraryStore {
@@ -278,7 +281,8 @@ impl LibraryStore {
                 duration_ms = ?2, width = ?3, height = ?4, fps = ?5,
                 size_bytes = ?6, updated_at = ?7,
                 audio_json = COALESCE(?8, audio_json),
-                chapter_json = COALESCE(?9, chapter_json)
+                chapter_json = COALESCE(?9, chapter_json),
+                thumb_path = COALESCE(?10, thumb_path)
              WHERE path = ?1",
             rusqlite::params![
                 rec.path,
@@ -290,6 +294,7 @@ impl LibraryStore {
                 rec.updated_at,
                 rec.audio_json,
                 rec.chapter_json,
+                rec.thumb_path,
             ],
         )
         .map_err(db_error)?;
@@ -486,6 +491,7 @@ mod tests {
             updated_at: "2026-11-02T09:00:02Z".into(), // trailer written
             audio_json: None,                          // 2.1: row tests stay video-only
             chapter_json: None,                        // 2.5: chapter row tests added in 2.5
+            thumb_path: None,                          // 5.1: thumbnail not yet extracted
         }
     }
 

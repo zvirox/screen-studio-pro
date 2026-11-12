@@ -10,7 +10,7 @@ use crate::{capture::CaptureHandle, util::error::CoreError};
 #[cfg(feature = "encode")]
 use crate::{
     ipc::events,
-    library::LibraryHandle,
+    library::{extract_thumbnail, LibraryHandle},
     pipeline::session::{RecordingHandle, StopOutcome},
 };
 
@@ -241,12 +241,25 @@ impl Lifecycle {
     ) -> Result<serde_json::Value, CoreError> {
         let recordings = app.state::<RecordingHandle>();
         let library = app.state::<LibraryHandle>();
+        let stop = AtomicBool::new(false);
+        let thumbs_dir = crate::util::paths::data_dir().join("thumbs");
+        let _ = std::fs::create_dir_all(&thumbs_dir);
+        let mut thumb_path: Option<String> = None;
         let (recording_id, outcome, row_id) = self.finalize(&recordings, id, |outcome| {
-            library.record_finalize(&crate::library::FinalizedRecording::from(outcome))
+            // 5.1: extract a thumbnail from the finalized MKV, non-fatal.
+            let tp = extract_thumbnail(&outcome.path, &thumbs_dir, &stop)
+                .ok()
+                .and_then(|p| p.to_str().map(|s| s.to_string()));
+            thumb_path = tp.clone();
+            let mut rec = crate::library::FinalizedRecording::from(outcome);
+            rec.thumb_path = tp;
+            library.record_finalize(&rec)
         })?;
-        events::recording_finished(app, &recording_id, &outcome, row_id);
+        events::recording_finished(app, &recording_id, &outcome, row_id, thumb_path.clone());
         events::library_updated(app, row_id);
-        Ok(serde_json::json!({"recording": events::library_recording(&outcome, row_id)}))
+        Ok(serde_json::json!({
+            "recording": events::library_recording(&outcome, row_id, thumb_path.clone())
+        }))
     }
 
     #[cfg(feature = "encode")]

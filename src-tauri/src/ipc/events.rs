@@ -277,13 +277,14 @@ pub fn recording_finished(
     recording_id: &str,
     outcome: &crate::pipeline::session::StopOutcome,
     id: i64,
+    thumb_path: Option<String>,
 ) {
     let _ = emit(
         app,
         topic::RECORDING_FINISHED,
         RecordingFinished {
             recording_id: recording_id.to_string(),
-            recording: library_recording(outcome, id),
+            recording: library_recording(outcome, id, thumb_path),
         },
     );
 }
@@ -323,6 +324,7 @@ impl From<&crate::pipeline::session::StopOutcome> for crate::library::FinalizedR
             updated_at: outcome.finished_at.clone(),
             audio_json: outcome.audio_json.clone(),
             chapter_json: outcome.chapter_json.clone(),
+            thumb_path: None, // 5.1 fills this in after thumbnail extraction
         }
     }
 }
@@ -336,6 +338,7 @@ impl From<&crate::pipeline::session::StopOutcome> for crate::library::FinalizedR
 pub fn library_recording(
     outcome: &crate::pipeline::session::StopOutcome,
     id: i64,
+    thumb_path: Option<String>,
 ) -> LibraryRecording {
     LibraryRecording {
         // The row id from the task-1.6 upsert (0 only if the index write
@@ -366,7 +369,7 @@ pub fn library_recording(
         // (flow 7.2) and thumbnails (5.1) join later.
         audio_json: outcome.audio_json.clone(),
         chapter_json: outcome.chapter_json.clone(),
-        thumb_path: None,
+        thumb_path,
         deleted_at: None,
         created_at: outcome.started_at.clone(),
         updated_at: outcome.finished_at.clone(),
@@ -399,7 +402,7 @@ mod tests {
 
     #[test]
     fn the_finished_projection_carries_the_row_shape() {
-        let row = library_recording(&outcome(), 17);
+        let row = library_recording(&outcome(), 17, None);
         assert_eq!(row.id, 17, "the upsert row id rides the finished payload");
         assert_eq!(row.path, "/home/u/Videos/SSP/first-rec.mkv");
         assert_eq!(row.file_name, "first-rec.mkv");
@@ -427,7 +430,7 @@ mod tests {
     fn the_finished_payload_matches_the_api_wire_shape() {
         let value = serde_json::to_value(RecordingFinished {
             recording_id: "rec_01hv4".to_string(),
-            recording: library_recording(&outcome(), 17),
+            recording: library_recording(&outcome(), 17, None),
         })
         .expect("serialize");
         assert_eq!(value["recordingId"], "rec_01hv4");
