@@ -1,8 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
-import { useSspStore, type LibrarySlice } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
+import type { LibrarySlice } from "../../lib/store";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
   ...(await importOriginal<typeof ipcModule>()),
@@ -12,6 +13,10 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 
 import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
+
+vi.mock("../../lib/store", () => ({
+  useSspStore: vi.fn(),
+}));
 
 const EMPTY_LIBRARY = {
   status: "ready" as const,
@@ -64,10 +69,19 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       }
       console.error(msg);
     });
+    vi.mocked(useSspStore).mockReturnValue({
+      library: EMPTY_LIBRARY,
+      loadLibrary: vi.fn(),
+      setLibraryOffset: vi.fn(),
+      openDrawer: vi.fn(),
+      closeDrawer: vi.fn(),
+      deleteRecording: vi.fn(),
+      setLibraryFilter: vi.fn(),
+      setLibrarySort: vi.fn(),
+    });
   });
 
   it("shows empty state with Go to Record chip", () => {
-    useSspStore.setState({ library: EMPTY_LIBRARY });
     render(<LibraryGrid />);
     expect(screen.getByRole("heading", { name: "Nothing recorded yet" })).toBeInTheDocument();
     expect(
@@ -80,7 +94,16 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
 
   it("shows search empty state with Clear search chip", async () => {
     mockLibraryList.mockResolvedValue({ items: [], total: 0, page: { limit: 50, offset: 0 } });
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice });
+    vi.mocked(useSspStore).mockReturnValue({
+      library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice,
+      loadLibrary: vi.fn(),
+      setLibraryOffset: vi.fn(),
+      openDrawer: vi.fn(),
+      closeDrawer: vi.fn(),
+      deleteRecording: vi.fn(),
+      setLibraryFilter: vi.fn(),
+      setLibrarySort: vi.fn(),
+    });
     render(<LibraryGrid />);
     fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
       target: { value: "demo" },
