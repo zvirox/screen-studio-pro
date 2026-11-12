@@ -353,6 +353,15 @@ interface SspState {
   /* §6.4 settings actions (4.4). */
   loadCaptureSettings: () => Promise<void>;
   setCameraSelfInsert: (value: boolean) => Promise<void>;
+  setCaptureSettings: (patch: Partial<CaptureSettings>) => Promise<void>;
+
+  /* Files settings (§6.1 / API §2.6 files section). */
+  loadFilesSettings: () => Promise<void>;
+  setFilesSettings: (patch: Partial<FilesSettings>) => Promise<void>;
+
+  /* Shortcuts settings (§6.1 / API §2.6 shortcuts section). */
+  loadShortcutsSettings: () => Promise<void>;
+  setShortcutsSettings: (patch: Partial<ShortcutsSettings>) => Promise<void>;
 
   /* §6.6 ui_prefs — PiP position/shape/size persisted via prefs_set. */
   prefs: PrefsSlice;
@@ -398,6 +407,8 @@ interface SspState {
   loadDevices: () => Promise<void>;
   setChannelEnabled: (channel: "mic" | "desktop", enabled: boolean) => Promise<void>;
   setChannelDevice: (channel: "mic" | "desktop", deviceId: string | null) => Promise<void>;
+  setChannelMuted: (channel: "mic" | "desktop", muted: boolean) => Promise<void>;
+  setChannelLevel: (channel: "mic" | "desktop", level: number) => Promise<void>;
   onMeters: (evt: RecordingMetersEvt) => void;
 
   /** `cmd://source_select("monitor")` — portal consent (§2.1). */

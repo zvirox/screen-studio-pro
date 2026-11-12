@@ -1,5 +1,5 @@
-import { render, screen, expect, it, describe } from "vitest";
-import { beforeEach, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AboutPane from "./AboutPane";
 import { useSspStore } from "../../lib/store";
 
@@ -18,6 +18,7 @@ describe("AboutPane (§6.4 / 6.1)", () => {
           screencast: true,
           globalShortcuts: "partial",
           compositor: "kwin_wayland",
+          windowCapture: true,
         },
         version: { app: "0.0.1-alpha.1", ipcContract: "1.6.0" },
       },
