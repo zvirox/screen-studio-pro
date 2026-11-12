@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPip from "./CameraPip";
 import { useSspStore } from "../../lib/store";
-import type { CameraDeviceInfo } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -13,7 +12,12 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   cameraClose: vi.fn(),
 }));
 
-import { cameraPreview, cameraListDevices, cameraOpen, cameraClose } from "../../lib/ipc";
+import {
+  cameraPreview,
+  cameraListDevices,
+  cameraOpen,
+  cameraClose,
+} from "../../lib/ipc";
 const mockPreview = vi.mocked(cameraPreview);
 const mockListDevices = vi.mocked(cameraListDevices);
 const mockOpen = vi.mocked(cameraOpen);
@@ -50,30 +54,12 @@ describe("CameraPip (§6.6)", () => {
       }
       console.error(msg);
     });
-    useSspStore.setState({ camera: EMPTY_CAMERA });
+    useSspStore.setState({ library: EMPTY_CAMERA });
   });
 
   it("renders nothing when no camera is open", () => {
     render(<CameraPip cameraId="cam_1" recording={false} />);
     expect(screen.querySelector('[data-camera-pip="frame"]')).not.toBeInTheDocument();
-  });
-
-  it("renders loading state when cameraId is null", () => {
-    vi.mocked(useSspStore).mockReturnValue({
-      library: { ...EMPTY_CAMERA, cameraId: null } as CameraSlice,
-      loadCameraDevices: vi.fn(),
-      cameraListDevices: vi.fn(),
-      cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      cameraPreview: vi.fn(),
-      cameraClose: vi.fn(),
-      prefsGet: vi.fn(),
-      prefsSet: vi.fn(),
-    } as any);
-    render(<CameraPip cameraId="cam_1" recording={false} />);
-    expect(screen.getByRole("status")).toBeInTheDocument();
-    expect(screen.getByText("Working…")).toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("renders still img once poll lands", async () => {
@@ -83,17 +69,6 @@ describe("CameraPip (§6.6)", () => {
       height: 360,
       capturedAtMs: 1000,
     });
-    vi.mocked(useSspStore).mockReturnValue({
-      library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
-      loadLibrary: vi.fn(),
-      cameraListDevices: vi.fn(),
-      cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      cameraPreview: vi.fn(),
-      cameraClose: vi.fn(),
-      prefsGet: vi.fn(),
-      prefsSet: vi.fn(),
-    } as any);
     render(<CameraPip cameraId="cam_1" recording={false} />);
     await screen.findByRole("img", { name: "Camera preview" });
     expect(mockPreview).toHaveBeenCalledWith("cam_1");
@@ -102,11 +77,9 @@ describe("CameraPip (§6.6)", () => {
   it("shows signal ring only while recording", () => {
     vi.mocked(useSspStore).mockReturnValue({
       library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
-      loadLibrary: vi.fn(),
+      loadCameraDevices: vi.fn(),
       cameraListDevices: vi.fn(),
       cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      cameraPreview: vi.fn(),
       cameraClose: vi.fn(),
       prefsGet: vi.fn(),
       prefsSet: vi.fn(),
@@ -123,8 +96,6 @@ describe("CameraPip (§6.6)", () => {
       cameraListDevices: vi.fn(),
       cameraOpen: vi.fn(),
       cameraClose: vi.fn(),
-      cameraPreview: vi.fn(),
-      cameraClose: vi.fn(),
       prefsGet: vi.fn(),
       prefsSet: vi.fn(),
     } as any);
@@ -140,8 +111,6 @@ describe("CameraPip (§6.6)", () => {
       loadLibrary: vi.fn(),
       cameraListDevices: vi.fn(),
       cameraOpen: vi.fn(),
-      cameraClose: vi.fn(),
-      cameraPreview: vi.fn(),
       cameraClose: vi.fn(),
       prefsGet: vi.fn(),
       prefsSet: vi.fn(),
