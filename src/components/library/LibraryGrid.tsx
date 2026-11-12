@@ -177,6 +177,7 @@ export default function LibraryGrid() {
   const openDrawer = useSspStore((s) => s.openDrawer);
   const closeDrawer = useSspStore((s) => s.closeDrawer);
   const deleteRecording = useSspStore((s) => s.deleteRecording);
+  const setView = useSspStore((s) => s.setView);
   const { drawerOpen } = library;
 
   const [search, setSearch] = useState("");
