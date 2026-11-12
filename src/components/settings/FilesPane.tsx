@@ -17,9 +17,12 @@ export default function FilesPane() {
 
       {/* Output directory */}
       <div className="mt-6">
-        <label className="block text-label text-ink mb-1.5">Output directory</label>
+        <label htmlFor="files-dir" className="block text-label text-ink mb-1.5">
+          Output directory
+        </label>
         <div className="flex gap-2">
           <input
+            id="files-dir"
             type="text"
             value={files?.dir ?? ""}
             onChange={(e) => {
@@ -40,11 +43,14 @@ export default function FilesPane() {
 
       {/* Naming pattern */}
       <div className="mt-6">
-        <label className="block text-label text-ink mb-1.5">Naming pattern</label>
+        <label htmlFor="files-naming-pattern" className="block text-label text-ink mb-1.5">
+          Naming pattern
+        </label>
         <p className="text-xs text-ink-secondary mb-1.5">
           strftime-style tokens expanded at recording start.
         </p>
         <input
+          id="files-naming-pattern"
           type="text"
           value={files?.namingPattern ?? ""}
           onChange={(e) => {
@@ -57,8 +63,11 @@ export default function FilesPane() {
 
       {/* Container */}
       <div className="mt-6">
-        <label className="block text-label text-ink mb-1.5">Container format</label>
+        <label htmlFor="files-container" className="block text-label text-ink mb-1.5">
+          Container format
+        </label>
         <select
+          id="files-container"
           value={files?.container ?? "mkv"}
           onChange={(e) => {
             void setFilesSettings({ container: e.target.value });
