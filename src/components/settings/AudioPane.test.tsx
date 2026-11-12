@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AudioPane from "./AudioPane";
-import { useSspStore, INITIAL_AUDIO } from "../../lib/store";
+import { useSspStore, INITIAL_AUDIO, type AudioSlice } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -12,7 +12,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { audioSetChannel } from "../../lib/ipc";
 const mockedAudioSetChannel = vi.mocked(audioSetChannel);
 
-function setAudioState(audio: Partial<import("../../lib/store").AudioSlice>) {
+function setAudioState(audio: Partial<AudioSlice>) {
   useSspStore.setState({ audio: { ...INITIAL_AUDIO, ...audio } });
 }
 
