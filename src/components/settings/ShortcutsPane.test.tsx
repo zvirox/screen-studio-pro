@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ShortcutsPane from "./ShortcutsPane";
 import { useSspStore } from "../../lib/store";
+import { shortcutsApply } from "../../lib/ipc";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -9,7 +10,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   shortcutsApply: vi.fn().mockResolvedValue({ granted: [], denied: [] }),
 }));
 
-import { shortcutsApply as mockedShortcutsApply } from "../../lib/ipc";
+const mockedShortcutsApply = vi.mocked(shortcutsApply);
 
 function setShortcutsSettings(shortcuts: { quickRecord: string; pause: string; stop: string }) {
   useSspStore.setState({
