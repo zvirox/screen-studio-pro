@@ -63,7 +63,6 @@ const MISSING_RECORDING = {
 describe("LibraryGrid (§5.5 / §6.3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setLibraryState(EMPTY_LIBRARY);
     // Suppress React "not wrapped in act()" warnings from store updates
     // triggered by loadLibrary in useEffect during mount.
     vi.spyOn(console, 'error').mockImplementation((msg: unknown) => {
@@ -72,6 +71,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       }
       console.error(msg);
     });
+    setLibraryState(EMPTY_LIBRARY);
   });
 
   it("shows empty state with Go to Record chip", () => {
