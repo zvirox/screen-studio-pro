@@ -162,6 +162,7 @@
 - [x] **5.5 Empty & error states** — per DESIGN §6.3 exact copy/patterns incl. search-empty & missing-file (`status='missing'` error card + retry). *Depends on:* 5.2
   - ✅ **Implemented and locally verified (2026-11-12):** `src/components/library/LibraryGrid.tsx` (empty state: "Nothing recorded yet" + "Choose a source on the Record tab…" + ghost "Go to Record"; search-empty: "No recordings match "<query>"" + ghost "Clear search"; missing-file card: thumbnail persists + `signal.muted` overlay chip "File missing"; skeleton grid: `bg-solid` + `animate-pulse`; error state: error copy + "Try again" retry). `src/components/library/LibraryGrid.test.tsx` (empty state, search-empty state, skeleton grid, error state + retry, missing-file chip, normal cards).
   - **Tests:** Rust 130 passed / 5 pre-existing failures (untouched this task). Frontend typecheck/lint clean.
+  - **Delivered:** commit `76dd7c8` pushed to `main`; CI run pending.
   - **Remaining human gates:** CI run pending; manual visual pass — empty library shows education state, search with no results shows search-empty state, missing-file recording shows chip, error state shows retry.
 
 **Definition of Done — Phase 5:** library grid stays fast over 100 seeded recordings; find/open/delete flows all safe; no raw DB errors visible; keyboard-only navigation passes.
