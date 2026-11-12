@@ -13,9 +13,6 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
 
-function setLibraryState(library: Partial<LibrarySlice>) {
-  useSspStore.setState({ library: { ...EMPTY_LIBRARY, ...library } as LibrarySlice });
-}
 
 const EMPTY_LIBRARY = {
   status: "ready" as const,
@@ -71,6 +68,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       }
       console.error(msg);
     });
+    useSspStore.setState({ library: EMPTY_LIBRARY });
   });
 
   it("shows empty state with Go to Record chip", () => {
@@ -86,7 +84,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
 
   it("shows search empty state with Clear search chip", async () => {
     mockLibraryList.mockResolvedValue({ items: [], total: 0, page: { limit: 50, offset: 0 } });
-    setLibraryState({ ...EMPTY_LIBRARY, items: [], total: 0 });
+    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0 } as LibrarySlice });
     render(<LibraryGrid />);
     fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
       target: { value: "demo" },
@@ -99,7 +97,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   });
 
   it("shows skeleton grid while loading", () => {
-    setLibraryState({ ...EMPTY_LIBRARY, status: "loading" });
+    useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "loading" } as LibrarySlice });
     render(<LibraryGrid />);
     const container = screen.getByTestId("library-grid");
     expect(container.querySelectorAll(".animate-pulse")).toHaveLength(10); // 8 cards + 2 meta lines
@@ -114,7 +112,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       retryable: true,
     };
     mockLibraryList.mockRejectedValue(err);
-    setLibraryState({ ...EMPTY_LIBRARY, status: "error", error: err });
+    useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "error", error: err } as LibrarySlice });
     render(<LibraryGrid />);
     expect(screen.getByRole("heading", { name: "Could not load recordings" })).toBeInTheDocument();
     expect(screen.getByText("Disk write failed.")).toBeInTheDocument();
@@ -123,9 +121,8 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   });
 
   it("shows missing-file chip on missing recording card", () => {
-    setLibraryState({
-      ...EMPTY_LIBRARY,
-      items: [MISSING_RECORDING],
+    useSspStore.setState({
+      library: { ...EMPTY_LIBRARY, items: [MISSING_RECORDING] } as LibrarySlice,
     });
     render(<LibraryGrid />);
     expect(screen.getByText("File missing")).toBeInTheDocument();
@@ -133,7 +130,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   });
 
   it("renders recording cards normally", () => {
-    setLibraryState({ ...EMPTY_LIBRARY, items: [RECORDING] });
+    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [RECORDING] } as LibrarySlice });
     render(<LibraryGrid />);
     expect(screen.getByText("screen-2026-11-01-1412.mp4")).toBeInTheDocument();
     expect(screen.getByText("1:42")).toBeInTheDocument();
