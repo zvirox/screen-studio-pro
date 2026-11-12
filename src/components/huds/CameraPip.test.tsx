@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CameraPip from "./CameraPip";
-import { useSspStore } from "../../lib/store";
+import { useSspStore, INITIAL_CAMERA, type CameraSlice } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -15,18 +15,6 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { cameraPreview } from "../../lib/ipc";
 const mockPreview = vi.mocked(cameraPreview);
 
-const EMPTY_CAMERA = {
-  status: "idle" as const,
-  cameraId: null,
-  deviceId: null,
-  label: null,
-  width: null,
-  height: null,
-  error: null,
-  devices: null,
-  devicesLoading: false,
-};
-
 describe("CameraPip (§6.6)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,7 +24,7 @@ describe("CameraPip (§6.6)", () => {
       }
       console.error(msg);
     });
-    useSspStore.setState({ library: EMPTY_CAMERA });
+    useSspStore.setState({ camera: INITIAL_CAMERA });
   });
 
   it("renders nothing when no camera is open", () => {
@@ -57,14 +45,14 @@ describe("CameraPip (§6.6)", () => {
   });
 
   it("shows 2px signal ring only while recording", () => {
-    useSspStore.setState({ library: { ...EMPTY_CAMERA, status: "open" } });
-    render(<CameraPip cameraId="cam_1" recording={true} />);
-    const frame = screen.querySelector('[data-camera-pip="frame"]');
+    useSspStore.setState({ camera: { ...INITIAL_CAMERA, status: "open", cameraId: "cam_1" } as CameraSlice });
+    const { container } = render(<CameraPip cameraId="cam_1" recording={true} />);
+    const frame = container.querySelector('[data-camera-pip="frame"]');
     expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
   });
 
   it("toggles freeze button aria-pressed", () => {
-    useSspStore.setState({ library: { ...EMPTY_CAMERA, status: "open" } });
+    useSspStore.setState({ camera: { ...INITIAL_CAMERA, status: "open", cameraId: "cam_1" } as CameraSlice });
     render(<CameraPip cameraId="cam_1" recording={false} />);
     const freeze = screen.getByRole("button", { name: /Freeze camera preview/ });
     expect(freeze).toHaveAttribute("aria-pressed", "false");
