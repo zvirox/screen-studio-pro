@@ -26,8 +26,6 @@ export default function FirstRunPane() {
     setCompleted(firstRunCompleted);
   }, [loadFirstRunCompleted, firstRunCompleted]);
 
-  const isFirstRun = completed === null || completed === false;
-
   return (
     <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
       <div className="flex items-center gap-3">
