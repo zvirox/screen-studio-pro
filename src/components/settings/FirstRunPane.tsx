@@ -37,7 +37,7 @@ export default function FirstRunPane() {
         you make your first recording in under 60 seconds.
       </p>
 
-      {!isFirstRun && (
+      {!isFirstRun ? null : (
         <section className="mt-6 space-y-4">
           <h2 className="text-heading text-ink">Education states</h2>
 
