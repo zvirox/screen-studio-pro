@@ -71,7 +71,6 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       }
       console.error(msg);
     });
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY } as LibrarySlice });
   });
 
   it("shows empty state with Go to Record chip", () => {
