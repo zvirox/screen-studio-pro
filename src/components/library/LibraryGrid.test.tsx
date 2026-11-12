@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
 import { useSspStore, type LibrarySlice } from "../../lib/store";
@@ -14,9 +14,7 @@ import { libraryList } from "../../lib/ipc";
 const mockLibraryList = vi.mocked(libraryList);
 
 function setLibraryState(library: Partial<LibrarySlice>) {
-  act(() => {
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, ...library } as LibrarySlice });
-  });
+  useSspStore.setState({ library: { ...EMPTY_LIBRARY, ...library } as LibrarySlice });
 }
 
 const EMPTY_LIBRARY = {
