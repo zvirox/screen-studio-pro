@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, Mic, Video, FileText, Keyboard, Info } from "lucide-react";
+import { SlidersHorizontal, Mic, Video, FileText, Keyboard, Info, AlertTriangle } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import CameraPane from "./CameraPane";
 import CapturePane from "./CapturePane";
@@ -22,7 +22,7 @@ const RAIL_ITEMS: Array<{ id: string; label: string; icon: React.ComponentType<{
   { id: "files", label: "Files", icon: FileText },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "about", label: "About", icon: Info },
-  { id: "firstRun", label: "First Run", icon: ShieldAlert },
+  { id: "firstRun", label: "First Run", icon: AlertTriangle },
 ];
 
 const PANES: Record<string, React.ComponentType> = {
