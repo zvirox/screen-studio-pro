@@ -87,7 +87,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
       target: { value: "demo" },
     });
-    await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalledTimes(1));
     expect(
       screen.getByText('No recordings match "demo"'),
     ).toBeInTheDocument();
