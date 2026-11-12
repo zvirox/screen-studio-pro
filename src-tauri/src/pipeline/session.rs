@@ -1556,7 +1556,16 @@ fn strftime_expand(pattern: &str) -> String {
     let month_days = [
         31,
         if is_leap_year(year) { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut month = 1;
     for &md in &month_days {
@@ -3559,13 +3568,23 @@ mod tests {
         // %Y-%m-%d-%H%M → e.g. "2026-11-12-1327" (exact values depend on wall
         // clock; we check format, not exact value).
         let expanded = strftime_expand("%Y-%m-%d-%H%M");
-        assert_eq!(expanded.len(), 15, "YYYY-MM-DD-HHMM is 15 chars: {expanded}");
+        assert_eq!(
+            expanded.len(),
+            15,
+            "YYYY-MM-DD-HHMM is 15 chars: {expanded}"
+        );
         assert_eq!(&expanded[0..2], "20", "year should be 20xx: {expanded}");
         assert_eq!(&expanded[4..5], "-", "dash after year: {expanded}");
         assert_eq!(&expanded[7..8], "-", "dash after month: {expanded}");
         assert_eq!(&expanded[10..11], "-", "dash after day: {expanded}");
-        assert!(expanded[11..13].chars().all(|c| c.is_ascii_digit()), "hour is digits: {expanded}");
-        assert!(expanded[13..15].chars().all(|c| c.is_ascii_digit()), "minute is digits: {expanded}");
+        assert!(
+            expanded[11..13].chars().all(|c| c.is_ascii_digit()),
+            "hour is digits: {expanded}"
+        );
+        assert!(
+            expanded[13..15].chars().all(|c| c.is_ascii_digit()),
+            "minute is digits: {expanded}"
+        );
 
         // Literal text passes through.
         assert_eq!(strftime_expand("first-rec"), "first-rec");
@@ -3580,8 +3599,8 @@ mod tests {
     /// 6.2: remux MKV→MP4 via ffmpeg stream copy.
     #[test]
     fn remux_mkv_to_mp4_stream_copy() {
-        use crate::encode::sw_x264::{self, SwX264};
         use crate::encode::Encoder;
+        use crate::encode::sw_x264::{self, SwX264};
         use crate::pipeline::Frame;
 
         let tmp = tempfile::tempdir().expect("tmp dir");
@@ -3633,10 +3652,13 @@ mod tests {
         // The MP4 should probe as a valid file with h264 video.
         let report = std::process::Command::new("ffprobe")
             .args([
-                "-v", "error",
-                "-print_format", "json",
+                "-v",
+                "error",
+                "-print_format",
+                "json",
                 "-show_streams",
-                "-select_streams", "v:0",
+                "-select_streams",
+                "v:0",
                 mp4_path.to_str().unwrap(),
             ])
             .output()

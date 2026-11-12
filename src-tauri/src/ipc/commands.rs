@@ -765,16 +765,14 @@ pub async fn shortcuts_apply(
         .map_err(|err| err.to_ipc())?;
 
     // Register via GlobalShortcuts portal.
-    let global_shortcuts = GlobalShortcuts::new()
-        .await
-        .map_err(|err| {
-            CoreError::portal(
-                "portal.unavailable",
-                false,
-                format!("Global shortcuts portal unavailable: {err}"),
-            )
-            .to_ipc()
-        })?;
+    let global_shortcuts = GlobalShortcuts::new().await.map_err(|err| {
+        CoreError::portal(
+            "portal.unavailable",
+            false,
+            format!("Global shortcuts portal unavailable: {err}"),
+        )
+        .to_ipc()
+    })?;
 
     let session = global_shortcuts
         .create_session(Default::default())
