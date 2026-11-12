@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryGrid from "./LibraryGrid";
-import { useSspStore, type LibrarySlice } from "../../lib/store";
+import { useSspStore } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
@@ -64,11 +64,11 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
       }
       console.error(msg);
     });
+    useSspStore.setState({ library: EMPTY_LIBRARY });
   });
 
   it("shows empty state with Go to Record chip", () => {
-    useSspStore.setState({ library: EMPTY_LIBRARY });
-    render(<LibraryGrid />);
+    render(<CameraPip />);
     expect(screen.getByRole("heading", { name: "Nothing recorded yet" })).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -81,7 +81,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
   it("shows search empty state with Clear search chip", async () => {
     mockLibraryList.mockResolvedValue({ items: [], total: 0, page: { limit: 50, offset: 0 } });
     useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice });
-    render(<LibraryGrid />);
+    render(<CameraPip />);
     fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
       target: { value: "demo" },
     });
