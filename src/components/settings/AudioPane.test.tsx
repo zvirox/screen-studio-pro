@@ -63,13 +63,13 @@ describe("AudioPane (§6.4 / 6.1)", () => {
 
   it("sets desktop device via audioSetChannel", async () => {
     render(<AudioPane />);
-    // Desktop device select is the second select
+    // Desktop device select is the second select; selecting "default" clears to null
     const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[1], { target: { value: "sink_0" } });
+    fireEvent.change(selects[1], { target: { value: "default" } });
     await waitFor(() =>
       expect(mockedAudioSetChannel).toHaveBeenCalledWith({
         channel: "desktop",
-        deviceId: "sink_0",
+        deviceId: null,
       }),
     );
   });
