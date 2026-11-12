@@ -18,13 +18,13 @@ export default function FirstRunPane() {
   const firstRunCompleted = useSspStore((s) => s.prefs.firstRunCompleted);
   const loadFirstRunCompleted = useSspStore((s) => s.loadFirstRunCompleted);
   const setFirstRunCompleted = useSspStore((s) => s.setFirstRunCompleted);
-  const [completed, setCompleted] = useState<boolean | null>(null);
 
   // Mount-once: load the persisted flag.
   useEffect(() => {
     void loadFirstRunCompleted();
-    setCompleted(firstRunCompleted);
-  }, [loadFirstRunCompleted, firstRunCompleted]);
+  }, [loadFirstRunCompleted]);
+
+  const isFirstRun = firstRunCompleted === null || firstRunCompleted === false;
 
   return (
     <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
@@ -37,13 +37,13 @@ export default function FirstRunPane() {
         you make your first recording in under 60 seconds.
       </p>
 
-      {!completed && (
+      {!isFirstRun && (
         <section className="mt-6 space-y-4">
           <h2 className="text-heading text-ink">Education states</h2>
 
           <div className="flex flex-col gap-3">
             <EducationItem
-              icon={<Monitor size={16} strokeWidth={1.5} />}
+              icon={<Monitor size={16} strokeWidth={1.5} aria-hidden="true" />}
               label="Choose a capture source"
               description={
                 "In the Record tab, click Monitor (or Window/Region) to open a " +
@@ -52,7 +52,7 @@ export default function FirstRunPane() {
               }
             />
             <EducationItem
-              icon={<Mic size={16} strokeWidth={1.5} />}
+              icon={<Mic size={16} strokeWidth={1.5} aria-hidden="true" />}
               label="Test your microphone"
               description={
                 "In the Audio tab, enable the microphone channel. Speak and watch " +
@@ -61,7 +61,7 @@ export default function FirstRunPane() {
               }
             />
             <EducationItem
-              icon={<ShieldAlert size={16} strokeWidth={1.5} />}
+              icon={<ShieldAlert size={16} strokeWidth={1.5} aria-hidden="true" />}
               label="Check runtime capabilities"
               description={
                 "In the About tab, review what your compositor supports: " +
@@ -76,16 +76,15 @@ export default function FirstRunPane() {
         <button
           type="button"
           onClick={() => {
-            setCompleted(true);
             void setFirstRunCompleted(true);
           }}
-          disabled={completed === true}
+          disabled={firstRunCompleted === true}
           className={`flex items-center gap-2 rounded-sm border border-subtle bg-solid px-4 py-2 text-body-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
-            completed ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-accent-muted"
+            firstRunCompleted === true ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-accent-muted"
           }`}
         >
           <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />
-          {completed ? "First run complete" : "I've reviewed these"}
+          {firstRunCompleted === true ? "First run complete" : "I've reviewed these"}
         </button>
       </div>
     </section>
