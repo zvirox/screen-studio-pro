@@ -64,8 +64,8 @@ const MISSING_RECORDING = {
 /* §6.3 Empty & education states + §5.5 loading/error states. */
 describe("LibraryGrid (§5.5 / §6.3)", () => {
   beforeEach(() => {
-    setLibraryState(EMPTY_LIBRARY);
     vi.clearAllMocks();
+    setLibraryState(EMPTY_LIBRARY);
   });
 
   it("shows empty state with Go to Record chip", () => {
