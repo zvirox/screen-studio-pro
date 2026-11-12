@@ -28,6 +28,7 @@ import type {
   CameraDeviceInfo,
   Capabilities,
   CaptureSettings,
+  FilesSettings,
   IpcError,
   Preset,
   PresetId,
@@ -37,6 +38,7 @@ import type {
   RecordingStatsEvt,
   RecordingTickEvt,
   ShellErrorEvt,
+  ShortcutsSettings,
   SourceCapabilities,
   LibraryGetReply,
   LibraryListFilter,
@@ -212,11 +214,19 @@ export const INITIAL_CAMERA: CameraSlice = {
     owner; settingsGet/set round-trip it through TOML). */export interface SettingsSlice {
   capture: CaptureSettings | null;
   captureLoading: boolean;
+  files: FilesSettings | null;
+  filesLoading: boolean;
+  shortcuts: ShortcutsSettings | null;
+  shortcutsLoading: boolean;
 }
 
 export const INITIAL_SETTINGS: SettingsSlice = {
   capture: null,
   captureLoading: false,
+  files: null,
+  filesLoading: false,
+  shortcuts: null,
+  shortcutsLoading: false,
 };
 
 /* ---------- ui_prefs projection (§6.6 / API §2.6, DATABASE §2.2) ---------- */
@@ -609,6 +619,50 @@ export const useSspStore = create<SspState>((set, get) => ({
     }
   },
 
+  async setChannelMuted(channel, muted) {
+    const current = get().audio[channel];
+    if (current.muted === muted) return;
+    set({ audio: { ...get().audio, [channel]: { ...current, muted } } });
+    try {
+      await audioSetChannel({ channel, muted });
+    } catch (err) {
+      set((s) => {
+        const audio = { ...s.audio };
+        audio[channel] = current;
+        return { audio };
+      });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setChannelLevel(channel, level) {
+    const current = get().audio[channel];
+    if (current.level === level) return;
+    set({ audio: { ...get().audio, [channel]: { ...current, level } } });
+    try {
+      await audioSetChannel({ channel, level });
+    } catch (err) {
+      set((s) => {
+        const audio = { ...s.audio };
+        audio[channel] = current;
+        return { audio };
+      });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
   onMeters(evt) {
     // ≤30 Hz pushes land here and nowhere else (hooks/useRecordingState);
     // the strip reads the projection — never its own subscription.
@@ -772,7 +826,99 @@ export const useSspStore = create<SspState>((set, get) => ({
     }
   },
 
-  /* ---------- ui_prefs actions (4.4) ---------- */
+  /** 4.4: any capture settings patch (frameRate/encoder/qualityPreset).
+      Rolls back on rejection and toasts the error. */
+  async setCaptureSettings(patch: Partial<CaptureSettings>) {
+    const prior = get().settings.capture;
+    if (!prior) return;
+    set({ settings: { ...get().settings, capture: { ...prior, ...patch } } });
+    try {
+      await settingsSet({ capture: patch });
+    } catch (err) {
+      set({ settings: { ...get().settings, capture: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /* Files settings (§6.1 / API §2.6 files section). */
+  async loadFilesSettings() {
+    if (get().settings.filesLoading) return;
+    set({ settings: { ...get().settings, filesLoading: true } });
+    try {
+      const files = await settingsGet("files");
+      set({ settings: { ...get().settings, files, filesLoading: false } });
+    } catch (err) {
+      set({ settings: { ...get().settings, filesLoading: false, files: null } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setFilesSettings(patch: Partial<FilesSettings>) {
+    const prior = get().settings.files;
+    if (!prior) return;
+    set({ settings: { ...get().settings, files: { ...prior, ...patch } } });
+    try {
+      await settingsSet({ files: patch });
+    } catch (err) {
+      set({ settings: { ...get().settings, files: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /* Shortcuts settings (§6.1 / API §2.6 shortcuts section). */
+  async loadShortcutsSettings() {
+    if (get().settings.shortcutsLoading) return;
+    set({ settings: { ...get().settings, shortcutsLoading: true } });
+    try {
+      const shortcuts = await settingsGet("shortcuts");
+      set({ settings: { ...get().settings, shortcuts, shortcutsLoading: false } });
+    } catch (err) {
+      set({ settings: { ...get().settings, shortcutsLoading: false, shortcuts: null } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setShortcutsSettings(patch: Partial<ShortcutsSettings>) {
+    const prior = get().settings.shortcuts;
+    if (!prior) return;
+    set({ settings: { ...get().settings, shortcuts: { ...prior, ...patch } } });
+    try {
+      await settingsSet({ shortcuts: patch });
+    } catch (err) {
+      set({ settings: { ...get().settings, shortcuts: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
 
   async loadPipPrefs() {
     if (get().prefs.prefsLoading) return;

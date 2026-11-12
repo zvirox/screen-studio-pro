@@ -169,6 +169,15 @@ export function audioSetChannel(input: AudioSetChannelInput): Promise<{ ok: bool
   return call<{ ok: boolean }>("audio_set_channel", { ...input });
 }
 
+/** `cmd://shortcuts_apply` — (re)register global shortcuts via portal
+    (API §2.7). Returns granted/denied lists. */
+export function shortcutsApply(bindings: Array<{ action: string; combo: string }>): Promise<{
+  granted: string[];
+  denied: string[];
+}> {
+  return call("shortcuts_apply", { bindings });
+}
+
 /** `cmd://recording_start` — wire source→encode→mux and open the MKV
     (API §2.3). Task 1.3 scope: video-only monitor recording — the Audio/
     camera/preset fields ride in the body at their neutral values (the
