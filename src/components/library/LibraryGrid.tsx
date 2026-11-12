@@ -64,6 +64,8 @@ function LibraryCard({
       onMouseLeave={() => setHovered(false)}
       onClick={() => onOpen(item.id)}
       tabIndex={0}
+      role="button"
+      aria-label={`Open recording ${item.fileName}`}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

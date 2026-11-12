@@ -142,6 +142,7 @@ function RegionDragHandle({
         role="graphics-document"
         aria-label="Region selection rectangle"
         aria-roledescription="Draggable crop rectangle"
+        tabIndex={0}
       />
     </DndContext>
   );
