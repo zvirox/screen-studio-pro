@@ -11,10 +11,11 @@ use crate::pipeline::muxer::{AudioSpec, Muxer, MuxerBuilder, VideoSpec};
 use crate::util::error::CoreError;
 use ffmpeg_next as ff;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 use super::FrameBus;
@@ -489,6 +490,9 @@ struct ActiveRecording {
     /// 2.5 chapter/flag markers collected at flag time (flow 7.2). Held in-
     /// memory for the take's life, serialized to the library row at stop.
     chapters: Arc<Mutex<Vec<ChapterMarker>>>,
+    /// Container format from settings ("mkv" | "mp4" | "webm") — decides
+    /// whether the finalized MKV is remuxed at stop (6.2).
+    container: String,
 }
 
 /// One flag marker on a take (API §3 `recording/flagged` chapter). The offset
@@ -678,6 +682,8 @@ impl RecordingHandle {
         bus: Arc<FrameBus>,
         dims: (u32, u32),
         dir: &Path,
+        naming_pattern: &str,
+        container: &str,
         events: Arc<dyn EventSink>,
         audio: Option<AudioPlan>,
         region_rect: Option<crate::capture::RegionRect>,
@@ -757,7 +763,7 @@ impl RecordingHandle {
             frame_rate: (preset.fps, 1),
             options: crate::pipeline::presets::x264_options(&preset),
         };
-        let path = next_output_path(dir);
+        let path = next_output_path(dir, naming_pattern, container);
         // A/V split (2.1): the container opens through the builder —
         // video always; the AAC stream only when an audio plan exists.
         // (Muxer::open_video cannot add a second stream; write_header
@@ -919,6 +925,7 @@ impl RecordingHandle {
             audio_json: row_note,
             pause,
             chapters: Arc::new(Mutex::new(Vec::new())),
+            container: container.to_string(),
         });
         Ok(info)
     }
@@ -1013,6 +1020,7 @@ impl RecordingHandle {
         let info = active.info.clone();
         let audio_json = active.audio_json.clone();
         let chapter_json = active.chapters_json();
+        let container = active.container.clone();
         let worker = active.worker.take().expect("stop owns the only join");
         // The join happens with the slot STILL occupied: a concurrent
         // start must not spawn a second consumer on the same SPSC bus
@@ -1024,19 +1032,27 @@ impl RecordingHandle {
         // The take is over — the slot is free again.
         *slot = None;
         match join {
-            Ok(Ok(facts)) => Ok(Ok(StopOutcome {
-                path: facts.path,
-                duration_ms: facts.duration_ms,
-                size_bytes: facts.size_bytes,
-                width: facts.width,
-                height: facts.height,
-                fps: facts.fps,
-                encoder: info.encoder,
-                started_at: info.started_at,
-                finished_at: crate::util::time::rfc3339_now(),
-                audio_json,
-                chapter_json,
-            })),
+            Ok(Ok(mut facts)) => {
+                // 6.2: remux MKV→MP4 if container is mp4; delete MKV after.
+                if container == "mp4" {
+                    let mp4_path = remux_mkv_to_mp4(&facts.path)?;
+                    let _ = std::fs::remove_file(&facts.path);
+                    facts.path = mp4_path;
+                }
+                Ok(Ok(StopOutcome {
+                    path: facts.path,
+                    duration_ms: facts.duration_ms,
+                    size_bytes: facts.size_bytes,
+                    width: facts.width,
+                    height: facts.height,
+                    fps: facts.fps,
+                    encoder: info.encoder,
+                    started_at: info.started_at,
+                    finished_at: crate::util::time::rfc3339_now(),
+                    audio_json,
+                    chapter_json,
+                }))
+            }
             Ok(Err(err)) => Ok(Err(err)),
             Err(panic) => {
                 tracing::error!(?panic, "recording worker panicked");
@@ -1498,17 +1514,131 @@ fn capture_take(
     })
 }
 
-/// `$VideoDir/first-rec.mkv`, then `-2`, `-3`, … — sequential never-
-/// overwrite naming until the settings-driven pattern expansion lands.
-fn next_output_path(dir: &Path) -> PathBuf {
-    let first = dir.join(format!("{BASE_FILE_STEM}.mkv"));
+/// 6.2: expand the settings naming pattern (strftime tokens: %Y %m %d %H %M)
+/// to a file stem, then append the container extension. Falls back to
+/// `first-rec` if the pattern is empty or invalid.
+fn next_output_path(dir: &Path, naming_pattern: &str, container: &str) -> PathBuf {
+    let stem = if naming_pattern.is_empty() {
+        BASE_FILE_STEM.to_string()
+    } else {
+        strftime_expand(naming_pattern)
+    };
+    let first = dir.join(format!("{stem}.{container}"));
     if !first.exists() {
         return first;
     }
     (2..)
-        .map(|n: u32| dir.join(format!("{BASE_FILE_STEM}-{n}.mkv")))
+        .map(|n: u32| dir.join(format!("{stem}-{n}.{container}")))
         .find(|candidate| !candidate.exists())
         .expect("u32::MAX suffixes are finite; every slot-1 recording leaves an unused N")
+}
+
+/// 6.2: expand strftime tokens (%Y %m %d %H %M) against the current wall
+/// clock. Unsupported tokens pass through literally (e.g. `%%` → `%`).
+fn strftime_expand(pattern: &str) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    // Days since Unix epoch → broken-down date.
+    let mut days = now / 86400;
+    let secs_in_day = now % 86400;
+    let mut year = 1970;
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days < days_in_year {
+            break;
+        }
+        days -= days_in_year;
+        year += 1;
+    }
+    let month_days = [
+        31,
+        if is_leap_year(year) { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut month = 1;
+    for &md in &month_days {
+        if days < md {
+            break;
+        }
+        days -= md;
+        month += 1;
+    }
+    let day = days + 1;
+    let hour = (secs_in_day / 3600) as u32;
+    let minute = ((secs_in_day % 3600) / 60) as u32;
+
+    let mut result = String::new();
+    let mut chars = pattern.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '%' {
+            match chars.next() {
+                Some('Y') => result.push_str(&format!("{:04}", year)),
+                Some('m') => result.push_str(&format!("{:02}", month)),
+                Some('d') => result.push_str(&format!("{:02}", day)),
+                Some('H') => result.push_str(&format!("{:02}", hour)),
+                Some('M') => result.push_str(&format!("{:02}", minute)),
+                Some('%') => result.push('%'),
+                Some(c) => {
+                    result.push('%');
+                    result.push(c);
+                }
+                None => result.push('%'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+/// 6.2: remux MKV→MP4 with a stream copy (no re-encode — fast). Returns
+/// the MP4 path on success.
+fn remux_mkv_to_mp4(mkv_path: &Path) -> Result<PathBuf, CoreError> {
+    let mp4_path = mkv_path.with_extension("mp4");
+    let status = Command::new("ffmpeg")
+        .args([
+            "-y", // overwrite without asking
+            "-i",
+            mkv_path.to_str().ok_or_else(|| {
+                CoreError::disk(
+                    "disk.path_unwritable",
+                    false,
+                    "MP4 remux failed: output path is not valid UTF-8.",
+                )
+            })?,
+            "-c",
+            "copy", // stream copy — no re-encode
+            mp4_path.to_str().ok_or_else(|| {
+                CoreError::disk(
+                    "disk.path_unwritable",
+                    false,
+                    "MP4 remux failed: output path is not valid UTF-8.",
+                )
+            })?,
+        ])
+        .status()
+        .map_err(|_| {
+            CoreError::encoder(
+                "encoder.init_failed",
+                false,
+                "FFmpeg is not available for MP4 remux.",
+            )
+        })?;
+    if !status.success() {
+        return Err(CoreError::encoder(
+            "encoder.encode_failed",
+            false,
+            "MP4 remux failed; MKV take preserved.",
+        ));
+    }
+    Ok(mp4_path)
 }
 
 fn bad_state(message: &'static str) -> CoreError {
@@ -1739,6 +1869,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -1804,6 +1936,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -1819,6 +1953,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -1859,6 +1995,8 @@ mod tests {
                     bus.clone(),
                     (W, H),
                     dir.path(),
+                    "%Y-%m-%d-%H%M",
+                    "mkv",
                     TestSink::new(),
                     None,
                     None,
@@ -1899,6 +2037,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 Some(plan),
                 None,
@@ -1939,6 +2079,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -1959,6 +2101,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -1993,6 +2137,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -2020,6 +2166,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -2052,6 +2200,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -2184,6 +2334,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -2262,6 +2414,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -2332,6 +2486,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 Some(plan),
                 None,
@@ -2467,6 +2623,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 Some(plan),
                 None,
@@ -2592,6 +2750,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 Some(plan),
                 None,
@@ -2687,6 +2847,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -2711,6 +2873,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -2765,6 +2929,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -2936,6 +3102,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -3011,6 +3179,8 @@ mod tests {
                 bus.clone(),
                 session.geometry(),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -3078,6 +3248,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 TestSink::new(),
                 None,
                 None,
@@ -3158,6 +3330,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 Some(plan),
                 None,
@@ -3278,6 +3452,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -3356,6 +3532,8 @@ mod tests {
                 bus.clone(),
                 (W, H),
                 dir.path(),
+                "first-rec",
+                "mkv",
                 sink.clone(),
                 None,
                 None,
@@ -3373,5 +3551,96 @@ mod tests {
         // The session is cleared; flag must fail.
         let err = handle.flag(&info.recording_id, None).unwrap_err();
         assert_eq!(err.code(), "ipc.bad_state");
+    }
+
+    /// 6.2: strftime expansion for output naming pattern.
+    #[test]
+    fn naming_pattern_expands_strftime_tokens() {
+        // %Y-%m-%d-%H%M → e.g. "2026-11-12-1327" (exact values depend on wall
+        // clock; we check format, not exact value).
+        let expanded = strftime_expand("%Y-%m-%d-%H%M");
+        assert_eq!(expanded.len(), 15, "YYYY-MM-DD-HHMM is 15 chars: {expanded}");
+        assert_eq!(&expanded[0..2], "20", "year should be 20xx: {expanded}");
+        assert_eq!(&expanded[4..5], "-", "dash after year: {expanded}");
+        assert_eq!(&expanded[7..8], "-", "dash after month: {expanded}");
+        assert_eq!(&expanded[10..11], "-", "dash after day: {expanded}");
+        assert!(expanded[11..13].chars().all(|c| c.is_ascii_digit()), "hour is digits: {expanded}");
+        assert!(expanded[13..15].chars().all(|c| c.is_ascii_digit()), "minute is digits: {expanded}");
+
+        // Literal text passes through.
+        assert_eq!(strftime_expand("first-rec"), "first-rec");
+
+        // %% escapes to %.
+        assert_eq!(strftime_expand("100%%"), "100%");
+
+        // Unknown token passes through literally.
+        assert_eq!(strftime_expand("%Z"), "%Z");
+    }
+
+    /// 6.2: remux MKV→MP4 via ffmpeg stream copy.
+    #[test]
+    fn remux_mkv_to_mp4_stream_copy() {
+        use crate::encode::sw_x264::{self, SwX264};
+        use crate::encode::Encoder;
+        use crate::pipeline::Frame;
+
+        let tmp = tempfile::tempdir().expect("tmp dir");
+        let mkv_path = tmp.path().join("input.mkv");
+
+        // Encode a tiny MKV to remux.
+        let (builder, venc) = MuxerBuilder::create(&mkv_path)
+            .expect("create muxer")
+            .add_video(&VideoSpec {
+                codec: ff::codec::Id::H264,
+                width: 320,
+                height: 240,
+                pix_fmt: ff::format::Pixel::YUV420P,
+                frame_rate: (60, 1),
+                options: sw_x264::options(),
+            })
+            .expect("video stream");
+        let mut muxer = builder.write_header().expect("header");
+        let mut encoder = SwX264::from_open(venc);
+
+        // Encode a few frames.
+        for n in 0..30_u64 {
+            let stride = 320usize * 4;
+            let mut data = vec![0u8; stride * 240];
+            for (i, byte) in data.iter_mut().enumerate() {
+                *byte = (n as usize ^ i) as u8;
+            }
+            let frame = Frame {
+                width: 320,
+                height: 240,
+                stride: stride as u32,
+                layout: crate::pipeline::FrameLayout::Bgrx,
+                pts_us: n * 16_667,
+                data,
+            };
+            let packets = encoder.encode(&frame).expect("encode");
+            muxer.write(&packets).expect("write");
+        }
+        let tail = encoder.finish().expect("encoder finish");
+        muxer.write(&tail).expect("tail write");
+        muxer.finalize().expect("muxer finalize");
+        assert!(mkv_path.exists(), "MKV input exists");
+
+        // Remux to MP4.
+        let mp4_path = remux_mkv_to_mp4(&mkv_path).expect("remux succeeds");
+        assert!(mp4_path.exists(), "MP4 output exists");
+        assert_eq!(mp4_path.extension().unwrap(), "mp4", "extension is .mp4");
+
+        // The MP4 should probe as a valid file with h264 video.
+        let report = std::process::Command::new("ffprobe")
+            .args([
+                "-v", "error",
+                "-print_format", "json",
+                "-show_streams",
+                "-select_streams", "v:0",
+                mp4_path.to_str().unwrap(),
+            ])
+            .output()
+            .expect("ffprobe present");
+        assert!(report.status.success(), "ffprobe succeeded on MP4");
     }
 }
