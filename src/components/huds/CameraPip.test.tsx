@@ -48,7 +48,14 @@ describe("CameraPip (§6.6)", () => {
       }
       console.error(msg);
     });
-    useSspStore.setState({ library: EMPTY_CAMERA });
+    vi.mocked(useSspStore).mockReturnValue({
+      library: EMPTY_CAMERA,
+      loadCameraDevices: vi.fn(),
+      cameraOpen: vi.fn(),
+      cameraClose: vi.fn(),
+      prefsGet: vi.fn(),
+      prefsSet: vi.fn(),
+    } as any);
   });
 
   it("renders nothing when no camera is open", () => {
@@ -68,7 +75,7 @@ describe("CameraPip (§6.6)", () => {
     expect(mockPreview).toHaveBeenCalledWith("cam_1");
   });
 
-  it("shows 2px signal ring only while recording", () => {
+  it("shows signal ring only while recording", () => {
     vi.mocked(useSspStore).mockReturnValue({
       library: { ...EMPTY_CAMERA, cameraId: "cam_1", status: "open" } as CameraSlice,
       loadLibrary: vi.fn(),
@@ -78,7 +85,7 @@ describe("CameraPip (§6.6)", () => {
       prefsGet: vi.fn(),
       prefsSet: vi.fn(),
     } as any);
-    render(<CameraPip cameraId="cam_1" recording={true} />);
+    const { container } = render(<CameraPip cameraId="cam_1" recording={true} />);
     const frame = container.querySelector('[data-camera-pip="frame"]');
     expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
   });
