@@ -787,9 +787,18 @@ export const useSspStore = create<SspState>((set, get) => ({
       set({
         prefs: {
           ...get().prefs,
-          pipPosition: typeof position === "string" ? position : null,
-          pipShape: typeof shape === "string" ? (shape as "circle" | "rounded") : null,
-          pipSize: typeof size === "number" ? size : null,
+          pipPosition:
+            "value" in position && typeof position.value === "string"
+              ? position.value
+              : null,
+          pipShape:
+            "value" in shape && typeof shape.value === "string"
+              ? (shape.value as "circle" | "rounded")
+              : null,
+          pipSize:
+            "value" in size && typeof size.value === "number"
+              ? size.value
+              : null,
           prefsLoading: false,
         },
       });
