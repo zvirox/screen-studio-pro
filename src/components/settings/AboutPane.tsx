@@ -63,6 +63,20 @@ export default function AboutPane() {
               {capabilities?.portal?.compositor ?? "unknown"}
             </dd>
           </div>
+          <div className="flex justify-between">
+            <dt className="text-body-sm text-ink-secondary">Encoders</dt>
+            <dd className="text-body-sm text-ink text-mono-sm">
+              {capabilities?.encoders
+                ?.map((e) => `${e.backend}${e.isHardware ? " (HW)" : ""}`)
+                .join(", ") ?? "unknown"}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-body-sm text-ink-secondary">IPC contract</dt>
+            <dd className="text-body-sm text-ink text-mono-sm">
+              {capabilities?.version?.ipcContract ?? "1.6.0"}
+            </dd>
+          </div>
         </dl>
       </div>
 

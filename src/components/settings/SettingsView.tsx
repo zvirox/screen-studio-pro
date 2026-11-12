@@ -7,6 +7,7 @@ import AudioPane from "./AudioPane";
 import FilesPane from "./FilesPane";
 import ShortcutsPane from "./ShortcutsPane";
 import AboutPane from "./AboutPane";
+import FirstRunPane from "./FirstRunPane";
 
 /* §6.4 Settings — left rail 200px with compact pills (Capture / Audio /
    Camera / Files / Shortcuts / About), content bg.raised max-width 560px.
@@ -21,6 +22,7 @@ const RAIL_ITEMS: Array<{ id: string; label: string; icon: React.ComponentType<{
   { id: "files", label: "Files", icon: FileText },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "about", label: "About", icon: Info },
+  { id: "firstRun", label: "First Run", icon: ShieldAlert },
 ];
 
 const PANES: Record<string, React.ComponentType> = {
@@ -30,6 +32,7 @@ const PANES: Record<string, React.ComponentType> = {
   files: FilesPane,
   shortcuts: ShortcutsPane,
   about: AboutPane,
+  firstRun: FirstRunPane,
 };
 
 export default function SettingsView() {
@@ -38,6 +41,7 @@ export default function SettingsView() {
   const loadCaptureSettings = useSspStore((s) => s.loadCaptureSettings);
   const loadFilesSettings = useSspStore((s) => s.loadFilesSettings);
   const loadShortcutsSettings = useSspStore((s) => s.loadShortcutsSettings);
+  const loadFirstRunCompleted = useSspStore((s) => s.loadFirstRunCompleted);
   const [activeTab, setActiveTab] = useState("camera");
 
   // Load settings sections when their tab first becomes active.
@@ -52,8 +56,11 @@ export default function SettingsView() {
       case "shortcuts":
         void loadShortcutsSettings();
         break;
+      case "firstRun":
+        void loadFirstRunCompleted();
+        break;
     }
-  }, [activeTab, loadCaptureSettings, loadFilesSettings, loadShortcutsSettings]);
+  }, [activeTab, loadCaptureSettings, loadFilesSettings, loadShortcutsSettings, loadFirstRunCompleted]);
 
   const Pane = PANES[activeTab as keyof typeof PANES];
 

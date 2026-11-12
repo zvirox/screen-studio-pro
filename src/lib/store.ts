@@ -238,6 +238,9 @@ export interface PrefsSlice {
   pipShape: "circle" | "rounded" | null;
   pipSize: number | null;
   prefsLoading: boolean;
+  /** First-run education: true once the user has seen the education
+      moments (preview-not-granted, mic silent hint, capabilities). */
+  firstRunCompleted: boolean | null;
 }
 
 export const INITIAL_PREFS: PrefsSlice = {
@@ -245,6 +248,7 @@ export const INITIAL_PREFS: PrefsSlice = {
   pipShape: null,
   pipSize: null,
   prefsLoading: false,
+  firstRunCompleted: null,
 };
 
 /* ---------- Library projection (§6.2 / API §2.4, DATABASE §2.1) ---------- */
@@ -400,6 +404,10 @@ interface SspState {
   setPipPosition: (value: string) => Promise<void>;
   setPipShape: (value: "circle" | "rounded") => Promise<void>;
   setPipSize: (value: number) => Promise<void>;
+  /** 6.4: load firstRunCompleted flag from prefs. */
+  loadFirstRunCompleted: () => Promise<void>;
+  /** 6.4: persist firstRunCompleted flag to prefs. */
+  setFirstRunCompleted: (value: boolean) => Promise<void>;
 
   /* Audio actions (2.2) — audio_set_channel persists; ON ONE SUBSCRIPTION
      through hooks/useRecordingState (onMeters). */
@@ -1016,6 +1024,39 @@ export const useSspStore = create<SspState>((set, get) => ({
       await prefsSet("pip.size", value);
     } catch (err) {
       set({ prefs: { ...get().prefs, pipSize: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /** 6.4: load firstRunCompleted flag from prefs (ui_prefs table). */
+  async loadFirstRunCompleted() {
+    const reply = await prefsGet("firstRunCompleted");
+    set({
+      prefs: {
+        ...get().prefs,
+        firstRunCompleted:
+          "value" in reply && typeof reply.value === "boolean"
+            ? reply.value
+            : null,
+      },
+    });
+  },
+
+  /** 6.4: persist firstRunCompleted flag to prefs (upsert-only). */
+  async setFirstRunCompleted(value: boolean) {
+    const prior = get().prefs.firstRunCompleted;
+    if (prior === value) return;
+    set({ prefs: { ...get().prefs, firstRunCompleted: value } });
+    try {
+      await prefsSet("firstRunCompleted", value);
+    } catch (err) {
+      set({ prefs: { ...get().prefs, firstRunCompleted: prior } });
       set((s) =>
         pushToast(s, {
           kind: "error",
