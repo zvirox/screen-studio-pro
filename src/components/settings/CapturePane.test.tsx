@@ -69,8 +69,10 @@ describe("CapturePane (§6.4 / 6.1)", () => {
   it("renders quality preset select from presets list", () => {
     render(<CapturePane />);
     expect(screen.getByLabelText(/Quality preset/)).toBeInTheDocument();
-    expect(screen.getByText("For YouTube")).toBeInTheDocument();
-    expect(screen.getByText("For Discord")).toBeInTheDocument();
+    const select = screen.getByLabelText(/Quality preset/) as HTMLSelectElement;
+    expect(select.options).toHaveLength(2);
+    expect(select.options[0].text).toContain("For YouTube");
+    expect(select.options[1].text).toContain("For Discord");
   });
 
   it("calls setPreset when quality preset changes", async () => {
