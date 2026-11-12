@@ -77,7 +77,6 @@ function LibraryCard({
       )}
     >
       {/* 16:9 thumbnail (r.sm) */}
-      {/* 16:9 thumbnail (r.sm) */}
       <div className="relative aspect-video w-full rounded-sm bg-raised overflow-hidden">
         {item.thumbPath ? (
           <img
@@ -95,6 +94,14 @@ function LibraryCard({
         <div className="absolute bottom-1 right-1 flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/50 text-mono-xs text-white">
           {formatDuration(item.durationMs)}
         </div>
+        {/* Missing-file overlay (§5.5): thumbnail persists + signal.muted chip. */}
+        {item.status === "missing" && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-black/40">
+            <div className="flex items-center gap-2 bg-error/10 border border-error rounded-md p-2">
+              <span className="text-error font-medium text-body-sm">File missing</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-3">
@@ -148,15 +155,16 @@ function LibraryCard({
 function SkeletonCard() {
   return (
     <article className="relative group cursor-default bg-solid border border-subtle rounded-md shadow-[var(--shadow-elev-1)] p-4">
-      <div className="relative aspect-video w-full rounded-sm bg-raised overflow-hidden">
+      {/* §6.5 loading: skeleton grid — shimmer on surface.solid shapes, never spinners mid-page. */}
+      <div className="relative aspect-video w-full rounded-sm bg-solid overflow-hidden">
         <div className="h-full w-full bg-solid animate-pulse" />
         <div className="absolute bottom-1 right-1 flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/50">
           <div className="w-8 h-3 bg-white/60 rounded" />
         </div>
       </div>
       <div className="mt-3">
-        <div className="h-4 bg-solid rounded animate-pulse w-3/4" />
-        <div className="mt-1 h-3 bg-solid rounded animate-pulse w-1/2" />
+        <div className="h-4 bg-solid animate-pulse w-3/4" />
+        <div className="mt-1 h-3 bg-solid animate-pulse w-1/2" />
       </div>
     </article>
   );
@@ -172,6 +180,7 @@ export default function LibraryGrid() {
       closeDrawer: s.closeDrawer,
       deleteRecording: s.deleteRecording,
     }));
+  const setView = useSspStore((s) => s.setView);
   const { drawerOpen } = library;
 
   const [search, setSearch] = useState("");
@@ -204,7 +213,7 @@ export default function LibraryGrid() {
   }, [sortField, sortDir]);
 
   return (
-    <section className="flex flex-col h-full">
+    <section className="flex flex-col h-full" data-testid="library-grid">
       {/* Header with search */}
       <div className="flex-shrink-0 px-6 py-4">
         <div className="relative max-w-md">
@@ -259,7 +268,24 @@ export default function LibraryGrid() {
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto px-6 pb-6">
-        {library.status === "loading" && library.items.length === 0 ? (
+        {library.status === "error" ? (
+          // §5.5 error state — show §1 copy with retry.
+          <div className="flex flex-col items-center justify-center h-full text-center py-20">
+            <ExternalLink size={48} strokeWidth={1.5} className="text-error mb-4" aria-hidden="true" />
+            <h2 className="text-heading font-medium text-ink">Could not load recordings</h2>
+            <p className="mt-2 text-body-sm text-ink-secondary max-w-md">
+              {library.error?.userMessage ?? "Failed to load recordings."}
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadLibrary()}
+              className="mt-4 flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <LoaderCircle size={14} strokeWidth={1.5} className="mr-1.5" aria-hidden="true" />
+              Try again
+            </button>
+          </div>
+        ) : library.status === "loading" && library.items.length === 0 ? (
           // §6.5 loading: skeleton grid, never spinners mid-page.
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
@@ -268,14 +294,39 @@ export default function LibraryGrid() {
           </div>
         ) : library.items.length === 0 ? (
           // §6.3 empty: teach the interface, never say "nothing here".
-          <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <ExternalLink size={48} strokeWidth={1.5} className="text-ink-secondary mb-4" aria-hidden="true" />
-            <h2 className="text-heading font-medium text-ink">No recordings yet</h2>
-            <p className="mt-2 text-body-sm text-ink-secondary max-w-md">
-              Record your first clip from the Record tab — it will appear
-              here with a thumbnail and metadata.
-            </p>
-          </div>
+          search ? (
+            // Search empty.
+            <div className="flex flex-col items-center justify-center h-full text-center py-20">
+              <ExternalLink size={48} strokeWidth={1.5} className="text-ink-secondary mb-4" aria-hidden="true" />
+              <h2 className="text-heading font-medium text-ink">
+                No recordings match “{search}”
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="mt-4 flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                Clear search
+              </button>
+            </div>
+          ) : (
+            // Library empty.
+            <div className="flex flex-col items-center justify-center h-full text-center py-20">
+              <ExternalLink size={48} strokeWidth={1.5} className="text-ink-secondary mb-4" aria-hidden="true" />
+              <h2 className="text-heading font-medium text-ink">Nothing recorded yet</h2>
+              <p className="mt-2 text-body-sm text-ink-secondary max-w-md">
+                Choose a source on the Record tab, then hit Record. Your clips
+                will land here.
+              </p>
+              <button
+                type="button"
+                onClick={() => setView("record")}
+                className="mt-4 flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                Go to Record
+              </button>
+            </div>
+          )
         ) : (
           // Grid of recording cards.
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
