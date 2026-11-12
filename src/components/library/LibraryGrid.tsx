@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import RecordingDrawer from "./RecordingDrawer";
+import DeleteConfirm from "./DeleteConfirm";
 import type { LibraryListItem } from "../../types/ipc";
 import { cn } from "../../lib/cn";
 
@@ -46,16 +47,15 @@ function formatDate(iso: string): string {
   });
 }
 
-function LibraryCard({ item, onOpen }: { item: LibraryListItem; onOpen: (id: number) => void }) {
-  const deleteRecording = useSspStore((s) => s.deleteRecording);
+function LibraryCard({
+  item,
+  onOpen,
+  onDelete,
+}: { item: LibraryListItem; onOpen: (id: number) => void; onDelete: (id: number) => void }) {
   const [hovered, setHovered] = useState(false);
 
-  const handleDelete = async () => {
-    try {
-      await deleteRecording(item.id);
-    } catch {
-      // Error toast is handled by the store action.
-    }
+  const handleDelete = () => {
+    onDelete(item.id);
   };
 
   return (
@@ -163,19 +163,21 @@ function SkeletonCard() {
 }
 
 export default function LibraryGrid() {
-  const { library, loadLibrary, setLibraryOffset, openDrawer, closeDrawer } =
+  const { library, loadLibrary, setLibraryOffset, openDrawer, closeDrawer, deleteRecording } =
     useSspStore((s) => ({
       library: s.library,
       loadLibrary: s.loadLibrary,
       setLibraryOffset: s.setLibraryOffset,
       openDrawer: s.openDrawer,
       closeDrawer: s.closeDrawer,
+      deleteRecording: s.deleteRecording,
     }));
   const { drawerOpen } = library;
 
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<"created_at" | "duration" | "size">("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null);
   const mountedRef = useRef(false);
 
   // Load library on mount and whenever filter/sort changes.
@@ -278,7 +280,12 @@ export default function LibraryGrid() {
           // Grid of recording cards.
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {library.items.map((item) => (
-              <LibraryCard key={item.id} item={item} onOpen={openDrawer} />
+              <LibraryCard
+                key={item.id}
+                item={item}
+                onOpen={openDrawer}
+                onDelete={(id) => setPendingDelete({ id, name: item.fileName })}
+              />
             ))}
             {library.items.length < library.total && (
               <button
@@ -304,6 +311,20 @@ export default function LibraryGrid() {
 
       {/* Detail drawer (5.3) */}
       <RecordingDrawer open={drawerOpen} onClose={closeDrawer} />
+
+      {/* Delete confirm modal (5.4) */}
+      {pendingDelete && (
+        <DeleteConfirm
+          open={true}
+          recordingName={pendingDelete.name}
+          recordingId={pendingDelete.id}
+          onConfirm={(id) => {
+            void deleteRecording(id);
+            setPendingDelete(null);
+          }}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
     </section>
   );
 }
