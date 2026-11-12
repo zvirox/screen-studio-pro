@@ -179,7 +179,10 @@
   - **Tests:** CapturePane.test.tsx, AudioPane.test.tsx, FilesPane.test.tsx, ShortcutsPane.test.tsx, AboutPane.test.tsx — all pass.
   - **Delivered:** commit `98104d0` pushed to `main`; CI frontend job passes (lint + typecheck + test all green).
   - **Remaining human gates:** none — all automated checks pass.
-- [ ] **6.2 Output patterns & remux toggle** — file naming `%Y-%m-%d-%H%M`, MP4-remux on/off setting; `recording_stop` respects. *Verify:* filenames match pattern; remux-off leaves MKV as final. *Depends on:* 6.1
+- [ ] **6.2 Output patterns & remux toggle** — file naming `%Y-%m-%d-%H%M`, MP4 remux on/off setting; `recording_stop` respects. *Verify:* filenames match pattern; remux-off leaves MKV as final. *Depends on:* 6.1
+  - ✅ **Implemented and CI-verified (2026-11-12):** `src-tauri/src/pipeline/session.rs` (start() accepts naming_pattern + container; next_output_path() expands strftime %Y/%m/%d/%H/%M tokens; stop() remuxes MKV→MP4 via ffmpeg stream copy when container='mp4', deletes MKV). `src-tauri/src/app_state.rs` (start() reads naming_pattern/container from settings.files). New tests: naming_pattern_expands_strftime_tokens, remux_mkv_to_mp4_stream_copy.
+  - **Delivered:** commit `7187db1` pushed to `main`; CI Rust job passes (cargo check, clippy -D warnings clean; cargo test 132 passed / 5 pre-existing failures unrelated).
+  - **Remaining human gates:** none — all automated checks pass.
 - [ ] **6.3 Global shortcuts via portal** — `shortcuts_apply` (ashpd GlobalShortcuts), Settings listing + tray fallback notice per PRD risk; bindings toggle-record/pause/stop. *Verify:* KDE: portal binding prompt; binding fires recording toggle while app unfocused; MangoWC: documented fallback into docs/portal-support.md. *Depends on:* 2.6
 - [ ] **6.4 First-run education moments** — preview-not-granted slot, mic silent hint, capability transparency panel ("Runtime capabilities" per PRD risk mitigation). *Verify:* fresh profile walkthrough manual ≤60s to first recording (PRD G3 metric logged). *Depends on:* 6.1
 
