@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import NavBar from "./components/chrome/NavBar";
 import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
+import SettingsView from "./components/settings/SettingsView";
 import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
 import { useSspStore, type ViewId } from "./lib/store";
@@ -35,8 +36,6 @@ function ViewStub({ title, note }: { title: string; note: string }) {
 const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
   library:
     "The recordings grid lands with the library feature — seeded from the SQLite index (task 0.8).",
-  settings:
-    "Settings panes (capture, audio, camera, files, shortcuts, about) arrive with the settings store (task 0.7).",
 };
 
 export default function App() {
@@ -56,6 +55,8 @@ export default function App() {
         <motion.div key={view} {...enter}>
           {view === "record" ? (
             <RecordView />
+          ) : view === "settings" ? (
+            <SettingsView />
           ) : (
             <ViewStub
               title={view.charAt(0).toUpperCase() + view.slice(1)}

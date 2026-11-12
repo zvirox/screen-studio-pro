@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Circle, LoaderCircle, RectangleHorizontal, Video, VideoOff } from "lucide-react";
 import {
   DndContext,
@@ -12,6 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { useCameraPreview } from "../../hooks/useSourcePreview";
+import { useSspStore } from "../../lib/store";
 
 /* §6.6 Camera PiP — the Float recipe floating INSIDE the source preview
    frame (4.2 decision: the frame is the only video surface, §4.5, and
@@ -102,6 +103,12 @@ interface CameraPipProps {
 }
 
 export default function CameraPip({ cameraId, recording }: CameraPipProps) {
+  const loadPipPrefs = useSspStore((s) => s.loadPipPrefs);
+  const setPipPosition = useSspStore((s) => s.setPipPosition);
+  const setPipShape = useSspStore((s) => s.setPipShape);
+  const setPipSize = useSspStore((s) => s.setPipSize);
+  const prefs = useSspStore((s) => s.prefs);
+
   const [corner, setCorner] = useState<PipCorner>("bottom-right");
   const [size, setSize] = useState(PIP_DEFAULT_SIZE);
   const [shape, setShape] = useState<PipShape>("circle");
@@ -116,6 +123,24 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
   // §6.6: camera-off freeze is preview-only — the poll stops, the last
   // still holds on screen (the hook keeps prior state when disabled).
   const still = useCameraPreview(cameraId, !frozen);
+
+  // 4.4: load persisted pip prefs on mount; missing keys fall back to
+  // defaults (bottom-right / 240px / circle). pip.position has the wire
+  // shape "corner:<corner>,margin:<n>" (API §2.6).
+  useEffect(() => {
+    void loadPipPrefs();
+    // Parse position pref once loaded.
+    const pos = prefs.pipPosition;
+    if (pos) {
+      const m = pos.match(/corner:(top-left|top-right|bottom-left|bottom-right),margin:(\d+)/);
+      if (m) {
+        setCorner(m[1] as PipCorner);
+      }
+    }
+    if (prefs.pipShape) setShape(prefs.pipShape);
+    if (prefs.pipSize) setSize(prefs.pipSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -179,7 +204,10 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
     setSnapWinner(null);
     baseRef.current = null;
     if (!geo) return;
-    setCorner(snapCorner(geo.left, geo.top, size, geo.boundsW, geo.boundsH));
+    const nextCorner = snapCorner(geo.left, geo.top, size, geo.boundsW, geo.boundsH);
+    setCorner(nextCorner);
+    // 4.4: persist corner + margin as pip.position (API §2.6 wire shape).
+    void setPipPosition(`corner:${nextCorner},margin:${PIP_MARGIN}`);
   };
 
   /* Pointer resize from the 44px grip — diagonal grow (max of the axes),
@@ -195,8 +223,10 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
   const onGripPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const start = resizeStart.current;
     if (!start) return;
-    const grown = start.size + Math.max(e.clientX - start.x, e.clientY - start.y);
-    setSize(clampSize(grown));
+    const nextSize = clampSize(start.size + Math.max(e.clientX - start.x, e.clientY - start.y));
+    setSize(nextSize);
+    // 4.4: persist size as pip.size.
+    void setPipSize(nextSize);
   };
   const onGripPointerUp = () => {
     resizeStart.current = null;
@@ -209,7 +239,12 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
     const shrink = e.key === "ArrowDown" || e.key === "ArrowLeft";
     if (!grow && !shrink) return;
     e.preventDefault();
-    setSize((s) => clampSize(s + (grow ? step : -step)));
+    setSize((s) => {
+      const next = clampSize(s + (grow ? step : -step));
+      // 4.4: persist size as pip.size.
+      void setPipSize(next);
+      return next;
+    });
   };
 
   // Controls stop key/pointer propagation so the dnd KeyboardSensor
@@ -311,7 +346,11 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                   type="button"
                   role="menuitemradio"
                   aria-checked={shape === "circle"}
-                  onClick={() => setShape("circle")}
+                  onClick={() => {
+                    setShape("circle");
+                    // 4.4: persist shape as pip.shape.
+                    void setPipShape("circle");
+                  }}
                   className="flex h-9 items-center gap-2 rounded-xs px-2 text-body-sm text-ink hover:bg-accent-muted aria-checked:bg-accent-muted aria-checked:font-medium"
                 >
                   <Circle size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -321,7 +360,11 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                   type="button"
                   role="menuitemradio"
                   aria-checked={shape === "rounded"}
-                  onClick={() => setShape("rounded")}
+                  onClick={() => {
+                    setShape("rounded");
+                    // 4.4: persist shape as pip.shape.
+                    void setPipShape("rounded");
+                  }}
                   className="flex h-9 items-center gap-2 rounded-xs px-2 text-body-sm text-ink hover:bg-accent-muted aria-checked:bg-accent-muted aria-checked:font-medium"
                 >
                   <RectangleHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />

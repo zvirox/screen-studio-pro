@@ -15,13 +15,24 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
   cameraListDevices: vi.fn(),
   cameraOpen: vi.fn(),
   cameraClose: vi.fn(),
+  prefsGet: vi.fn(),
+  prefsSet: vi.fn(),
 }));
 
-import { cameraPreview, cameraListDevices, cameraOpen, cameraClose } from "../../lib/ipc";
+import {
+  cameraPreview,
+  cameraListDevices,
+  cameraOpen,
+  cameraClose,
+  prefsGet,
+  prefsSet,
+} from "../../lib/ipc";
 const mockPreview = vi.mocked(cameraPreview);
 const mockListDevices = vi.mocked(cameraListDevices);
 const mockOpen = vi.mocked(cameraOpen);
 const mockClose = vi.mocked(cameraClose);
+const mockPrefsGet = vi.mocked(prefsGet);
+const mockPrefsSet = vi.mocked(prefsSet);
 
 function setCamera(camera: Partial<CameraSlice>) {
   useSspStore.setState({ camera: { ...INITIAL_SESSION, ...camera } as CameraSlice });

@@ -92,6 +92,10 @@ export interface CaptureSettings {
   encoder: string;
   /** M11 preset id (API §2.5). */
   qualityPreset: string;
+  /** 4.3/4.4: when true, the open camera's PiP is composited into the
+      encoded video at its UI position (bottom-right, margin 24,
+      size 240, circle — the 4.2 defaults). Default false. */
+  cameraSelfInsert: boolean;
 }
 
 export interface AudioSettings {

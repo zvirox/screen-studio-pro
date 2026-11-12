@@ -5,6 +5,8 @@ import {
   cameraListDevices,
   cameraOpen,
   cameraClose,
+  prefsGet,
+  prefsSet,
   presetsList,
   recordingStart,
   recordingStop,
@@ -22,7 +24,9 @@ import type {
   AudioListDevicesReply,
   CameraDeviceInfo,
   Capabilities,
+  CaptureSettings,
   IpcError,
+  PrefEntry,
   Preset,
   PresetId,
   RecordingFinishedEvt,
@@ -195,6 +199,37 @@ export const INITIAL_CAMERA: CameraSlice = {
   devicesLoading: false,
 };
 
+/* ---------- Settings projection (§6.4, API §2.6) ---------- */
+
+/** Projection of `settings.capture` (the Rust settings snapshot is the
+    owner; settingsGet/set round-trip it through TOML). */export interface SettingsSlice {
+  capture: CaptureSettings | null;
+  captureLoading: boolean;
+}
+
+export const INITIAL_SETTINGS: SettingsSlice = {
+  capture: null,
+  captureLoading: false,
+};
+
+/* ---------- ui_prefs projection (§6.6 / API §2.6, DATABASE §2.2) ---------- */
+
+/** Persisted PiP prefs — shape/size/position survive restarts. Keys live
+    in the `pip.*` namespace (PREF_NAMESPACES on the Rust side). */
+export interface PrefsSlice {
+  pipPosition: string | null; // "corner:bottom-right,margin:24"
+  pipShape: "circle" | "rounded" | null;
+  pipSize: number | null;
+  prefsLoading: boolean;
+}
+
+export const INITIAL_PREFS: PrefsSlice = {
+  pipPosition: null,
+  pipShape: null,
+  pipSize: null,
+  prefsLoading: false,
+};
+
 /* ---------- Presets projection (API §2.5, task 3.4 / M11) ---------- */
 
 export type PresetsStatus = "idle" | "loading" | "ready" | "error";
@@ -261,6 +296,13 @@ interface SspState {
      handle. PiP position/shape/size are LOCAL UI state (CameraPip) until
      4.4 persists them via ui_prefs. */
   camera: CameraSlice;
+
+  /* §6.4 settings — Capture settings projection (camera_self_insert is
+     the 4.3/4.4 self-insert flag). */
+  settings: SettingsSlice;
+
+  /* §6.6 ui_prefs — PiP position/shape/size persisted via prefs_set. */
+  prefs: PrefsSlice;
 
   /* Camera actions (4.2) — camera_open/close; device lists re-list per
      popover open and on device/changed (hooks/useRecordingState). */
@@ -333,6 +375,8 @@ export const useSspStore = create<SspState>((set, get) => ({
   session: INITIAL_SESSION,
   audio: INITIAL_AUDIO,
   camera: INITIAL_CAMERA,
+  settings: INITIAL_SETTINGS,
+  prefs: INITIAL_PREFS,
   capabilities: null,
   presets: INITIAL_PRESETS,
 
@@ -597,6 +641,134 @@ export const useSspStore = create<SspState>((set, get) => ({
           kind: "error",
           title: "Camera disconnected. Replug it and pick it again from the camera list.",
           code: "capture.camera_unavailable",
+        }),
+      );
+    }
+  },
+
+  /* ---------- Settings actions (4.4) ---------- */
+
+  async loadCaptureSettings() {
+    if (get().settings.captureLoading) return;
+    set({ settings: { ...get().settings, captureLoading: true } });
+    try {
+      const capture = await settingsGet("capture");
+      set({ settings: { ...get().settings, capture, captureLoading: false } });
+    } catch (err) {
+      set({ settings: { ...get().settings, captureLoading: false, capture: null } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /** 4.4: toggle self-insert on the Capture settings snapshot. Rolls back
+      on rejection and toasts the error. */
+  async setCameraSelfInsert(value: boolean) {
+    const prior = get().settings.capture;
+    if (!prior) return;
+    set({ settings: { ...get().settings, capture: { ...prior, cameraSelfInsert: value } } });
+    try {
+      await settingsSet({ capture: { cameraSelfInsert: value } });
+    } catch (err) {
+      set({ settings: { ...get().settings, capture: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /* ---------- ui_prefs actions (4.4) ---------- */
+
+  async loadPipPrefs() {
+    if (get().prefs.prefsLoading) return;
+    set({ prefs: { ...get().prefs, prefsLoading: true } });
+    try {
+      // Load all three pip prefs in parallel; missing keys read as null.
+      const [position, shape, size] = await Promise.all([
+        prefsGet("pip.position"),
+        prefsGet("pip.shape"),
+        prefsGet("pip.size"),
+      ]);
+      set({
+        prefs: {
+          ...get().prefs,
+          pipPosition: typeof position === "string" ? position : null,
+          pipShape: typeof shape === "string" ? (shape as "circle" | "rounded") : null,
+          pipSize: typeof size === "number" ? size : null,
+          prefsLoading: false,
+        },
+      });
+    } catch (err) {
+      set({ prefs: { ...get().prefs, prefsLoading: false } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  /** Prefs are upsert-only (API §2.6): no history, latest write wins. */
+  async setPipPosition(value: string) {
+    const prior = get().prefs.pipPosition;
+    if (prior === value) return;
+    set({ prefs: { ...get().prefs, pipPosition: value } });
+    try {
+      await prefsSet("pip.position", value);
+    } catch (err) {
+      set({ prefs: { ...get().prefs, pipPosition: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setPipShape(value: "circle" | "rounded") {
+    const prior = get().prefs.pipShape;
+    if (prior === value) return;
+    set({ prefs: { ...get().prefs, pipShape: value } });
+    try {
+      await prefsSet("pip.shape", value);
+    } catch (err) {
+      set({ prefs: { ...get().prefs, pipShape: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setPipSize(value: number) {
+    const prior = get().prefs.pipSize;
+    if (prior === value) return;
+    set({ prefs: { ...get().prefs, pipSize: value } });
+    try {
+      await prefsSet("pip.size", value);
+    } catch (err) {
+      set({ prefs: { ...get().prefs, pipSize: prior } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
         }),
       );
     }
