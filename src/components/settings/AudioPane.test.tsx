@@ -62,8 +62,12 @@ describe("AudioPane (§6.4 / 6.1)", () => {
   });
 
   it("sets desktop device via audioSetChannel", async () => {
+    // Start with a non-default device, then change to default
+    setAudioState({
+      mic: { enabled: true, muted: false, deviceId: null, level: 100 },
+      desktop: { enabled: true, muted: false, deviceId: "sink_0", level: 100 },
+    });
     render(<AudioPane />);
-    // Desktop device select is the second select; selecting "default" clears to null
     const selects = screen.getAllByRole("combobox");
     fireEvent.change(selects[1], { target: { value: "default" } });
     await waitFor(() =>
