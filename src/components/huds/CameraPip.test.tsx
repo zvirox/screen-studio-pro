@@ -28,8 +28,8 @@ describe("CameraPip (§6.6)", () => {
   });
 
   it("renders nothing when no camera is open", () => {
-    render(<CameraPip cameraId="cam_1" recording={false} />);
-    expect(screen.querySelector('[data-camera-pip="frame"]')).not.toBeInTheDocument();
+    const { container } = render(<CameraPip cameraId="cam_1" recording={false} />);
+    expect(container.querySelector('[data-camera-pip="frame"]')).not.toBeInTheDocument();
   });
 
   it("renders still as an img once poll lands", async () => {
