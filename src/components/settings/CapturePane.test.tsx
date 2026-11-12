@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CapturePane from "./CapturePane";
-import { useSspStore, INITIAL_PRESETS } from "../../lib/store";
+import { useSspStore, INITIAL_PRESETS, type PresetsSlice } from "../../lib/store";
 import type { CaptureSettings } from "../../types/ipc";
 import type * as ipcModule from "../../lib/ipc";
 
@@ -28,7 +28,7 @@ function setCaptureSettings(capture: Partial<CaptureSettings>) {
   });
 }
 
-function setPresets(presets: { status: string; presets: { id: string; label: string; description: string; fps: number; height: number; container: string }[]; presetId: string }) {
+function setPresets(presets: Partial<PresetsSlice>) {
   useSspStore.setState({ presets: { ...INITIAL_PRESETS, ...presets } });
 }
 

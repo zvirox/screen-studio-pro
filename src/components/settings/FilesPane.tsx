@@ -15,12 +15,6 @@ export default function FilesPane() {
         container format. MKV is the native container; MP4 remux joins M9.
       </p>
 
-      {files?.status === "error" && files.error && (
-        <div className="mt-4 p-3 rounded-sm bg-error/10 border border-error text-error">
-          {files.error.userMessage}
-        </div>
-      )}
-
       {/* Output directory */}
       <div className="mt-6">
         <label className="block text-label text-ink mb-1.5">Output directory</label>

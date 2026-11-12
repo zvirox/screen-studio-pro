@@ -18,7 +18,16 @@ function setCameraState(camera: Partial<CameraSlice>) {
   useSspStore.setState({ camera: { ...INITIAL_CAMERA, ...camera } as CameraSlice });
 }
 function setCaptureSettings(capture: Partial<CaptureSettings>) {
-  useSspStore.setState({ settings: { capture: capture as CaptureSettings, captureLoading: false } });
+  useSspStore.setState({
+    settings: {
+      capture: capture as CaptureSettings,
+      captureLoading: false,
+      files: null,
+      filesLoading: false,
+      shortcuts: null,
+      shortcutsLoading: false,
+    },
+  });
 }
 
 /* §6.4 Camera pane — self-insert toggle reads/writes
