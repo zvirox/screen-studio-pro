@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/assets/screen-studio-pro-logo.png" alt="ScreenStudio Pro logo" width="320">
+</p>
+
 # ScreenStudio Pro
 
 **A modern, open-source screen recording app for Linux — a frosted-glass alternative to OBS for Hyprland, niri, MangoWC and KDE.**
