@@ -779,14 +779,14 @@ impl RecordingHandle {
         });
         let has_audio = !channels.is_empty();
         let builder = MuxerBuilder::create(&path)?;
-        let (builder, _video_opened) = builder.add_video(&spec)?;
+        let (builder, video_opened) = builder.add_video(&spec)?;
         let (builder, audio_opened) = if has_audio {
             let (builder, opened) = builder.add_audio(&composition_audio_spec())?;
             (builder, Some(opened))
         } else {
             (builder, None)
         };
-        let _mux = builder.write_header()?;
+        let mux = builder.write_header()?;
 
         // Encoder selection (M8): auto NVENC → VAAPI → x264, with fallback.
         let encoder_opts = crate::pipeline::presets::x264_options(&preset);
@@ -877,18 +877,11 @@ impl RecordingHandle {
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
-                // Create the x264 encoder inside the worker thread.
-                let spec = VideoSpec {
-                    codec: ff::codec::Id::H264,
-                    width: dims.0,
-                    height: dims.1,
-                    pix_fmt: ff::format::Pixel::YUV420P,
-                    frame_rate: (worker_preset.fps, 1),
-                    options: crate::pipeline::presets::x264_options(&worker_preset),
-                };
-                let builder = MuxerBuilder::create(&path)?;
-                let (builder, video_opened) = builder.add_video(&spec)?;
-                let mux = builder.write_header()?;
+                // The muxer was opened ONCE above (video + the AAC stream
+                // when an audio plan exists) and moves in here; rebuilding
+                // it per-thread re-truncated the file with a video-only
+                // header and every audio packet then died with
+                // "Invalid packet stream index: 1" (disk.write_failed).
                 let encoder = SwX264::from_open(video_opened);
 
                 run_session(
