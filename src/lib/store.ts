@@ -1071,6 +1071,7 @@ export const useSspStore = create<SspState>((set, get) => ({
 
   async loadLibrary() {
     if (get().library.status === "loading") return;
+    if (get().library.status === "ready") return;
     set({ library: { ...get().library, status: "loading", error: null } });
     try {
       const { items, total, page } = await libraryList(
@@ -1107,7 +1108,7 @@ export const useSspStore = create<SspState>((set, get) => ({
     set({ library: { ...get().library, offset } });
   },
   setLibraryFilter(filter) {
-    set({ library: { ...get().library, filter, offset: 0, status: "idle" } });
+    set({ library: { ...get().library, filter, offset: 0 } });
   },
   setLibrarySort(sort) {
     set({
@@ -1118,7 +1119,6 @@ export const useSspStore = create<SspState>((set, get) => ({
           direction: sort.direction ?? "desc",
         },
         offset: 0,
-        status: "idle",
       },
     });
   },

@@ -200,8 +200,7 @@ export default function LibraryGrid() {
 
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
-    void setLibraryFilter({ search: e.target.value });
-  }, [setLibraryFilter]);
+  }, []);
 
   const handleSort = useCallback((field: "created_at" | "duration" | "size") => {
     if (sortField === field) {
