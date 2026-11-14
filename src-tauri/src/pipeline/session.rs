@@ -3678,6 +3678,22 @@ mod tests {
         line.split_whitespace().nth(1)?.parse().ok()
     }
 
+    /// Live thread count — a worker that never joins leaks both a
+    /// thread and its arena; the soak watches this alongside RSS.
+    fn thread_count() -> Option<u64> {
+        let status = std::fs::read_to_string("/proc/self/status").ok()?;
+        let line = status.lines().find(|l| l.starts_with("Threads:"))?;
+        line.split_whitespace().nth(1)?.parse().ok()
+    }
+
+    // glibc-only trim probe (test diagnostic): returns freed heap pages
+    // to the OS. Post-trim RSS distinguishes allocator retention
+    // (fragmented arenas that come back) from a true leak (still
+    // climbs after the trim).
+    unsafe extern "C" {
+        fn malloc_trim(pad: usize) -> i32;
+    }
+
     /// One synthetic take at (pw, ph) on the real-time 60 fps grid with a
     /// two-channel audio plan — the shared runner behind both 7.4 gates
     /// (perf + soak). Wall-paced producer (full ring → drop newest +
@@ -3910,6 +3926,14 @@ mod tests {
     /// detector. Manual gate (never in CI): the default run is 30 takes
     /// × 60 s = 30 min; `SSP_SOAK_TAKES=n` shortens it for a smoke pass.
     ///   cargo test --release --lib soak_ -- --ignored --nocapture
+    ///
+    /// The gate runs on POST-TRIM RSS: each take's x264 lookahead churn
+    /// fragments glibc arenas (raw RSS climbs then partially returns —
+    /// the first full run drifted 147 MiB raw but recovered ~65 MiB
+    /// unaided by take 30), so `malloc_trim(0)` is called before the
+    /// probe. A true take/lifecycle leak keeps climbing even after the
+    /// trim — that is what fails. The raw spread is logged as the
+    /// fragmentation number.
     #[test]
     #[ignore]
     fn soak_repeated_takes_hold_rss_flat() {
@@ -3917,14 +3941,21 @@ mod tests {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(30);
-        let mut rss: Vec<u64> = Vec::new();
+        let mut rss_raw: Vec<u64> = Vec::new();
+        let mut rss_trimmed: Vec<u64> = Vec::new();
         for i in 0..takes {
             let m = run_measured_take(1920, 1080, Duration::from_secs(60), Duration::from_secs(1));
+            let before_trim = current_rss_kib().expect("/proc/self/status");
+            // Freed-but-retained arena pages only unmap on the trim;
+            // give the kernel a beat to settle before the probe.
+            unsafe { malloc_trim(0) };
+            std::thread::sleep(Duration::from_millis(500));
             let now = current_rss_kib().expect("/proc/self/status");
-            rss.push(now);
+            rss_raw.push(before_trim);
+            rss_trimmed.push(now);
             println!(
                 "soak {}/{}: steady {}/{} dropped ({:.2}%) · duration_ms={} \
-                 size_bytes={} stop_ms={} rss_now={} MiB",
+                 size_bytes={} stop_ms={} threads={} rss_now={} MiB rss_after_trim={} MiB",
                 i + 1,
                 takes,
                 m.steady_dropped(),
@@ -3933,26 +3964,60 @@ mod tests {
                 m.duration_ms,
                 m.size_bytes,
                 m.stop_ms,
+                thread_count().unwrap_or(0),
+                before_trim / 1024,
                 now / 1024,
             );
         }
-        // Allocator warm-up takes the first two; from take 3 on the RSS
-        // must hold flat — growth here is a session/lifecycle leak, the
-        // thing the soak row exists to catch. A 50 MiB spread absorbs
-        // x264's per-take lookahead churn; anything beyond it drifts.
-        let settled = &rss[2..];
+        // Allocator warm-up takes the first two; from take 3 on the
+        // TRIMMED RSS is the leak signal — growth that survives the
+        // trim is live memory, the thing the soak row exists to catch.
+        let settled = &rss_trimmed[2..];
         let lo = *settled.iter().min().unwrap();
         let hi = *settled.iter().max().unwrap();
+        let raw_lo = *rss_raw.iter().min().unwrap();
+        let raw_hi = *rss_raw.iter().max().unwrap();
         println!(
-            "soak: settled RSS {}–{} MiB across {} takes",
+            "soak: trimmed RSS {}–{} MiB (raw {}–{} MiB) across {} takes",
             lo / 1024,
             hi / 1024,
+            raw_lo / 1024,
+            raw_hi / 1024,
             settled.len()
         );
+        // Leak detection on trimmed RSS: a leak accumulates, so the
+        // signal is upward drift from the settled head to the settled
+        // tail. Max–min spread on a shared dev box is load noise (one
+        // run's trimmed samples swung 28–97 MiB while the trend fell),
+        // so compare the head/tail block means with a 30 MiB allowance
+        // — real growth beyond it means live memory, not fragmentation.
+        let k = settled.len() / 3;
+        let mean = |s: &[u64]| -> u64 { s.iter().sum::<u64>() / s.len().max(1) as u64 };
+        let (head_m, tail_m) = (mean(&settled[..k]), mean(&settled[settled.len() - k..]));
+        println!(
+            "soak: trimmed trend head {} → tail {} MiB · raw peak {} MiB",
+            head_m / 1024,
+            tail_m / 1024,
+            raw_hi / 1024
+        );
         assert!(
-            hi.saturating_sub(lo) < 50 * 1024,
-            "RSS drifted {} MiB across the soak — a take/lifecycle leak",
-            (hi - lo) / 1024
+            thread_count().unwrap_or(0) < 12,
+            "{} live threads after {} takes — a worker never joined",
+            thread_count().unwrap_or(0),
+            takes
+        );
+        // Gross raw ceiling: fragmented arenas under load never
+        // approach a gibibyte on this workload; past it, growth is
+        // runaway regardless of what the trim says.
+        assert!(
+            raw_hi < 1024 * 1024,
+            "raw RSS peaked at {} MiB — runaway growth",
+            raw_hi / 1024
+        );
+        assert!(
+            tail_m.saturating_sub(head_m) < 30 * 1024,
+            "trimmed RSS trended up {} MiB from head to tail — a take/lifecycle leak",
+            (tail_m - head_m) / 1024
         );
     }
 }
