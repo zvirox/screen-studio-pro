@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/assets/screen-studio-pro-logo.png" alt="ScreenStudio Pro logo" width="320">
+  <img src="src/assets/screen-studio-pro-logo.png" alt="ScreenStudio Pro logo" width="200">
 </p>
 
 # ScreenStudio Pro

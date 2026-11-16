@@ -1,5 +1,5 @@
-import { Info } from "lucide-react";
 import { useSspStore } from "../../lib/store";
+import logoUrl from "../../assets/screen-studio-pro-logo.png";
 
 /* §6.4 Settings — About pane. Static app/version info. No settings to
    mutate; read-only display of the contract version and app identity. */
@@ -9,14 +9,19 @@ export default function AboutPane() {
 
   return (
     <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
-      <div className="flex items-center gap-3">
-        <Info size={20} strokeWidth={1.5} aria-hidden="true" />
-        <h1 className="text-display-md">About</h1>
+      <div className="flex items-center gap-4">
+        <img
+          src={logoUrl}
+          alt="ScreenStudio Pro logo"
+          className="h-12 w-12 rounded-lg object-contain"
+        />
+        <div>
+          <h1 className="text-display-md">About</h1>
+          <p className="mt-1 text-body-sm text-ink-secondary">
+            ScreenStudio Pro — screen recording for Wayland-first Linux desktops.
+          </p>
+        </div>
       </div>
-      <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        ScreenStudio Pro — screen recording for Wayland-first Linux
-        desktops.
-      </p>
 
       <div className="mt-8">
         <h2 className="text-heading text-ink mb-3">Application</h2>
