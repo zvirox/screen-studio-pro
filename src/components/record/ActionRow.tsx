@@ -19,15 +19,15 @@ function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boo
   const label = backend.toUpperCase();
   const icon =
     backend === "nvenc" ? (
-      <Cpu size={12} strokeWidth={2} />
+      <Cpu size={12} strokeWidth={1.5} />
     ) : backend === "vaapi" ? (
-      <Cpu size={12} strokeWidth={2} />
+      <Cpu size={12} strokeWidth={1.5} />
     ) : (
-      <Cpu size={12} strokeWidth={2} />
+      <Cpu size={12} strokeWidth={1.5} />
     );
   const fallbackNotice = isFallback ? (
     <span className="flex items-center gap-1 text-label text-warning">
-      <Zap size={10} strokeWidth={2} aria-hidden="true" />
+      <Zap size={10} strokeWidth={1.5} aria-hidden="true" />
       Falling back to CPU encode
     </span>
   ) : null;
@@ -88,22 +88,17 @@ export default function ActionRow() {
 
   const label = busy ? (
     <span role="status" aria-live="polite" className="flex items-center justify-center gap-2">
-      <LoaderCircle
-        size={14}
-        strokeWidth={2}
-        className="animate-spin [animation-duration:0.8s]"
-        aria-hidden="true"
-      />
+      <LoaderCircle size={14} strokeWidth={1.5} className="animate-spin-slow" aria-hidden="true" />
       Working…
     </span>
   ) : recording ? (
     <span className="flex items-center justify-center gap-2">
-      <Square size={16} strokeWidth={2} className="fill-current" aria-hidden="true" />
+      <Square size={16} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
       Stop &amp; save
     </span>
   ) : (
     <span className="flex items-center justify-center gap-2">
-      <Dot size={20} strokeWidth={2} className="fill-current" aria-hidden="true" />
+      <Dot size={20} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
       Record
     </span>
   );
@@ -155,11 +150,11 @@ export default function ActionRow() {
           className={
             idle && fault
               ? // retry after a failure is still the primary action
-                "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover active:scale-[0.985] active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
               : busy
                 ? "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
                 : recording
-                  ? "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover active:scale-[0.985] active:bg-accent-active"
+                  ? "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 active:bg-accent-active"
                   : "h-12 flex-1 rounded-sm border border-subtle bg-subtle text-body-sm font-medium text-ink-disabled"
           }
         >

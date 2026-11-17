@@ -139,7 +139,12 @@ export default function CameraSlab() {
             role="status"
             aria-live="polite"
           >
-            <LoaderCircle size={16} strokeWidth={2} className="animate-spin [animation-duration:0.8s]" aria-hidden="true" />
+            <LoaderCircle
+              size={16}
+              strokeWidth={2}
+              className="animate-spin-slow"
+              aria-hidden="true"
+            />
             Working…
           </span>
         ) : (

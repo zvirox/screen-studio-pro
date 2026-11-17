@@ -44,7 +44,7 @@ export default function HudBar() {
         if (interactionTarget(e)) return;
         setPinned((p) => !p);
       }}
-      className={`float flex h-[46px] items-center gap-3 rounded-full px-3 ${
+      className={`float flex h-[46px] items-center gap-3 rounded-sm px-3 ${
         pinned ? "opacity-85" : ""
       }`}
     >
@@ -53,15 +53,9 @@ export default function HudBar() {
         // text carry the state, never color alone).
         <div data-hud="dot" className="h-[22px] w-[22px] rounded-xs bg-signal" />
       ) : (
-        <div
-          data-hud="dot"
-          className="h-2.5 w-2.5 animate-pulse-rec rounded-full bg-signal"
-        />
+        <div data-hud="dot" className="h-2.5 w-2.5 animate-pulse-rec rounded-full bg-signal" />
       )}
-      <div
-        role="timer"
-        className="font-mono text-mono-md tabular-nums text-ink"
-      >
+      <div role="timer" className="font-mono text-mono-md tabular-nums text-ink">
         {formatElapsed(session.elapsedMs)}
       </div>
       {session.paused ? (
@@ -74,12 +68,12 @@ export default function HudBar() {
           type="button"
           aria-label={session.paused ? "Resume recording" : "Pause recording"}
           onClick={() => void (session.paused ? resumeRecording() : pauseRecording())}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent"
+          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent"
         >
           {session.paused ? (
-            <Play size={16} strokeWidth={2} className="fill-current" aria-hidden="true" />
+            <Play size={16} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
           ) : (
-            <Pause size={16} strokeWidth={2} aria-hidden="true" />
+            <Pause size={16} strokeWidth={1.5} aria-hidden="true" />
           )}
         </button>
         <button
@@ -87,9 +81,9 @@ export default function HudBar() {
           aria-label="Stop & save"
           title="Stop & save"
           onClick={() => void stopRecording()}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink transition-transform duration-(--duration-fast) hover:scale-[1.06] focus-visible:outline focus-visible:outline-accent"
+          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-transform duration-fast ease-fast hover:scale-[1.06] focus-visible:outline focus-visible:outline-accent"
         >
-          <Square size={14} strokeWidth={2} className="fill-current" aria-hidden="true" />
+          <Square size={14} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -100,9 +94,10 @@ export default function HudBar() {
             try {
               await recordingFlag(session.recordingId, undefined);
               // DESIGN §6.5: brief tick on timer chip — silent, non-blocking.
-              // HUD shows a 500ms pulse on the flag icon as local feedback.
+              // HUD shows an m.slow (240ms) tick on the flag icon as local
+              // feedback — silent, non-blocking (§6.5).
               setFlagged(true);
-              setTimeout(() => setFlagged(false), 500);
+              setTimeout(() => setFlagged(false), 240);
             } catch {
               // A refused flag (no live take / wrong id) is not an error —
               // §6.5: the tick phase will disagree and the main window
@@ -110,11 +105,11 @@ export default function HudBar() {
               // surfaced by the main window via tick/error events.
             }
           }}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Flag
             size={16}
-            strokeWidth={2}
+            strokeWidth={1.5}
             aria-hidden="true"
             className={flagged ? "text-signal" : ""}
           />

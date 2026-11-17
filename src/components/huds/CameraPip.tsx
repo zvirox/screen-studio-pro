@@ -268,7 +268,12 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
       <div ref={containerRef} className="absolute inset-0 overflow-hidden">
         {isDragging
           ? CORNERS.map((c) => (
-              <div key={c} data-pip-guide={c} className={guideClass(c, snapWinner)} aria-hidden="true" />
+              <div
+                key={c}
+                data-pip-guide={c}
+                className={guideClass(c, snapWinner)}
+                aria-hidden="true"
+              />
             ))
           : null}
         <div
@@ -281,8 +286,10 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
           style={{
             ...cornerStyle(corner, size),
             transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-            borderRadius: shape === "circle" ? "var(--ssp-r-full)" : "var(--ssp-r-lg)",
-            ...(recording ? { boxShadow: "var(--ssp-elev-float), 0 0 0 2px var(--ssp-signal)" } : {}),
+            borderRadius: shape === "circle" ? "var(--radius-full)" : "var(--radius-md)",
+            ...(recording
+              ? { boxShadow: "var(--ssp-elev-float), 0 0 0 2px var(--ssp-signal)" }
+              : {}),
           }}
           tabIndex={0}
           {...listeners}
@@ -296,8 +303,17 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
           ) : (
             // §5.1 loading: the open reply implies a still, so this is a
             // brief state — the spinner copy matches the deck's slot.
-            <div role="status" aria-live="polite" className="flex items-center gap-2 text-body-sm text-ink-secondary">
-              <LoaderCircle size={16} strokeWidth={2} className="animate-spin [animation-duration:0.8s]" aria-hidden="true" />
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 text-body-sm text-ink-secondary"
+            >
+              <LoaderCircle
+                size={16}
+                strokeWidth={1.5}
+                className="animate-spin-slow"
+                aria-hidden="true"
+              />
               Working…
             </div>
           )}
@@ -320,9 +336,9 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
               className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
             >
               {frozen ? (
-                <VideoOff size={16} strokeWidth={2} aria-hidden="true" />
+                <VideoOff size={16} strokeWidth={1.5} aria-hidden="true" />
               ) : (
-                <Video size={16} strokeWidth={2} aria-hidden="true" />
+                <Video size={16} strokeWidth={1.5} aria-hidden="true" />
               )}
             </button>
             <Popover>
@@ -333,9 +349,9 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                 className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               >
                 {shape === "circle" ? (
-                  <Circle size={16} strokeWidth={2} aria-hidden="true" />
+                  <Circle size={16} strokeWidth={1.5} aria-hidden="true" />
                 ) : (
-                  <RectangleHorizontal size={16} strokeWidth={2} aria-hidden="true" />
+                  <RectangleHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
                 )}
               </PopoverTrigger>
               {/* PRD 7.3 step 4: the circle/rounded toggle rides a
@@ -393,7 +409,13 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
           >
             {/* Grip affordance: diagonal ticks (decorative). */}
             <svg viewBox="0 0 12 12" className="h-3 w-3 text-ink-secondary" aria-hidden="true">
-              <path d="M11 1L1 11M11 6l-5 5M6 11l-5 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+              <path
+                d="M11 1L1 11M11 6l-5 5M6 11l-5 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                fill="none"
+              />
             </svg>
           </div>
         </div>

@@ -62,8 +62,8 @@ function SourceChip({
       {isSelecting ? (
         <LoaderCircle
           size={16}
-          strokeWidth={2}
-          className="animate-spin [animation-duration:0.8s]"
+          strokeWidth={1.5}
+          className="animate-spin-slow"
           aria-hidden="true"
         />
       ) : (
@@ -82,7 +82,7 @@ function SourceChip({
         </>
       )}
       {isActive ? (
-        <Check size={16} strokeWidth={2} className="text-accent" aria-hidden="true" />
+        <Check size={16} strokeWidth={1.5} className="text-accent" aria-hidden="true" />
       ) : null}
     </button>
   );
@@ -275,8 +275,8 @@ export default function SourceDeck() {
             >
               <LoaderCircle
                 size={16}
-                strokeWidth={2}
-                className="animate-spin [animation-duration:0.8s]"
+                strokeWidth={1.5}
+                className="animate-spin-slow"
                 aria-hidden="true"
               />
               Working…

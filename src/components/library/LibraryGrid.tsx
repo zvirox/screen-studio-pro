@@ -5,6 +5,7 @@ import RecordingDrawer from "./RecordingDrawer";
 import DeleteConfirm from "./DeleteConfirm";
 import type { LibraryListItem } from "../../types/ipc";
 import { cn } from "../../lib/cn";
+import { Reveal } from "../ui/Reveal";
 
 /* §6.5 Cards & the recording library grid (task 5.2).
    Card: surface.solid, r.md, border.subtle, elev.1, padding space.4.
@@ -350,28 +351,30 @@ export default function LibraryGrid() {
           )
         ) : (
           // Grid of recording cards.
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {library.items.map((item) => (
-              <LibraryCard
-                key={item.id}
-                item={item}
-                onOpen={openDrawer}
-                onDelete={(id) => setPendingDelete({ id, name: item.fileName })}
-              />
-            ))}
-            {library.items.length < library.total && (
-              <button
-                onClick={() => {
-                  setLibraryOffset(library.offset + library.limit);
-                  void loadLibrary();
-                }}
-                className="col-span-full flex w-full items-center justify-center gap-2 py-3 rounded-sm border border-subtle bg-solid text-body-sm text-accent hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-              >
-                <LoaderCircle size={16} strokeWidth={2} aria-hidden="true" />
-                Show more
-              </button>
-            )}
-          </div>
+          <Reveal>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {library.items.map((item) => (
+                <LibraryCard
+                  key={item.id}
+                  item={item}
+                  onOpen={openDrawer}
+                  onDelete={(id) => setPendingDelete({ id, name: item.fileName })}
+                />
+              ))}
+              {library.items.length < library.total && (
+                <button
+                  onClick={() => {
+                    setLibraryOffset(library.offset + library.limit);
+                    void loadLibrary();
+                  }}
+                  className="col-span-full flex w-full items-center justify-center gap-2 py-3 rounded-sm border border-subtle bg-solid text-body-sm text-accent hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  <LoaderCircle size={16} strokeWidth={2} aria-hidden="true" />
+                  Show more
+                </button>
+              )}
+            </div>
+          </Reveal>
         )}
       </div>
 

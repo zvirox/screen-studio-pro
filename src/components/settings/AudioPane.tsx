@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Mic, Speaker } from "lucide-react";
 import { useSspStore } from "../../lib/store";
+import { Switch } from "../ui/switch";
 
 /* §6.4 Settings — Audio pane. Mic and desktop audio channels: enabled,
    muted, device, level. Changes roll back on rejection and toast the §1
@@ -40,27 +41,15 @@ export default function AudioPane() {
               <span className="font-medium text-ink">Microphone</span>
             </div>
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                role="switch"
+              <Switch
                 aria-label="Microphone enabled"
-                aria-checked={mic.enabled}
+                checked={mic.enabled}
                 disabled={toggling}
-                onClick={() => {
+                onCheckedChange={() => {
                   setToggling(true);
                   void setChannelEnabled("mic", !mic.enabled).finally(() => setToggling(false));
                 }}
-                className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
-                  ${mic.enabled ? "bg-accent" : "bg-solid"}
-                  ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-accent"}
-                `}
-              >
-                <span
-                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
-                    ${mic.enabled ? "translate-x-8" : "translate-x-2"}`}
-                  aria-hidden="true"
-                />
-              </button>
+              />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -82,27 +71,15 @@ export default function AudioPane() {
             </div>
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Muted</label>
-              <button
-                type="button"
-                role="switch"
+              <Switch
                 aria-label="Microphone muted"
-                aria-checked={mic.muted}
+                checked={mic.muted}
                 disabled={toggling || !mic.enabled}
-                onClick={() => {
+                onCheckedChange={() => {
                   setToggling(true);
                   void setChannelMuted("mic", !mic.muted).finally(() => setToggling(false));
                 }}
-                className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
-                  ${mic.muted ? "bg-accent" : "bg-solid"}
-                  ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-accent"}
-                `}
-              >
-                <span
-                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
-                    ${mic.muted ? "translate-x-8" : "translate-x-2"}`}
-                  aria-hidden="true"
-                />
-              </button>
+              />
             </div>
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Level</label>
@@ -118,9 +95,7 @@ export default function AudioPane() {
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !mic.enabled}
               />
-              <span className="text-xs text-mono-xs text-ink-secondary text-right">
-                {mic.level}%
-              </span>
+              <span className="text-mono-sm text-ink-secondary text-right">{mic.level}%</span>
             </div>
           </div>
         </div>
@@ -133,29 +108,17 @@ export default function AudioPane() {
               <span className="font-medium text-ink">Desktop audio</span>
             </div>
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                role="switch"
+              <Switch
                 aria-label="Desktop audio enabled"
-                aria-checked={desktop.enabled}
+                checked={desktop.enabled}
                 disabled={toggling}
-                onClick={() => {
+                onCheckedChange={() => {
                   setToggling(true);
                   void setChannelEnabled("desktop", !desktop.enabled).finally(() =>
                     setToggling(false),
                   );
                 }}
-                className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
-                  ${desktop.enabled ? "bg-accent" : "bg-solid"}
-                  ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-accent"}
-                `}
-              >
-                <span
-                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
-                    ${desktop.enabled ? "translate-x-8" : "translate-x-2"}`}
-                  aria-hidden="true"
-                />
-              </button>
+              />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -177,27 +140,15 @@ export default function AudioPane() {
             </div>
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Muted</label>
-              <button
-                type="button"
-                role="switch"
+              <Switch
                 aria-label="Desktop audio muted"
-                aria-checked={desktop.muted}
+                checked={desktop.muted}
                 disabled={toggling || !desktop.enabled}
-                onClick={() => {
+                onCheckedChange={() => {
                   setToggling(true);
                   void setChannelMuted("desktop", !desktop.muted).finally(() => setToggling(false));
                 }}
-                className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
-                  ${desktop.muted ? "bg-accent" : "bg-solid"}
-                  ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-accent"}
-                `}
-              >
-                <span
-                  className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
-                    ${desktop.muted ? "translate-x-8" : "translate-x-2"}`}
-                  aria-hidden="true"
-                />
-              </button>
+              />
             </div>
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Level</label>
@@ -213,9 +164,7 @@ export default function AudioPane() {
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !desktop.enabled}
               />
-              <span className="text-xs text-mono-xs text-ink-secondary text-right">
-                {desktop.level}%
-              </span>
+              <span className="text-mono-sm text-ink-secondary text-right">{desktop.level}%</span>
             </div>
           </div>
         </div>

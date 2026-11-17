@@ -50,7 +50,7 @@ export default function ShortcutsPane() {
                 // optimistic local edit; applied on Apply
               }}
               readOnly
-              className="w-40 h-9 rounded-sm border border-subtle bg-solid p-1 text-mono-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              className="h-9 w-40 rounded-sm border border-subtle bg-solid p-1 font-mono text-mono-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               disabled
             />
             <button

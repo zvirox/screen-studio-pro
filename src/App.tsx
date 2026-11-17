@@ -8,6 +8,7 @@ import SettingsView from "./components/settings/SettingsView";
 import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
 import { useSspStore, type ViewId } from "./lib/store";
+import { MOTION } from "./lib/motion";
 
 /* App shell — NavBar + view router (ARCHITECTURE §2).
    The session-event hook mounts once here (§4.1: the event stream is the
@@ -24,9 +25,9 @@ import { useSspStore, type ViewId } from "./lib/store";
 // reduced-motion preference via <MotionConfig reducedMotion="user"> below —
 // the CSS media rule alone cannot neutralize framer-motion transforms.
 const enter = {
-  initial: { y: 6, opacity: 0 },
+  initial: { y: MOTION.revealY, opacity: 0 },
   animate: { y: 0, opacity: 1 },
-  transition: { duration: 0.18, ease: [0.34, 1.56, 0.64, 1] as const },
+  transition: { duration: MOTION.base, ease: MOTION.easeBase },
 };
 
 // Surfaces that bring their own scroll + padding (§6.0).

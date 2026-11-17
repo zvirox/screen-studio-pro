@@ -4,6 +4,7 @@ import { Check, Copy, TriangleAlert, X } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useSspStore, type Toast } from "../../lib/store";
 import { formatElapsed } from "../../lib/format";
+import { MOTION } from "../../lib/motion";
 
 /* §5.6 ToastHost — the Float recipe at floatover level: bottom-center
    stack (store caps at 3), 18px semantic icon, title body-sm 500, ghost
@@ -12,14 +13,14 @@ import { formatElapsed } from "../../lib/format";
    dismissed (§7.4 feedback is icon+text+color, never color alone).
    Enter y+12/opacity; exit fade. */
 
-// §4.6 m.base 180ms spring / m.settle 90ms ease-in — hardcoded like
-// App.tsx (the token set carries no durations; reduced-motion drops these
-// to near-zero via the tailwind.css global rule).
+// DESIGN.md v2.0 §4.6 m.reveal (m.base) / m.settle — JS mirror in
+// lib/motion.ts. <MotionConfig reducedMotion="user"> at the App root makes
+// framer honor the user's preference (a CSS media rule cannot do that).
 const ENTER = {
   initial: { y: 12, opacity: 0 },
   animate: { y: 0, opacity: 1 },
-  transition: { duration: 0.18, ease: [0.34, 1.56, 0.64, 1] as const },
-  exit: { opacity: 0, transition: { duration: 0.09, ease: "easeIn" as const } },
+  transition: { duration: MOTION.base, ease: MOTION.easeBase },
+  exit: { opacity: 0, transition: { duration: MOTION.settle, ease: "easeIn" as const } },
 };
 
 const PLAIN_STATUS_MS = 5_000;
@@ -94,10 +95,7 @@ function ToastCard({ toast }: { toast: Toast }) {
           </p>
         ) : null}
         {toast.path !== undefined ? (
-          <p
-            className="mt-0.5 truncate font-mono text-mono-sm text-ink"
-            title={toast.path}
-          >
+          <p className="mt-0.5 truncate font-mono text-mono-sm text-ink" title={toast.path}>
             {toast.path}
           </p>
         ) : null}
@@ -105,9 +103,7 @@ function ToastCard({ toast }: { toast: Toast }) {
           <div className="mt-2 flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() =>
-                toast.path !== undefined && void revealItemInDir(toast.path)
-              }
+              onClick={() => toast.path !== undefined && void revealItemInDir(toast.path)}
               className="h-8 rounded-sm px-2.5 text-body-sm font-medium text-ink hover:bg-accent-muted hover:text-ink focus-visible:outline-accent"
             >
               Reveal

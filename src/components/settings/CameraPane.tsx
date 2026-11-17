@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { VideoOff } from "lucide-react";
 import { useSspStore } from "../../lib/store";
+import { Switch } from "../ui/switch";
 
 /* §6.4 Settings — Camera pane (4.4). Toggles camera self-insert
    (4.3): when on, the open camera's PiP is composited into the encoded
@@ -33,29 +34,15 @@ export default function CameraPane() {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          role="switch"
+        <Switch
           aria-label="Self-insert camera in recording"
-          aria-checked={selfInsert}
+          checked={selfInsert}
           disabled={toggling || camera.status === "idle"}
-          onClick={() => {
+          onCheckedChange={() => {
             setToggling(true);
             void setCameraSelfInsert(!selfInsert).finally(() => setToggling(false));
           }}
-          className={`
-            inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
-            focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent
-            ${selfInsert ? "bg-accent" : "bg-solid"}
-            ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-accent"}
-          `}
-        >
-          <span
-            className={`block h-6 w-6 rounded-full bg-ink-secondary transition-transform
-              ${selfInsert ? "translate-x-8" : "translate-x-2"}`}
-            aria-hidden="true"
-          />
-        </button>
+        />
       </div>
 
       {camera.status === "idle" && (
