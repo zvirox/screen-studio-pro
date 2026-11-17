@@ -21,14 +21,14 @@ export default function FirstRunPane() {
   const isFirstRun = firstRunCompleted === null || firstRunCompleted === false;
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
+    <section>
       <div className="flex items-center gap-3">
         <ShieldAlert size={20} strokeWidth={1.5} aria-hidden="true" />
-        <h1 className="text-display-md">First run</h1>
+        <h2 className="text-heading text-ink">First run</h2>
       </div>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Welcome to ScreenStudio Pro. These three education moments will help
-        you make your first recording in under 60 seconds.
+        Welcome to ScreenStudio Pro. These three education moments will help you make your first
+        recording in under 60 seconds.
       </p>
 
       {isFirstRun && (
@@ -77,7 +77,9 @@ export default function FirstRunPane() {
           }}
           disabled={firstRunCompleted === true}
           className={`flex items-center gap-2 rounded-sm border border-subtle bg-solid px-4 py-2 text-body-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
-            firstRunCompleted === true ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-accent-muted"
+            firstRunCompleted === true
+              ? "opacity-50 cursor-not-allowed"
+              : "cursor-pointer hover:bg-accent-muted"
           }`}
         >
           <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />

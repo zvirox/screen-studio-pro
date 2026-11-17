@@ -8,11 +8,10 @@ export default function FilesPane() {
   const setFilesSettings = useSspStore((s) => s.setFilesSettings);
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
-      <h1 className="text-display-md">Files</h1>
+    <section>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Choose where recordings land, how they’re named, and the final
-        container format. MKV is the native container; MP4 remux joins M9.
+        Choose where recordings land, how they’re named, and the final container format. MKV is the
+        native container; MP4 remux joins M9.
       </p>
 
       {/* Output directory */}

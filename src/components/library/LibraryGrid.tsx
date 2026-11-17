@@ -92,7 +92,7 @@ function LibraryCard({
         </div>
         {/* Missing-file overlay (§5.5): thumbnail persists + signal.muted chip. */}
         {item.status === "missing" && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-black/40">
+          <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-[var(--ssp-modal-scrim)]">
             <div className="flex items-center gap-2 bg-error/10 border border-error rounded-md p-2">
               <span className="text-error font-medium text-body-sm">File missing</span>
             </div>
@@ -149,8 +149,8 @@ function SkeletonCard() {
       {/* §6.5 loading: skeleton grid — shimmer on surface.solid shapes, never spinners mid-page. */}
       <div className="relative aspect-video w-full rounded-sm bg-solid overflow-hidden">
         <div className="h-full w-full bg-solid animate-pulse" />
-        <div className="absolute bottom-1 right-1 flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/50">
-          <div className="w-8 h-3 bg-white/60 rounded" />
+        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-[var(--ssp-modal-scrim)] px-1.5 py-0.5">
+          <div className="h-3 w-8 rounded bg-ink-disabled" />
         </div>
       </div>
       <div className="mt-3">

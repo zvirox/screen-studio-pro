@@ -3,20 +3,22 @@ import AudioStrip from "./AudioStrip";
 import CameraSlab from "./CameraSlab";
 import ActionRow from "./ActionRow";
 
-/* §6.1 Record view — 2.2: source deck (monitor) + audio strip (two
-   channel cards, meters at the §3 cadence) + camera slab (4.2, the
-   §6.1 #4 affordance row; the PiP itself floats over the source deck's
-   preview frame) + action row. Dead placeholder panels never render
-   (§6.3 education law). Session events flow through
-   hooks/useRecordingState, mounted once at the App root, so the
-   projection keeps updating across views. */
+/* DESIGN.md v2.0 §6.1 — the Record workspace: source deck + square preview
+   in the main column, audio strip and camera slab in a 320px side rail on
+   standard/wide; compact stacks the rail below the preview. The action row
+   stays full width at the bottom. Session events flow through
+   hooks/useRecordingState, mounted once at the App root. */
 
 export default function RecordView() {
   return (
-    <div className="flex flex-col gap-4">
-      <SourceDeck />
-      <AudioStrip />
-      <CameraSlab />
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 min-[720px]:grid-cols-[minmax(0,1fr)_320px]">
+        <SourceDeck />
+        <div className="flex flex-col gap-6">
+          <AudioStrip />
+          <CameraSlab />
+        </div>
+      </div>
       <ActionRow />
     </div>
   );

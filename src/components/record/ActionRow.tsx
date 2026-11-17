@@ -17,9 +17,16 @@ import type { PresetId } from "../../types/ipc";
    "Falling back to CPU encode". */
 function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boolean }) {
   const label = backend.toUpperCase();
-  const icon = backend === "nvenc" ? <Cpu size={12} strokeWidth={2} /> : backend === "vaapi" ? <Cpu size={12} strokeWidth={2} /> : <Cpu size={12} strokeWidth={2} />;
+  const icon =
+    backend === "nvenc" ? (
+      <Cpu size={12} strokeWidth={2} />
+    ) : backend === "vaapi" ? (
+      <Cpu size={12} strokeWidth={2} />
+    ) : (
+      <Cpu size={12} strokeWidth={2} />
+    );
   const fallbackNotice = isFallback ? (
-    <span className="flex items-center gap-1 text-warning text-body-xs">
+    <span className="flex items-center gap-1 text-label text-warning">
       <Zap size={10} strokeWidth={2} aria-hidden="true" />
       Falling back to CPU encode
     </span>
@@ -126,7 +133,10 @@ export default function ActionRow() {
               </div>
             ) : null}
             {/* Encoder chip — right side during recording */}
-            <EncoderChip backend={session.encoderBackend || "x264"} isFallback={session.encoderBackend === "x264" && !!session.startedAt} />
+            <EncoderChip
+              backend={session.encoderBackend || "x264"}
+              isFallback={session.encoderBackend === "x264" && !!session.startedAt}
+            />
           </>
         ) : (
           <>
@@ -141,11 +151,7 @@ export default function ActionRow() {
           // Disabled while a command is in flight, or when nothing live
           // can be recorded — during a take the button is Stop.
           disabled={busy || (!recording && source.status !== "live")}
-          onClick={() =>
-            recording
-              ? void stopRecording()
-              : void startRecording()
-          }
+          onClick={() => (recording ? void stopRecording() : void startRecording())}
           className={
             idle && fault
               ? // retry after a failure is still the primary action
@@ -163,9 +169,7 @@ export default function ActionRow() {
       {/* §6.1 #6 (3.5): stats line under the action row, recording-state
           only — state-driven visibility, never hidden content. */}
       {recording && session.stats ? (
-        <p className="font-mono text-mono-sm tabular-nums text-ink">
-          {formatStats(session.stats)}
-        </p>
+        <p className="font-mono text-mono-sm tabular-nums text-ink">{formatStats(session.stats)}</p>
       ) : null}
     </section>
   );

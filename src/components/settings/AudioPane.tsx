@@ -19,11 +19,10 @@ export default function AudioPane() {
   const [toggling, setToggling] = useState(false);
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
-      <h1 className="text-display-md">Audio</h1>
+    <section>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Choose which audio channels record and their devices/levels. Levels
-        are post-gain — the meter bar shows exactly what lands in the file.
+        Choose which audio channels record and their devices/levels. Levels are post-gain — the
+        meter bar shows exactly what lands in the file.
       </p>
 
       {audio.status === "error" && audio.error && (
@@ -49,9 +48,7 @@ export default function AudioPane() {
                 disabled={toggling}
                 onClick={() => {
                   setToggling(true);
-                  void setChannelEnabled("mic", !mic.enabled).finally(() =>
-                    setToggling(false),
-                  );
+                  void setChannelEnabled("mic", !mic.enabled).finally(() => setToggling(false));
                 }}
                 className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
                   ${mic.enabled ? "bg-accent" : "bg-solid"}
@@ -93,9 +90,7 @@ export default function AudioPane() {
                 disabled={toggling || !mic.enabled}
                 onClick={() => {
                   setToggling(true);
-                  void setChannelMuted("mic", !mic.muted).finally(() =>
-                    setToggling(false),
-                  );
+                  void setChannelMuted("mic", !mic.muted).finally(() => setToggling(false));
                 }}
                 className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
                   ${mic.muted ? "bg-accent" : "bg-solid"}
@@ -123,7 +118,9 @@ export default function AudioPane() {
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !mic.enabled}
               />
-              <span className="text-xs text-mono-xs text-ink-secondary text-right">{mic.level}%</span>
+              <span className="text-xs text-mono-xs text-ink-secondary text-right">
+                {mic.level}%
+              </span>
             </div>
           </div>
         </div>
@@ -188,9 +185,7 @@ export default function AudioPane() {
                 disabled={toggling || !desktop.enabled}
                 onClick={() => {
                   setToggling(true);
-                  void setChannelMuted("desktop", !desktop.muted).finally(() =>
-                    setToggling(false),
-                  );
+                  void setChannelMuted("desktop", !desktop.muted).finally(() => setToggling(false));
                 }}
                 className={`inline-flex h-8 w-14 items-center rounded-full p-1 transition-colors
                   ${desktop.muted ? "bg-accent" : "bg-solid"}
@@ -218,7 +213,9 @@ export default function AudioPane() {
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !desktop.enabled}
               />
-              <span className="text-xs text-mono-xs text-ink-secondary text-right">{desktop.level}%</span>
+              <span className="text-xs text-mono-xs text-ink-secondary text-right">
+                {desktop.level}%
+              </span>
             </div>
           </div>
         </div>

@@ -137,5 +137,5 @@ export default function SettingsView() {
 }
 
 function itemLabel(id: string): string {
-  return id.charAt(0).toUpperCase() + id.slice(1);
+  return RAIL_ITEMS.find((item) => item.id === id)?.label ?? id;
 }

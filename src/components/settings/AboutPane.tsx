@@ -8,7 +8,7 @@ export default function AboutPane() {
   const capabilities = useSspStore((s) => s.capabilities);
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
+    <section>
       <div className="flex items-center gap-4">
         <img
           src={logoUrl}
@@ -16,7 +16,6 @@ export default function AboutPane() {
           className="h-12 w-12 rounded-lg object-contain"
         />
         <div>
-          <h1 className="text-display-md">About</h1>
           <p className="mt-1 text-body-sm text-ink-secondary">
             ScreenStudio Pro — screen recording for Wayland-first Linux desktops.
           </p>
@@ -87,8 +86,8 @@ export default function AboutPane() {
 
       <div className="mt-8 pt-4 border-t border-subtle">
         <p className="text-xs text-ink-secondary">
-          No servers, no cloud, no telemetry. All capture and encode happens
-          locally on your machine.
+          No servers, no cloud, no telemetry. All capture and encode happens locally on your
+          machine.
         </p>
       </div>
     </section>

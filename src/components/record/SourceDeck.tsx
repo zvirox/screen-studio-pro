@@ -3,7 +3,14 @@ import { useState, useCallback } from "react";
 import { useSspStore } from "../../lib/store";
 import { useSourcePreview } from "../../hooks/useSourcePreview";
 import CameraPip from "../huds/CameraPip";
-import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 
 /* §6.1 #2 source deck — Monitor + Window (M2) + Region (M3) chips.
    Dead controls never render (§6.3). The preview frame is the only place
@@ -53,7 +60,12 @@ function SourceChip({
       }
     >
       {isSelecting ? (
-        <LoaderCircle size={16} strokeWidth={2} className="animate-spin [animation-duration:0.8s]" aria-hidden="true" />
+        <LoaderCircle
+          size={16}
+          strokeWidth={2}
+          className="animate-spin [animation-duration:0.8s]"
+          aria-hidden="true"
+        />
       ) : (
         icon
       )}
@@ -65,9 +77,7 @@ function SourceChip({
         <>
           {label}
           {capsText ? (
-            <span className="font-mono text-mono-sm text-ink-secondary">
-              {capsText}
-            </span>
+            <span className="font-mono text-mono-sm text-ink-secondary">{capsText}</span>
           ) : null}
         </>
       )}
@@ -121,10 +131,7 @@ function RegionDragHandle({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div
         style={{
           position: "absolute",
@@ -134,10 +141,10 @@ function RegionDragHandle({
           height: rect.h,
           border: "2px solid",
           borderColor: "var(--ssp-accent)",
-          borderRadius: "var(--ssp-r-sm)",
-          boxShadow: "0 0 0 1px var(--ssp-bg-canvas), 0 0 0 3px var(--ssp-accent)",
+          borderRadius: "var(--radius-sm)",
+          boxShadow: "var(--ssp-elev-1)",
           cursor: "move",
-          zIndex: 10,
+          zIndex: "var(--ssp-z-sticky)",
         }}
         role="graphics-document"
         aria-label="Region selection rectangle"
@@ -169,7 +176,8 @@ export default function SourceDeck() {
   const slotVisible = source.status !== "live" || !still;
   // M2: Window chip only when the compositor's portal offers window capture.
   const windowCaptureSupported = capabilities?.portal?.windowCapture ?? false;
-  const isMonitorActive = (source.status === "live" && source.label?.startsWith("Monitor")) ?? false;
+  const isMonitorActive =
+    (source.status === "live" && source.label?.startsWith("Monitor")) ?? false;
   const isMonitorSelecting = source.status === "selecting" && source.selectingKind === "monitor";
   const isWindowActive = (source.status === "live" && source.label?.startsWith("Window")) ?? false;
   const isWindowSelecting = source.status === "selecting" && source.selectingKind === "window";
@@ -177,9 +185,19 @@ export default function SourceDeck() {
   const isRegionSelecting = source.status === "selecting" && source.selectingKind === "region";
 
   // Region rect state — preview coordinates (scaled from source coordinates).
-  const [regionRect, setRegionRectLocal] = useState<{ x: number; y: number; w: number; h: number } | null>(() => {
+  const [regionRect, setRegionRectLocal] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(() => {
     if (source.regionRect) {
-      return { x: source.regionRect.x, y: source.regionRect.y, w: source.regionRect.w, h: source.regionRect.h };
+      return {
+        x: source.regionRect.x,
+        y: source.regionRect.y,
+        w: source.regionRect.w,
+        h: source.regionRect.h,
+      };
     }
     // Default to center 720p rect if no rect set.
     const w = 1280;
@@ -239,7 +257,7 @@ export default function SourceDeck() {
 
       <div
         aria-label="Source preview"
-        className="mt-3 flex aspect-video w-full items-center justify-center rounded-sm bg-solid relative"
+        className="relative mx-auto mt-3 flex aspect-square w-full max-w-lg items-center justify-center rounded-md bg-solid"
       >
         {still ? (
           <img
@@ -255,26 +273,46 @@ export default function SourceDeck() {
               aria-live="polite"
               className="flex items-center gap-2 text-body-sm text-ink-secondary"
             >
-              <LoaderCircle size={16} strokeWidth={2} className="animate-spin [animation-duration:0.8s]" aria-hidden="true" />
+              <LoaderCircle
+                size={16}
+                strokeWidth={2}
+                className="animate-spin [animation-duration:0.8s]"
+                aria-hidden="true"
+              />
               Working…
             </div>
           ) : (
-          <div className="flex flex-col items-center gap-2 p-4 text-center w-full h-full">
-            {isWindowActive ? (
-              <AppWindow size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
-            ) : isRegionActive ? (
-              <Crop size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
-            ) : (
-              <Monitor size={28} strokeWidth={1.5} className="text-ink-disabled" aria-hidden="true" />
-            )}
-            <p className="text-body-sm text-ink-secondary">
-              {isRegionActive
-                ? "Drag to select region; arrow keys to nudge (Shift = 10px)"
-                : isWindowActive
-                ? "Click Window to select a window to capture"
-                : "Click Monitor to allow capture through your compositor"}
-            </p>
-          </div>
+            <div className="flex flex-col items-center gap-2 p-4 text-center w-full h-full">
+              {isWindowActive ? (
+                <AppWindow
+                  size={28}
+                  strokeWidth={1.5}
+                  className="text-ink-disabled"
+                  aria-hidden="true"
+                />
+              ) : isRegionActive ? (
+                <Crop
+                  size={28}
+                  strokeWidth={1.5}
+                  className="text-ink-disabled"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Monitor
+                  size={28}
+                  strokeWidth={1.5}
+                  className="text-ink-disabled"
+                  aria-hidden="true"
+                />
+              )}
+              <p className="text-body-sm text-ink-secondary">
+                {isRegionActive
+                  ? "Drag to select region; arrow keys to nudge (Shift = 10px)"
+                  : isWindowActive
+                    ? "Click Window to select a window to capture"
+                    : "Click Monitor to allow capture through your compositor"}
+              </p>
+            </div>
           )
         ) : null}
         {isRegionActive && regionRect && source.capabilities && (

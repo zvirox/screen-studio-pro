@@ -16,11 +16,10 @@ export default function CameraPane() {
   const [toggling, setToggling] = useState(false);
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
-      <h1 className="text-display-md">Camera</h1>
+    <section>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Add a webcam from the Record tab, then choose whether its PiP frame
-        is baked into the recording.
+        Add a webcam from the Record tab, then choose whether its PiP frame is baked into the
+        recording.
       </p>
 
       <div className="mt-6 flex items-center justify-between">
@@ -29,8 +28,8 @@ export default function CameraPane() {
           <div>
             <p className="text-body-sm font-medium text-ink">Self-insert camera in recording</p>
             <p className="text-xs text-ink-secondary">
-              When on, the camera PiP is composited into the recorded file at
-              its frame position. Preview-only when off.
+              When on, the camera PiP is composited into the recorded file at its frame position.
+              Preview-only when off.
             </p>
           </div>
         </div>

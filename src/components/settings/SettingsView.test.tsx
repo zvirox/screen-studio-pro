@@ -18,14 +18,13 @@ describe("SettingsView shell (§6.4 / §6.0)", () => {
     expect(tabs).toHaveLength(7);
     expect(tabs[0]).toHaveTextContent("First Run");
     expect(screen.getByRole("tab", { name: "Camera" })).toHaveAttribute("aria-selected", "true");
-    // Panes still carry their v1.0 duplicate heading until Stage 3.
-    expect(screen.getAllByRole("heading", { name: "Camera" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Camera" })).toBeInTheDocument();
   });
 
   it("switches panes and keeps the active tab in sync", () => {
     render(<SettingsView />);
     fireEvent.click(screen.getByRole("tab", { name: "Audio" }));
-    expect(screen.getAllByRole("heading", { name: "Audio" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Audio" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Audio" })).toHaveAttribute("aria-selected", "true");
   });
 

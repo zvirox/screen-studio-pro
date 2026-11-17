@@ -38,14 +38,12 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
     >
       {/* Scrim — closes on click. */}
       <div
-        className="absolute inset-0 backdrop-blur-sm bg-black/40"
+        className="absolute inset-0 backdrop-blur-sm bg-[var(--ssp-modal-scrim)]"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Drawer panel — right-slide 420px, Modal recipe. */}
-      <div
-        className="absolute right-0 top-0 bottom-0 w-[420px] bg-solid border-l border-subtle shadow-[var(--shadow-elev-2)] flex flex-col"
-      >
+      <div className="absolute bottom-0 right-0 top-0 flex w-105 flex-col border-l border-subtle bg-solid shadow-elev-2">
         {/* Header with close. */}
         <div className="flex items-center justify-between p-4 border-b border-subtle">
           <h2 className="text-heading font-medium text-ink">Recording details</h2>
@@ -72,7 +70,12 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-ink">
-                <ExternalLink size={28} strokeWidth={1.5} className="opacity-50" aria-hidden="true" />
+                <ExternalLink
+                  size={28}
+                  strokeWidth={1.5}
+                  className="opacity-50"
+                  aria-hidden="true"
+                />
               </div>
             )}
           </div>
@@ -88,7 +91,9 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
               </tr>
               <tr>
                 <td className="py-2 text-label text-ink">Container</td>
-                <td className="py-2 text-mono-sm text-ink font-mono">{recording.container.toUpperCase()}</td>
+                <td className="py-2 text-mono-sm text-ink font-mono">
+                  {recording.container.toUpperCase()}
+                </td>
               </tr>
               <tr>
                 <td className="py-2 text-label text-ink">Duration</td>

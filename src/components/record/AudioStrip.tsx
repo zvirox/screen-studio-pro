@@ -191,8 +191,11 @@ export default function AudioStrip() {
   const controlsDisabled = audio.status !== "ready" || sessionStatus !== "idle";
 
   return (
-    <section aria-label="Audio" className="pane overflow-x-auto rounded-md p-4">
-      <div className="flex min-w-max gap-4">
+    <section
+      aria-label="Audio"
+      className="pane overflow-x-auto rounded-md p-4 min-[720px]:overflow-x-visible"
+    >
+      <div className="flex min-w-max gap-4 min-[720px]:min-w-0 min-[720px]:flex-col">
         {CHANNELS.map((channel) => {
           const state = audio[channel];
           const silent = !audio.meters || audio.meters[channel].peak < 0.01;
@@ -203,7 +206,7 @@ export default function AudioStrip() {
               key={channel}
               role="group"
               aria-label={channel === "mic" ? "Mic" : "Desktop"}
-              className="flex w-64 shrink-0 flex-col gap-2 rounded-sm border border-subtle bg-solid p-3 shadow-elev-1"
+              className="flex w-64 shrink-0 flex-col gap-2 rounded-sm border border-subtle bg-solid p-3 shadow-elev-1 min-[720px]:w-full"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-body-sm font-medium text-ink">

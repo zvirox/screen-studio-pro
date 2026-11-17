@@ -13,12 +13,10 @@ export default function CapturePane() {
   const setCaptureSettings = useSspStore((s) => s.setCaptureSettings);
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
-      <h1 className="text-display-md">Capture</h1>
+    <section>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Choose frame rate, encoder backend, and quality preset. Presets
-        resolve frame-rate/height caps and x264 options from the settings
-        snapshot at recording start.
+        Choose frame rate, encoder backend, and quality preset. Presets resolve frame-rate/height
+        caps and x264 options from the settings snapshot at recording start.
       </p>
 
       {/* Frame rate */}

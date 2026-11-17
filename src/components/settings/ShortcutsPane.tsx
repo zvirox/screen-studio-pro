@@ -14,23 +14,28 @@ export default function ShortcutsPane() {
   const [applied, setApplied] = useState(false);
 
   const bindings = [
-    { action: "toggle_record", label: "Toggle record", value: shortcuts?.quickRecord ?? "Super+Shift+R" },
+    {
+      action: "toggle_record",
+      label: "Toggle record",
+      value: shortcuts?.quickRecord ?? "Super+Shift+R",
+    },
     { action: "pause", label: "Pause / resume", value: shortcuts?.pause ?? "Super+Shift+P" },
     { action: "stop", label: "Stop & save", value: shortcuts?.stop ?? "Super+Shift+S" },
   ];
 
   return (
-    <section className="bg-raised rounded-lg p-6 max-w-[560px] mx-auto">
-      <h1 className="text-display-md">Shortcuts</h1>
+    <section>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Global keyboard shortcuts are registered through the portal. On
-        compositors without GlobalShortcuts support, use the tray menu
-        instead (see docs/portal-support.md).
+        Global keyboard shortcuts are registered through the portal. On compositors without
+        GlobalShortcuts support, use the tray menu instead (see docs/portal-support.md).
       </p>
 
       <div className="mt-6 space-y-4">
         {bindings.map((b) => (
-          <div key={b.action} className="flex items-center justify-between gap-3 p-3 rounded-sm border border-subtle bg-solid">
+          <div
+            key={b.action}
+            className="flex items-center justify-between gap-3 p-3 rounded-sm border border-subtle bg-solid"
+          >
             <div className="flex items-center gap-3">
               <Keyboard size={16} strokeWidth={1.5} aria-hidden="true" />
               <div>
@@ -74,15 +79,13 @@ export default function ShortcutsPane() {
               setApplied(true);
               setTimeout(() => setApplied(false), 2000);
               if (denied.length > 0) {
-                void useSspStore
-                  .getState()
-                  .showError({
-                    kind: "ipc",
-                    code: "portal.unavailable",
-                    retryable: false,
-                    userMessage: `Global shortcuts denied for: ${denied.join(", ")}`,
-                    details: null,
-                  });
+                void useSspStore.getState().showError({
+                  kind: "ipc",
+                  code: "portal.unavailable",
+                  retryable: false,
+                  userMessage: `Global shortcuts denied for: ${denied.join(", ")}`,
+                  details: null,
+                });
               }
             } catch (err) {
               void useSspStore.getState().showError(err as IpcError);

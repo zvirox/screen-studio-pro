@@ -51,14 +51,12 @@ export default function DeleteConfirm({
     >
       {/* Scrim — closes on click. */}
       <div
-        className="absolute inset-0 backdrop-blur-sm bg-black/40"
+        className="absolute inset-0 backdrop-blur-sm bg-[var(--ssp-modal-scrim)]"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Modal panel — centered, Modal recipe. */}
-      <div
-        className="absolute inset-x-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] bg-solid border border-subtle rounded-lg shadow-[var(--shadow-elev-2)] flex flex-col"
-      >
+      <div className="absolute inset-x-1/2 top-1/2 flex w-120 -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-subtle bg-solid shadow-elev-2">
         {/* Header. */}
         <div className="flex items-center justify-between p-4 border-b border-subtle">
           <h2 className="text-heading font-medium text-ink">Delete recording</h2>
@@ -74,12 +72,8 @@ export default function DeleteConfirm({
 
         {/* Body — confirmation copy. */}
         <div className="p-6">
-          <p className="text-body-sm font-medium text-ink">
-            Delete “{recordingName}”?
-          </p>
-          <p className="mt-1 text-body-sm text-ink-secondary">
-            This cannot be undone.
-          </p>
+          <p className="text-body-sm font-medium text-ink">Delete “{recordingName}”?</p>
+          <p className="mt-1 text-body-sm text-ink-secondary">This cannot be undone.</p>
         </div>
 
         {/* Footer — actions. */}
