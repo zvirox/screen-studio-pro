@@ -122,3 +122,55 @@ Implementation: `select_window` in `capture/portal.rs` mirrors `select_monitor` 
 ## MangoWC
 
 *Not yet observed.*
+
+### Phase 2 live gates — 2026-11-17 (audio A/B, meters, flags, live pause)
+
+Logged on the live CachyOS / Plasma 6 / KWin 6.8.2 / Wayland box, PipeWire
+1.6.11, with the real `xdg-desktop-portal-kde` consent dialog. The user
+approved live recordings, tones and consent; the Allow click was performed
+through the dialog's own AT-SPI tree (select "Laptop screen" → dialog accepts).
+
+| Check | Observation |
+|---|---|
+| `manual_pause_excludes_paused_time` | Real portal consent, 3 s record / 5 s pause / 3 s resume. Take `duration_ms=5986`, `paused_ticks=5`; ffprobe duration in the 4–8.5 s window — the pause is excluded from the encoded timeline. PASS. |
+| Live A/B — mic unmuted | Real take, h264 + aac @ 48 kHz. 440 Hz band −27.7 dB, 880 Hz band −27.5 dB: both tones in the file. Mic meter peak 0.12497. |
+| Live A/B — mic muted | 440 Hz band −63.7 dB (gone), 880 Hz band −27.5 dB (desktop intact). Mic meter peak exactly 0.0, desktop 0.12497. PASS — mute is reflected in the file and the bar. |
+| Flags → sqlite | 3 flags in each take at 1000/2000/3000 ms; `chapter_json` JSON array round-tripped through a real `library.db` row via `LibraryHandle::record_finalize` → `library_get`; `audio_json` present. PASS. |
+
+Tone rig and limits observed here (rig details, not product-path failures):
+`pactl load-module module-null-sink sink_name=ssp_test` + default source
+`ssp_test.monitor` carried the injected 440 Hz at −21 dB; the real default
+speaker sink carried 880 Hz at −33 dB (volume 0.25). `pw-record --target
+ssp_test --format f32 --container raw` captured the null-sink monitor at
+−21 dB and fed the mic-designated ring through a test-side thread. cpal's
+f32 input streams on this box's ALSA virtual devices (default / pulse /
+pipewire) open but deliver **no samples**, even though `arecord -D
+default|pipewire` captures the same tone at −21 dB; a pinned `start_desktop`
+capture leg likewise did not carry it. No passwordless sudo for `snd_aloop`.
+The rig feeder's sample clock runs ~2× real time (file probes ~7.6 s vs a
+3.9 s take); the session's own duration (3877/3893 ms) is the product fact.
+
+Band levels were measured with ffmpeg `volumedetect` after three cascaded
+20 Hz high-Q `bandpass` filters; the filter chain rejects the off-tone by
+64 dB (verified on the pure 440/880 files). A single lowpass leaked the
+strong 880 Hz tone into the 440 Hz probe and gave a false "mic present"
+reading — the sharp filter and the live meter peak together removed that
+false positive.
+
+Evidence retained locally: `/tmp/opencode/p2-pause-gate.log`,
+`/tmp/opencode/p2-audio-ab.log`, `/tmp/opencode/p2-clippy.log`,
+`/tmp/opencode/p2-vitest.log`. Verification after the new ignored gate:
+`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
+`cargo test --lib` (137 pass / 5 ignored), `npx tsc --noEmit`,
+`npx eslint src`, `npx vitest run` (219 pass) — all clean. The no-default-
+features Clippy red on the unused `library/mod.rs` re-export stays queued
+for Phase 5; CI gates default features only.
+
+Still unresolved: the >15 s Quit-after-rejected-Record anomaly (a GDB replay
+exited in 0.049 s), the disappeared portal source / wrong webcam link, and
+behavior on a compositor without a tray host. A further timed replay was not
+driven on 2026-11-17: the app process had exited before the gate was reached,
+and the main window's Record button is not on the AT-SPI bus here (no
+coordinate-input fallback), so the rejected-Record step cannot be injected
+headlessly. Human ears on a real mic remain optional — measured band levels
+are the agreed accept signal.

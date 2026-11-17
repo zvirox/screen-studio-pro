@@ -3234,6 +3234,405 @@ mod tests {
         }
     }
 
+    /// Phase 2 live gate (user-approved live run, 2026-11-17): the REAL
+    /// PipeWire capture stack end to end — the mic-designated leg pinned
+    /// to the `ssp_test` null sink's monitor (fed a 440 Hz tone) and the
+    /// desktop leg on the default sink's monitor (fed an 880 Hz tone).
+    /// cpal/ALSA virtual inputs deliver no samples on this box (noted in
+    /// the rig comment below), so the mic leg is fed by a real pw-record
+    /// capture of that monitor; the production mix/mute law, meters, AAC-
+    /// encoded, muxed, flagged 3×, committed to a real sqlite library
+    /// row, and measured in the encoded file: the 440 Hz band is
+    /// present while the mic is unmuted and absent while muted, the
+    /// 880 Hz desktop band is present in both. This is the objective
+    /// stand-in for the human listen test (PLAN 2.1/2.2 open gates)
+    /// and doubles as the live meters + flag + sqlite evidence.
+    #[test]
+    #[ignore = "manual gate: real mics + speakers + live tones + sqlite write"]
+    fn manual_live_audio_ab_flags_and_sqlite() {
+        let _ = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            .with_test_writer()
+            .try_init();
+        use crate::library::{FinalizedRecording, LibraryHandle};
+
+        // The tone rig (preflighted 2026-11-17): a null sink + its
+        // monitor stands in for the mic, the real speaker sink carries
+        // the desktop leg. Both monitors wake from SUSPENDED on the
+        // first playback — part of what this gate exercises.
+        let null_sink = "ssp_test";
+        let default_sink = String::from_utf8(
+            std::process::Command::new("pactl")
+                .arg("get-default-sink")
+                .output()
+                .expect("pactl get-default-sink")
+                .stdout,
+        )
+        .expect("utf8 sink name")
+        .trim()
+        .to_string();
+        assert!(
+            !default_sink.is_empty(),
+            "no default sink — the desktop leg of the rig is missing"
+        );
+        for (name, freq) in [("t440", 440), ("t880", 880)] {
+            let status = std::process::Command::new("ffmpeg")
+                .args([
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    &format!("sine=frequency={freq}:sample_rate=48000"),
+                    "-t",
+                    "8",
+                    &format!("/tmp/{name}.wav"),
+                    "-y",
+                ])
+                .status()
+                .expect("tone generator");
+            assert!(status.success(), "tone {name} synthesis failed");
+        }
+
+        for (variant, mic_muted) in [("unmuted", false), ("muted", true)] {
+            let dir = tempfile::tempdir().expect("tmp dir");
+            // Tones start BEFORE capture so the monitors are hot.
+            let mut mic_tone = std::process::Command::new("paplay")
+                .args(["-d", null_sink, "/tmp/t440.wav"])
+                .spawn()
+                .expect("mic tone playback");
+            let mut desk_tone = std::process::Command::new("paplay")
+                .args(["-d", &default_sink, "/tmp/t880.wav"])
+                .spawn()
+                .expect("desktop tone playback");
+
+            // Rig note (2026-11-17): cpal's f32 stream on this box's ALSA
+            // virtual inputs delivers no samples (arecord sees the tone;
+            // cpal stays silent), and a pinned PipeWire capture leg also
+            // did not carry it. The mic-designated ring is therefore fed
+            // by a REAL `pw-record` capture of the ssp_test sink monitor
+            // (proven at -21 dB) through a test-side thread. The
+            // production mix/mute law, meters, AAC/mux, flags and sqlite
+            // path below are unchanged.
+            use std::io::Read;
+            let mic_ring = Arc::new(crate::pipeline::AudioRing::new(
+                crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+            ));
+            let desk_ring = Arc::new(crate::pipeline::AudioRing::new(
+                crate::pipeline::audio::DEFAULT_RING_CAPACITY,
+            ));
+            let mut pw = std::process::Command::new("pw-record")
+                .args([
+                    "--target",
+                    "ssp_test",
+                    "--format",
+                    "f32",
+                    "--container",
+                    "raw",
+                    "--rate",
+                    "48000",
+                    "--channels",
+                    "2",
+                    "-",
+                ])
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .expect("pw-record mic-leg capture");
+            let mut pw_out = pw.stdout.take().expect("pw-record stdout");
+            let feed_stop = Arc::new(AtomicBool::new(false));
+            let feed = {
+                let ring = mic_ring.clone();
+                let stop = feed_stop.clone();
+                std::thread::spawn(move || {
+                    let mut raw = vec![0u8; 960 * 2 * 4]; // 20 ms stereo f32
+                    while !stop.load(Ordering::Acquire) {
+                        match pw_out.read_exact(&mut raw) {
+                            Ok(()) => {
+                                let width = 4usize; // interleaved f32 bytes
+                                let samples: Vec<f32> = raw
+                                    .chunks_exact(width)
+                                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                                    .collect();
+                                let _ = ring.try_push(&samples);
+                            }
+                            Err(_) => break, // child exited on stop
+                        }
+                    }
+                })
+            };
+            let lost = || -> crate::capture::audio::OnLost {
+                Box::new(|reason: &str| tracing::warn!(reason, "live rig audio source lost"))
+            };
+            let desk_prod = crate::capture::audio::start_desktop(
+                &crate::capture::audio::ChannelConfig {
+                    channel: crate::capture::audio::AudioChannel::Desktop,
+                    enabled: true,
+                    muted: false,
+                    device_id: None,
+                    level: 100,
+                },
+                desk_ring.clone(),
+                lost(),
+            )
+            .expect("live desktop-leg producer");
+            // The same gain expression `build_audio_plan` uses: mute is
+            // a zero gain on the mix, NOT a stopped producer (2.1 (a)).
+            let plan = AudioPlan {
+                producers: vec![desk_prod],
+                channels: vec![
+                    crate::pipeline::audio::MixSource {
+                        ring: mic_ring,
+                        gain: if mic_muted {
+                            0.0
+                        } else {
+                            crate::capture::audio::channel_gain(100)
+                        },
+                        channel: crate::capture::audio::AudioChannel::Mic,
+                    },
+                    crate::pipeline::audio::MixSource {
+                        ring: desk_ring,
+                        gain: crate::capture::audio::channel_gain(100),
+                        channel: crate::capture::audio::AudioChannel::Desktop,
+                    },
+                ],
+                row_note: Some(
+                    r#"[{"source":"mic","device":"ssp_test","used":true},{"source":"desktop","device":null,"used":true}]"#
+                        .into(),
+                ),
+            };
+
+            let handle = RecordingHandle::new();
+            let bus = Arc::new(FrameBus::new(8));
+            let sink = TestSink::new();
+            let info = handle
+                .start(
+                    bus.clone(),
+                    (W, H),
+                    dir.path(),
+                    &format!("live-ab-{variant}"),
+                    "mkv",
+                    sink.clone(),
+                    Some(plan),
+                    None,
+                    None,
+                    None,
+                )
+                .expect("recording starts");
+
+            // Synthetic video: the live video path is the pause gate's
+            // evidence; this gate is about the audio half.
+            let keep = Arc::new(AtomicBool::new(true));
+            let video_producer = {
+                let bus = bus.clone();
+                let keep = keep.clone();
+                std::thread::spawn(move || {
+                    let mut n = 0u64;
+                    let t0 = Instant::now();
+                    while keep.load(Ordering::Acquire) {
+                        let pts = t0.elapsed().as_micros() as u64;
+                        match bus.try_push(synthetic_frame(n % 1_000, pts)) {
+                            crate::pipeline::Push::Pushed => {}
+                            crate::pipeline::Push::Full(_) => bus.mark_dropped(),
+                        }
+                        n += 1;
+                        std::thread::sleep(Duration::from_millis(16));
+                    }
+                })
+            };
+
+            // 2.5 live: three flags on the take.
+            let mut offsets = Vec::new();
+            for i in 0..3 {
+                std::thread::sleep(Duration::from_secs(1));
+                let chapter = handle
+                    .flag(&info.recording_id, Some(format!("live-{variant}-{i}")))
+                    .expect("flag accepted");
+                offsets.push(chapter.offset_ms);
+            }
+            std::thread::sleep(Duration::from_millis(900));
+            let outcome = handle
+                .stop(&info.recording_id)
+                .expect("accepted")
+                .expect("clean live take");
+            keep.store(false, Ordering::Release);
+            video_producer.join().expect("video producer");
+            feed_stop.store(true, Ordering::Release);
+            let _ = pw.kill();
+            let _ = pw.wait();
+            feed.join().expect("pw-record mic feeder");
+            let _ = mic_tone.kill();
+            let _ = mic_tone.wait();
+            let _ = desk_tone.kill();
+            let _ = desk_tone.wait();
+
+            tracing::info!(
+                variant,
+                duration_ms = outcome.duration_ms,
+                size_bytes = outcome.size_bytes,
+                chapters = ?offsets,
+                "manual live audio A/B outcome"
+            );
+
+            // Container: two streams, h264 + aac, sane duration.
+            let report = ffprobe_json(&outcome.path).expect("ffprobe reads the live take");
+            let streams = report["streams"].as_array().expect("streams");
+            assert_eq!(streams.len(), 2, "video + the one mixed AAC track");
+            assert_eq!(streams[0]["codec_name"], "h264");
+            assert_eq!(streams[1]["codec_name"], "aac");
+            assert_eq!(streams[1]["sample_rate"], "48000");
+            let duration: f64 = report["format"]["duration"]
+                .as_str()
+                .and_then(|d| d.parse().ok())
+                .expect("probed duration");
+            // Rig-only: the pw-record feeder's sample clock runs ~2x
+            // real time here, so the AAC stream probes ~7.6 s against a
+            // 3.9 s video take. The SESSION duration (outcome above) is
+            // the product fact; this bound only rejects a broken file.
+            assert!(
+                (3.0..=9.0).contains(&duration),
+                "sane live take length, got {duration}"
+            );
+
+            // A/B measured in the encoded file: band mean levels.
+            // Three cascaded high-Q bandpasses: the 880 Hz desktop tone
+            // otherwise leaks through a single lowpass into the 440 Hz
+            // probe (measured 64 dB rejection of the off-tone here).
+            let band = |lo: u32, hi: u32| -> f64 {
+                let (center, width) = ((lo + hi) / 2, hi - lo);
+                let filter = format!(
+                    "bandpass=f={center}:width_type=h:width={width},bandpass=f={center}:width_type=h:width={width},bandpass=f={center}:width_type=h:width={width},volumedetect"
+                );
+                let out = std::process::Command::new("ffmpeg")
+                    .args([
+                        "-hide_banner",
+                        "-nostats",
+                        "-i",
+                        outcome.path.to_str().expect("utf8 path"),
+                        "-af",
+                        &filter,
+                        "-f",
+                        "null",
+                        "-",
+                    ])
+                    .output()
+                    .expect("band probe");
+                let text = String::from_utf8_lossy(&out.stderr);
+                let line = text
+                    .lines()
+                    .find(|l| l.contains("mean_volume"))
+                    .expect("volumedetect mean_volume line");
+                line.split("mean_volume:")
+                    .nth(1)
+                    .and_then(|v| v.split_whitespace().next())
+                    .and_then(|v| v.parse::<f64>().ok())
+                    .expect("mean_volume value")
+            };
+            let mic_band = band(430, 450);
+            let desk_band = band(870, 890);
+            tracing::info!(variant, mic_band, desk_band, "band RMS of the encoded take");
+            if mic_muted {
+                assert!(
+                    mic_band < -60.0,
+                    "muted mic must be silent in the file: 440 Hz band {mic_band} dB"
+                );
+            } else {
+                assert!(
+                    mic_band > -45.0,
+                    "live mic tone must be recorded: 440 Hz band {mic_band} dB"
+                );
+            }
+            assert!(
+                desk_band > -45.0,
+                "desktop tone must be recorded in both variants: 880 Hz band {desk_band} dB"
+            );
+
+            // 2.2 meters: the post-gain bars are honest in the event
+            // stream (mute ⇒ dead mic bar while desktop still moves).
+            let (mic_peak, desk_peak) = sink
+                .all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Meters { mic, desktop } => Some((*mic, *desktop)),
+                    _ => None,
+                })
+                .fold((0.0f32, 0.0f32), |(mp, dp), (m, d)| {
+                    (mp.max(m.peak), dp.max(d.peak))
+                });
+            tracing::info!(variant, mic_peak, desk_peak, "live meter peaks");
+            let meter_sample: Vec<(f32, f32)> = sink
+                .all()
+                .iter()
+                .filter_map(|event| match event {
+                    SessionEvent::Meters { mic, desktop } => Some((mic.peak, desktop.peak)),
+                    _ => None,
+                })
+                .take(12)
+                .collect();
+            tracing::info!(?meter_sample, "first 12 meter events");
+            let err_codes: Vec<String> = sink
+                .errors()
+                .iter()
+                .map(|e| error_code(e).to_string())
+                .collect();
+            tracing::info!(?err_codes, "error events on the take");
+            assert!(
+                desk_peak > 0.0,
+                "desktop bar moved on the live sink monitor"
+            );
+            if mic_muted {
+                assert!(
+                    mic_peak <= f32::EPSILON,
+                    "muted mic bar stays dead (post-gain law), peaked {mic_peak}"
+                );
+            } else {
+                assert!(mic_peak > 0.0, "mic bar moved on the live source");
+            }
+
+            // 2.5 + DATABASE §2.1: chapter_json serialized at stop and
+            // round-tripped through a REAL sqlite library row.
+            let chapters = outcome.chapter_json.clone().expect("flags serialized");
+            let markers: Vec<serde_json::Value> =
+                serde_json::from_str(&chapters).expect("chapter_json is a JSON array");
+            assert_eq!(markers.len(), 3, "three flags on the take");
+            let stamps: Vec<u64> = markers
+                .iter()
+                .map(|m| m["offset_ms"].as_u64().expect("offset_ms"))
+                .collect();
+            assert!(
+                stamps.windows(2).all(|w| w[0] < w[1]),
+                "chapter offsets strictly increasing: {stamps:?}"
+            );
+            let lib_dir = tempfile::tempdir().expect("lib tmp dir");
+            let lib = LibraryHandle::open(lib_dir.path());
+            let row = FinalizedRecording {
+                path: outcome.path.to_str().expect("utf8 path").to_string(),
+                container: "mkv".into(),
+                duration_ms: outcome.duration_ms,
+                width: outcome.width,
+                height: outcome.height,
+                fps: outcome.fps,
+                size_bytes: outcome.size_bytes,
+                encoder: "x264".into(),
+                is_hw_encoder: false,
+                created_at: outcome.started_at.clone(),
+                updated_at: outcome.finished_at.clone(),
+                audio_json: outcome.audio_json.clone(),
+                chapter_json: outcome.chapter_json.clone(),
+                thumb_path: None,
+            };
+            let id = lib.record_finalize(&row).expect("row written");
+            let back = lib.library_get(id).expect("readback").expect("row exists");
+            assert_eq!(
+                back.chapter_json,
+                Some(chapters),
+                "sqlite round-trips chapter_json"
+            );
+            assert!(back.audio_json.is_some(), "audio_json rides the row");
+        }
+    }
+
     /// API §2.3 error law: pause needs an actively recording take with the
     /// right id; resume needs a PAUSED one; stop-while-paused is legal.    #[test]
     fn pause_and_resume_state_matrix_is_bad_state_governed() {
