@@ -11,6 +11,7 @@ This file is the first thing any AI assistant reads. It binds every session, eve
 3. Architecture: Tauri 2 desktop app — Rust core does all capture/encode (PipeWire, portals), React webview renders UI only and never touches video frames.
 4. The visible UI follows a strict frosted-glass design system with a closed token set (dark default, light secondary).
 5. No servers, no cloud, no HTTP APIs, no telemetry — distro packages + GitHub Releases are the entire distribution.
+6. Ecosystem Orchestration: ScreenStudio Pro integrates with **Starship Control** (`Mother Ship / Starship Control`) via the shared `starship-plugin` SDK, auto-registering `$XDG_DATA_HOME/starship/plugins/ssp.json` and exposing its live GUI bridge at `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` for automated recording control and CET telemetry export.
 
 ## 2. Source-of-Truth Files (priority order)
 

@@ -233,12 +233,32 @@
 
 ---
 
+## Phase 8 — Starship Control & `starship-plugin` SDK Integration
+
+> **Goal:** Embed the shared `starship-plugin` SDK crate so Starship Control can auto-discover, wake up, and command ScreenStudio Pro over Unix domain sockets or stdio.
+
+- [ ] **8.1 Embed `starship-plugin` SDK & Manifest Registration**
+  - Add `starship-plugin` dependency to `src-tauri/Cargo.toml`.
+  - Auto-generate `$XDG_DATA_HOME/starship/plugins/ssp.json` on boot with capabilities (`monitorCapture`, `windowCapture`, `regionCapture`, `audioMic`, `audioDesktop`, `cetExport`).
+  - *Verify:* Launching SSP drops valid JSON manifest in XDG plugins directory.
+- [ ] **8.2 Unix Domain Socket Bridge Server**
+  - Initialize Unix socket server at `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` with Linux `SO_PEERCRED` validation.
+  - Implement JSON-RPC 2.0 handshake (`starship/hello`) and tool invocation handling (`recording_start`, `recording_stop`, `source_select`).
+  - *Verify:* External client can trigger and stop a recording take over the Unix socket.
+- [ ] **8.3 CET Telemetry Stream Export**
+  - Expose CET v0.1 event sidecar exporter (`<recording>.cet.jsonl`) to Starship Control for automated downstream cuts in Easy Edits Pro.
+  - *Verify:* Starship Control can retrieve finalized CET telemetry alongside recorded MKV/MP4.
+
+**Definition of Done — Phase 8:** SSP is fully controllable by Starship Control via both live GUI socket and headless CLI stdio, with automated CET sidecar export.
+
+---
+
 ## Dependency map (phase level)
 
 ```
-0 ──▶ 1 ──▶ 2 ──▶ 3 ──▶ 4 ──▶ 5 ──▶ 6 ──▶ 7
+0 ──▶ 1 ──▶ 2 ──▶ 3 ──▶ 4 ──▶ 5 ──▶ 6 ──▶ 7 ──▶ 8
                 ▲____________________|
-        (5 Library needs 1.x rows; 6 needs 3/4 pane content; 7 audits everything)
+        (5 Library needs 1.x rows; 6 needs 3/4 pane content; 7 audits everything; 8 integrates ecosystem)
 ```
 
 Hard rules the map encodes: 1.x unlocks everything behind it; 5 starts only after phase 1 writes real rows; 6.3 can slip behind 7 without blocking 4/5; light mode (7.1) is a launch gate, not a deferred afterthought (DESIGN §8).
