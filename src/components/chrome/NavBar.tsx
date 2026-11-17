@@ -1,27 +1,37 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import {
+  Circle,
+  Library,
+  Radio,
+  Settings,
+  SlidersHorizontal,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { asIpcError, windowHide } from "../../lib/ipc";
 import { useSspStore, type ViewId } from "../../lib/store";
 
-/* §5.8 NavBar — window chrome law:
-   52px Pane recipe, r.lg top corners only · segmented pill (r.full, 32px,
-   active = surface.solid raise) · Stream pill always disabled with V2 badge ·
-   custom CSD (native decorations off) — the bar is the drag region.
-   §7.3: segmented nav is arrow-key roving; the universal focus ring comes
-   from tailwind.css base. */
+/* DESIGN.md v2.0 §5.8 NavBar — window chrome law:
+   52px Pane recipe, r.lg top corners only · flat rectangular tab row (r.sm,
+   32px, 16px lucide icon + label, active = accent.muted + 2px bottom accent
+   indicator) · Stream always disabled with V2 badge · custom CSD (native
+   decorations off) — the bar is the drag region.
+   §7.3: tabs use arrow-key roving; the universal focus ring comes from
+   tailwind.css base. */
 
 type NavItem = {
   id: ViewId | "stream";
   label: string;
+  icon: LucideIcon;
   disabled?: true;
   badge?: string;
 };
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { id: "record", label: "Record" },
-  { id: "library", label: "Library" },
-  { id: "stream", label: "Stream", disabled: true, badge: "V2" },
-  { id: "settings", label: "Settings" },
+  { id: "record", label: "Record", icon: Circle },
+  { id: "library", label: "Library", icon: Library },
+  { id: "stream", label: "Stream", icon: Radio, disabled: true, badge: "V2" },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 export default function NavBar() {
@@ -47,7 +57,7 @@ export default function NavBar() {
     el?.focus();
   }
 
-  // §7.3 — arrow-key roving across the segmented control (disabled pills skipped)
+  // §7.3 — arrow-key roving across the tab row (disabled tabs skipped)
   function onKeyDown(e: KeyboardEvent) {
     const focusable = NAV_ITEMS.filter((i) => !i.disabled);
     const current = focusable.findIndex((i) => i.id === view);
@@ -71,9 +81,9 @@ export default function NavBar() {
   return (
     <header
       data-tauri-drag-region
-      className="pane flex h-[52px] shrink-0 items-center rounded-t-lg border-b border-subtle px-4"
+      className="pane flex h-13 shrink-0 items-center rounded-t-lg border-b border-subtle px-4"
     >
-      {/* left zone — mirrored with the right zone (flex-1) so the segmented pill
+      {/* left zone — mirrored with the right zone (flex-1) so the tab row
           is always exactly centered; the name yields below the compact band (§6) */}
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-2">
         <span className="app-mark" aria-hidden="true" />
@@ -85,16 +95,17 @@ export default function NavBar() {
         </span>
       </div>
 
-      {/* center zone — segmented pill */}
+      {/* center zone — flat rectangular tabs (§5.8) */}
       <nav className="flex flex-none justify-center" aria-label="Primary">
         <div
           role="tablist"
           aria-label="Views"
           onKeyDown={onKeyDown}
-          className="seg flex h-8 items-center gap-3 rounded-full border border-subtle bg-glass p-[3px]"
+          className="flex h-9 items-center gap-1 rounded-sm border border-subtle bg-glass p-1"
         >
           {NAV_ITEMS.map((item) => {
             const active = item.id === view && !item.disabled;
+            const Icon = item.icon;
             return (
               <button
                 key={item.id}
@@ -107,15 +118,23 @@ export default function NavBar() {
                 title={item.disabled ? "Streaming arrives in V2" : undefined}
                 tabIndex={active || (item.id === view && item.disabled) ? 0 : -1}
                 onClick={() => select(item.id)}
-                className={
-                  active
-                    ? "flex h-[26px] items-center gap-2 rounded-full bg-solid px-4 text-body-sm font-medium text-ink shadow-elev-1"
-                    : "flex h-[26px] items-center gap-2 rounded-full px-4 text-body-sm font-medium text-ink-secondary hover:text-ink disabled:pointer-events-none disabled:text-ink-disabled"
-                }
+                className={`relative flex h-8 items-center gap-2 rounded-sm px-3 text-body-sm font-medium
+                  ${
+                    active
+                      ? "bg-accent-muted text-accent"
+                      : "text-ink-secondary hover:bg-accent-muted hover:text-ink disabled:pointer-events-none disabled:text-ink-disabled"
+                  }`}
               >
+                <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
                 {item.label}
+                {active ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-2 bottom-0 h-0.5 bg-accent"
+                  />
+                ) : null}
                 {item.badge ? (
-                  <span className="rounded-xs border border-subtle px-1 py-0.5 font-mono text-[10px] leading-none text-ink-disabled">
+                  <span className="rounded-xs border border-subtle px-1 py-0.5 font-mono text-label leading-none text-ink-disabled">
                     {item.badge}
                   </span>
                 ) : null}
@@ -132,7 +151,7 @@ export default function NavBar() {
           aria-label="Settings tray"
           title="Quick settings (arrives Phase 6)"
           onClick={() => setView("settings")}
-          className="icon-btn flex h-10 w-10 items-center justify-center rounded-sm text-ink-secondary hover:bg-accent-muted hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded-sm text-ink-secondary transition-colors duration-fast ease-fast hover:bg-accent-muted hover:text-ink"
         >
           <SlidersHorizontal size={20} strokeWidth={1.5} />
         </button>
@@ -143,7 +162,7 @@ export default function NavBar() {
           disabled={hiding}
           aria-busy={hiding}
           onClick={() => void hide()}
-          className="icon-btn flex h-10 w-10 items-center justify-center rounded-sm text-ink-secondary hover:bg-accent-muted hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded-sm text-ink-secondary transition-colors duration-fast ease-fast hover:bg-accent-muted hover:text-ink"
         >
           <X size={20} strokeWidth={1.5} />
         </button>

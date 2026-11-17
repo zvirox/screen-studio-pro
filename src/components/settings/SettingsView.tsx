@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, Mic, Video, FileText, Keyboard, Info, AlertTriangle } from "lucide-react";
+import {
+  SlidersHorizontal,
+  Mic,
+  Video,
+  FileText,
+  Keyboard,
+  Info,
+  AlertTriangle,
+} from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import CameraPane from "./CameraPane";
 import CapturePane from "./CapturePane";
@@ -9,20 +17,25 @@ import ShortcutsPane from "./ShortcutsPane";
 import AboutPane from "./AboutPane";
 import FirstRunPane from "./FirstRunPane";
 
-/* §6.4 Settings — left rail 200px with compact pills (Capture / Audio /
-   Camera / Files / Shortcuts / About), content bg.raised max-width 560px.
-   Every row: label + description + control right-aligned; active pill =
-   accent.muted + accent text. Only Camera was wired (4.4); all six panes
-   are wired in 6.1. */
+/* DESIGN.md v2.0 §6.4 / §6.0 Settings shell:
+   a real 200px left rail on standard/wide (own vertical scroll), a
+   horizontally scrollable pill row on compact, and ONE content scroll owner
+   with a single max-w-[560px] wrapper. No nested <main>; panes never
+   re-wrap themselves (their v1.0 wrappers are removed in Stage 3).
+   Active tab = accent.muted + accent text; icons are 16px lucide 1.5px. */
 
-const RAIL_ITEMS: Array<{ id: string; label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }> }> = [
+const RAIL_ITEMS: Array<{
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+}> = [
+  { id: "firstRun", label: "First Run", icon: AlertTriangle },
   { id: "capture", label: "Capture", icon: SlidersHorizontal },
   { id: "audio", label: "Audio", icon: Mic },
   { id: "camera", label: "Camera", icon: Video },
   { id: "files", label: "Files", icon: FileText },
   { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
   { id: "about", label: "About", icon: Info },
-  { id: "firstRun", label: "First Run", icon: AlertTriangle },
 ];
 
 const PANES: Record<string, React.ComponentType> = {
@@ -60,13 +73,24 @@ export default function SettingsView() {
         void loadFirstRunCompleted();
         break;
     }
-  }, [activeTab, loadCaptureSettings, loadFilesSettings, loadShortcutsSettings, loadFirstRunCompleted]);
+  }, [
+    activeTab,
+    loadCaptureSettings,
+    loadFilesSettings,
+    loadShortcutsSettings,
+    loadFirstRunCompleted,
+  ]);
 
   const Pane = PANES[activeTab as keyof typeof PANES];
 
   return (
-    <section className="flex flex-col h-full">
-      <nav className="flex-shrink-0 w-52 flex flex-col gap-1 px-3 py-4 border-r border-subtle">
+    <section className="flex h-full min-h-0 flex-col min-[720px]:flex-row">
+      <nav
+        aria-label="Settings sections"
+        role="tablist"
+        className="flex shrink-0 gap-1 overflow-x-auto border-b border-subtle px-3 py-2
+          min-[720px]:w-52 min-[720px]:flex-col min-[720px]:overflow-y-auto min-[720px]:border-b-0 min-[720px]:border-r min-[720px]:py-4"
+      >
         {RAIL_ITEMS.map((item) => {
           const active = activeTab === item.id;
           const Icon = item.icon;
@@ -77,9 +101,12 @@ export default function SettingsView() {
               role="tab"
               aria-selected={active}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-2.5 h-10 px-3 py-1.5 rounded-sm text-body-sm transition-colors
-                ${active ? "bg-accent-muted text-accent font-medium" : "text-ink-secondary hover:bg-solid hover:text-ink"}
-                focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`}
+              className={`flex h-10 shrink-0 items-center gap-2.5 rounded-sm px-3 py-1.5 text-body-sm transition-colors duration-fast ease-fast
+                ${
+                  active
+                    ? "bg-accent-muted font-medium text-accent"
+                    : "text-ink-secondary hover:bg-solid hover:text-ink"
+                }`}
             >
               <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
               <span className="font-medium">{item.label}</span>
@@ -88,25 +115,23 @@ export default function SettingsView() {
         })}
       </nav>
 
-      <main className="flex-1 overflow-y-auto bg-raised p-6">
-        <section className="max-w-[560px]">
-          <div className="flex justify-between items-start gap-4">
-            <h1 className="text-display-md">
-              {itemLabel(activeTab)}
-            </h1>
+      <div className="min-h-0 flex-1 overflow-y-auto bg-raised">
+        <div className="mx-auto max-w-[560px] p-6">
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-display-md">{itemLabel(activeTab)}</h1>
             {view !== "record" && (
               <button
                 type="button"
                 onClick={() => setView("record")}
-                className="text-xs text-accent font-medium hover:underline"
+                className="text-label font-medium text-accent hover:underline"
               >
                 Go to Record
               </button>
             )}
           </div>
           <Pane />
-        </section>
-      </main>
+        </div>
+      </div>
     </section>
   );
 }

@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Copy,
-  ExternalLink,
-  LoaderCircle,
-  Trash2,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, LoaderCircle, Trash2 } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import RecordingDrawer from "./RecordingDrawer";
 import DeleteConfirm from "./DeleteConfirm";
@@ -51,7 +46,11 @@ function LibraryCard({
   item,
   onOpen,
   onDelete,
-}: { item: LibraryListItem; onOpen: (id: number) => void; onDelete: (id: number) => void }) {
+}: {
+  item: LibraryListItem;
+  onOpen: (id: number) => void;
+  onDelete: (id: number) => void;
+}) {
   const [hovered, setHovered] = useState(false);
 
   const handleDelete = () => {
@@ -75,25 +74,20 @@ function LibraryCard({
       className={cn(
         "relative group cursor-pointer bg-solid border border-subtle rounded-md shadow-[var(--shadow-elev-1)] p-4",
         hovered ? "border-accent -translate-y-1" : "",
-        "transition-all duration-140 ease-out",
+        "transition-[transform,border-color] duration-fast ease-fast",
       )}
     >
       {/* 16:9 thumbnail (r.sm) */}
       <div className="relative aspect-video w-full rounded-sm bg-raised overflow-hidden">
         {item.thumbPath ? (
-          <img
-            src={item.thumbPath}
-            alt=""
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+          <img src={item.thumbPath} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-ink">
             <ExternalLink size={24} strokeWidth={1.5} className="opacity-60" />
           </div>
         )}
         {/* Duration chip bottom-right (mono-sm, ground) */}
-        <div className="absolute bottom-1 right-1 flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/50 text-mono-xs text-white">
+        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-[var(--ssp-modal-scrim)] px-1.5 py-0.5 text-mono-sm text-ink">
           {formatDuration(item.durationMs)}
         </div>
         {/* Missing-file overlay (§5.5): thumbnail persists + signal.muted chip. */}
@@ -108,15 +102,10 @@ function LibraryCard({
 
       <div className="mt-3">
         {/* Name body-sm 500 */}
-        <h3 className="text-body-sm font-medium text-ink line-clamp-1">
-          {item.fileName}
-        </h3>
+        <h3 className="text-body-sm font-medium text-ink line-clamp-1">{item.fileName}</h3>
         {/* Meta row (label/mono-sm): date · size · fps · encoder */}
         <p className="mt-1 text-label text-ink truncate">
-          {formatDate(item.createdAt)} ·
-          {formatSize(item.sizeBytes)} ·
-          {item.fps}fps ·
-          {item.encoder}
+          {formatDate(item.createdAt)} ·{formatSize(item.sizeBytes)} ·{item.fps}fps ·{item.encoder}
         </p>
       </div>
 
@@ -202,14 +191,17 @@ export default function LibraryGrid() {
     setSearch(e.target.value);
   }, []);
 
-  const handleSort = useCallback((field: "created_at" | "duration" | "size") => {
-    if (sortField === field) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDir("desc");
-    }
-  }, [sortField, sortDir]);
+  const handleSort = useCallback(
+    (field: "created_at" | "duration" | "size") => {
+      if (sortField === field) {
+        setSortDir(sortDir === "asc" ? "desc" : "asc");
+      } else {
+        setSortField(field);
+        setSortDir("desc");
+      }
+    },
+    [sortField, sortDir],
+  );
 
   return (
     <section className="flex flex-col h-full" data-testid="library-grid">
@@ -233,7 +225,7 @@ export default function LibraryGrid() {
       <div className="flex-shrink-0 px-6 py-2 border-b border-subtle bg-raised">
         <div className="flex items-center justify-between text-label font-medium text-ink">
           <span>Recordings</span>
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-label">
             <button
               onClick={() => handleSort("created_at")}
               className={cn(
@@ -241,7 +233,13 @@ export default function LibraryGrid() {
                 sortField === "created_at" && "text-accent",
               )}
             >
-              Date {sortField === "created_at" ? (sortDir === "desc" ? "▼" : "▲") : ""}
+              Date
+              {sortField === "created_at" &&
+                (sortDir === "desc" ? (
+                  <ArrowDown size={16} strokeWidth={1.5} aria-hidden="true" />
+                ) : (
+                  <ArrowUp size={16} strokeWidth={1.5} aria-hidden="true" />
+                ))}
             </button>
             <button
               onClick={() => handleSort("duration")}
@@ -250,7 +248,13 @@ export default function LibraryGrid() {
                 sortField === "duration" && "text-accent",
               )}
             >
-              Duration {sortField === "duration" ? (sortDir === "desc" ? "▼" : "▲") : ""}
+              Duration
+              {sortField === "duration" &&
+                (sortDir === "desc" ? (
+                  <ArrowDown size={16} strokeWidth={1.5} aria-hidden="true" />
+                ) : (
+                  <ArrowUp size={16} strokeWidth={1.5} aria-hidden="true" />
+                ))}
             </button>
             <button
               onClick={() => handleSort("size")}
@@ -259,7 +263,13 @@ export default function LibraryGrid() {
                 sortField === "size" && "text-accent",
               )}
             >
-              Size {sortField === "size" ? (sortDir === "desc" ? "▼" : "▲") : ""}
+              Size
+              {sortField === "size" &&
+                (sortDir === "desc" ? (
+                  <ArrowDown size={16} strokeWidth={1.5} aria-hidden="true" />
+                ) : (
+                  <ArrowUp size={16} strokeWidth={1.5} aria-hidden="true" />
+                ))}
             </button>
           </div>
         </div>
@@ -270,7 +280,12 @@ export default function LibraryGrid() {
         {library.status === "error" ? (
           // §5.5 error state — show §1 copy with retry.
           <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <ExternalLink size={48} strokeWidth={1.5} className="text-error mb-4" aria-hidden="true" />
+            <ExternalLink
+              size={48}
+              strokeWidth={1.5}
+              className="text-error mb-4"
+              aria-hidden="true"
+            />
             <h2 className="text-heading font-medium text-ink">Could not load recordings</h2>
             <p className="mt-2 text-body-sm text-ink max-w-md">
               {library.error?.userMessage ?? "Failed to load recordings."}
@@ -296,10 +311,13 @@ export default function LibraryGrid() {
           search ? (
             // Search empty.
             <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <ExternalLink size={48} strokeWidth={1.5} className="text-ink mb-4" aria-hidden="true" />
-              <h2 className="text-heading font-medium text-ink">
-                No recordings match “{search}”
-              </h2>
+              <ExternalLink
+                size={48}
+                strokeWidth={1.5}
+                className="text-ink mb-4"
+                aria-hidden="true"
+              />
+              <h2 className="text-heading font-medium text-ink">No recordings match “{search}”</h2>
               <button
                 type="button"
                 onClick={() => setSearch("")}
@@ -311,11 +329,15 @@ export default function LibraryGrid() {
           ) : (
             // Library empty.
             <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <ExternalLink size={48} strokeWidth={1.5} className="text-ink mb-4" aria-hidden="true" />
+              <ExternalLink
+                size={48}
+                strokeWidth={1.5}
+                className="text-ink mb-4"
+                aria-hidden="true"
+              />
               <h2 className="text-heading font-medium text-ink">Nothing recorded yet</h2>
               <p className="mt-2 text-body-sm text-ink max-w-md">
-                Choose a source on the Record tab, then hit Record. Your clips
-                will land here.
+                Choose a source on the Record tab, then hit Record. Your clips will land here.
               </p>
               <button
                 type="button"
@@ -354,7 +376,7 @@ export default function LibraryGrid() {
       </div>
 
       {/* Status bar */}
-      <div className="flex-shrink-0 px-6 py-2 text-xs text-ink">
+      <div className="flex-shrink-0 px-6 py-2 text-label text-ink">
         Showing {library.items.length} of {library.total} recording
         {library.total !== 1 ? "s" : ""}.
       </div>
