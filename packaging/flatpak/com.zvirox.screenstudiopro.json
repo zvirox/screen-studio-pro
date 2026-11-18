@@ -4,9 +4,6 @@
     "runtime": "org.gnome.Platform",
     "runtime-version": "48",
     "sdk": "org.gnome.Sdk",
-    "sdk-extensions": [
-        "org.freedesktop.Sdk.Extension.rust-stable//24.08"
-    ],
     "command": "screen-studio-pro",
     "finish-args": [
         "--share=ipc",
@@ -70,10 +67,31 @@
             ]
         },
         {
+            "name": "rust",
+            "buildsystem": "simple",
+            "build-options": {
+                "env": {
+                    "RUSTUP_HOME": "/app/lib/rustup",
+                    "CARGO_HOME": "/app/lib/cargo"
+                }
+            },
+            "build-commands": [
+                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o rustup-init.sh",
+                "sh rustup-init.sh -y --profile minimal --default-toolchain stable --no-modify-path",
+                "mkdir -p /app/bin",
+                "ln -s /app/lib/cargo/bin/cargo /app/bin/cargo",
+                "ln -s /app/lib/cargo/bin/rustc /app/bin/rustc"
+            ]
+        },
+        {
             "name": "screen-studio-pro",
             "buildsystem": "simple",
             "build-options": {
-                "append-path": "/usr/lib/sdk/rust-stable/bin"
+                "append-path": "/app/lib/cargo/bin",
+                "env": {
+                    "RUSTUP_HOME": "/app/lib/rustup",
+                    "CARGO_HOME": "/app/lib/cargo"
+                }
             },
             "build-commands": [
                 "cd src-tauri && cargo build --release",
