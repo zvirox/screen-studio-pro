@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mockup 1 — Record · ScreenStudio Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    .win-body { padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-6); }
+    .panel { padding: var(--sp-4); }
+    .panel > * + * { margin-top: var(--sp-4); }
+
+    /* source chips (§6.1) */
+    .src-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+    .src-chip {
+      display: flex; flex-direction: column; align-items: flex-start;
+      gap: var(--sp-1);
+      padding: var(--sp-3);
+      background: var(--surface-solid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-sm);
+      cursor: pointer; text-align: left;
+      font: inherit; color: var(--text-primary); width: 100%;
+    }
+    .src-chip .lucide { color: var(--text-secondary); margin-bottom: var(--sp-1); }
+    .src-chip .cap { color: var(--text-secondary); }
+    .src-chip:hover { border-color: rgba(255,255,255,0.16); }
+    .src-chip.selected {
+      background: var(--accent-muted);
+      border-color: var(--accent);
+    }
+    .src-chip.selected .lucide, .src-chip.selected .name-row .lucide { color: var(--accent); }
+    .name-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+
+    /* preview frame — the only place frames may ever render (§6.1) */
+    .preview {
+      aspect-ratio: 16 / 9; width: 100%;
+      background: var(--surface-solid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-sm);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: var(--sp-3); color: var(--text-disabled);
+    }
+    .preview .lucide { width: 48px; height: 48px; }
+
+    /* audio strip (§6.1) */
+    .channels { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+    .channel {
+      padding: var(--sp-3);
+      background: var(--surface-solid);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-sm);
+      display: flex; flex-direction: column; gap: var(--sp-2);
+    }
+    .channel .row1 { display: flex; align-items: center; gap: var(--sp-2); }
+    .channel .dev {
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+      margin-left: auto; color: var(--text-secondary);
+      background: transparent; border: none; cursor: pointer;
+      font-size: 0.75rem; padding: var(--sp-1) var(--sp-2);
+      border-radius: var(--r-xs);
+    }
+    .channel .dev:hover { background: var(--accent-muted); color: var(--text-primary); }
+    .channel .dev .lucide { width: 14px; height: 14px; }
+
+    /* camera slab — ghost state (§6.1 #4) */
+    .cam-ghost {
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4);
+      border: 1px dashed var(--border-glass);
+      border-radius: var(--r-sm);
+      color: var(--text-secondary); width: 100%;
+      background: transparent; font: inherit; font-size: 0.8125rem;
+      cursor: pointer;
+    }
+    .cam-ghost:hover { background: var(--accent-muted); color: var(--text-primary); }
+    .cam-ghost .lucide { width: 16px; height: 16px; }
+
+    /* action row (§6.1 #5) */
+    .action-row { display: flex; align-items: center; gap: var(--sp-4); }
+    .action-row .select { min-width: 240px; }
+    .action-row .btn.primary { flex: 1; }
+    .enc-chip {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      height: 40px; padding-inline: var(--sp-3);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-sm); color: var(--text-secondary);
+    }
+    .enc-chip .lucide { width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+  <div class="page-note"><b>Mockup 1 / 3 — Record</b> · DESIGN.md v1.0 tokens · first-run state (capture not yet granted)</div>
+
+  <div class="stage">
+    <div class="window">
+      <!-- §5.8 NavBar -->
+      <header class="navbar pane">
+        <div style="display:flex; align-items:center; gap: var(--sp-2);">
+          <span class="app-mark" aria-hidden="true"></span>
+          <span class="body-sm" style="font-weight:500;">ScreenStudio Pro</span>
+        </div>
+        <nav class="seg" style="margin-inline:auto;" aria-label="Primary">
+          <button class="active">Record</button>
+          <button>Library</button>
+          <button disabled>Stream <span class="v2-badge">V2</span></button>
+          <button>Settings</button>
+        </nav>
+        <div style="display:flex; gap: var(--sp-1);">
+          <button class="icon-btn" aria-label="Settings tray"><i data-lucide="sliders-horizontal"></i></button>
+          <button class="icon-btn" aria-label="Minimize to tray"><i data-lucide="x"></i></button>
+        </div>
+      </header>
+
+      <main class="win-body">
+        <!-- §6.1 #2 Source deck -->
+        <section class="panel pane" aria-labelledby="src-h">
+          <span class="label panel-label" id="src-h">Source</span>
+          <div class="src-chips">
+            <button class="src-chip selected">
+              <span class="name-row"><i data-lucide="monitor"></i><i data-lucide="check" style="width:16px;height:16px;"></i></span>
+              <span class="body-sm" style="font-weight:500;">Monitor</span>
+              <span class="mono-sm cap">2560×1440 · 60fps</span>
+            </button>
+            <button class="src-chip">
+              <span class="name-row"><i data-lucide="app-window"></i></span>
+              <span class="body-sm" style="font-weight:500;">Window</span>
+              <span class="mono-sm cap">12 windows · 60fps</span>
+            </button>
+            <button class="src-chip">
+              <span class="name-row"><i data-lucide="scan"></i></span>
+              <span class="body-sm" style="font-weight:500;">Region</span>
+              <span class="mono-sm cap">draw on preview · min 64px</span>
+            </button>
+          </div>
+          <!-- §6.3 education slot: preview not yet granted -->
+          <div class="preview" role="img" aria-label="Source preview — capture not yet granted">
+            <i data-lucide="monitor"></i>
+            <span class="body-sm" style="color: var(--text-disabled);">Click Monitor to allow capture through your compositor</span>
+          </div>
+        </section>
+
+        <!-- §6.1 #3 Audio strip -->
+        <section class="panel pane" aria-labelledby="aud-h">
+          <span class="label panel-label" id="aud-h">Audio</span>
+          <div class="channels">
+            <div class="channel">
+              <div class="row1">
+                <span class="label">Mic</span>
+                <button class="dev">Blue Yeti X <i data-lucide="chevron-down"></i></button>
+                <button class="switch" role="switch" aria-checked="true" aria-label="Mic enabled"></button>
+              </div>
+              <div class="meter" aria-label="Mic level">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="peak"></i><i class="peak"></i>
+              </div>
+            </div>
+            <div class="channel">
+              <div class="row1">
+                <span class="label">Desktop</span>
+                <button class="dev">System output <i data-lucide="chevron-down"></i></button>
+                <button class="switch" role="switch" aria-checked="true" aria-label="Desktop audio enabled"></button>
+              </div>
+              <div class="meter" aria-label="Desktop level">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="idle"></i><i class="idle"></i><i class="idle"></i><i class="idle"></i><i class="idle"></i><i class="idle"></i><i class="idle"></i><i class="idle"></i>
+              </div>
+            </div>
+          </div>
+          <span class="body-sm" style="color: var(--text-secondary);">Speak to test your mic level</span>
+        </section>
+
+        <!-- §6.1 #4 Camera slab (ghost) -->
+        <button class="cam-ghost"><i data-lucide="video"></i> Add camera</button>
+
+        <!-- §6.1 #5 Action row -->
+        <div class="action-row">
+          <button class="select">For YouTube — 1080p60 <i data-lucide="chevron-down"></i></button>
+          <button class="btn primary lg"><i data-lucide="circle" style="fill:currentColor; width:16px; height:16px;"></i> Record</button>
+          <span class="enc-chip mono-sm"><i data-lucide="cpu"></i>VAAPI</span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
