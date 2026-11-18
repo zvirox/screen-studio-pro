@@ -120,6 +120,22 @@ jobs:
           npm run build
           rm -rf node_modules
 
+      # The build sandbox has no DNS, so neither rustup nor crates.io is
+      # reachable. Vendor every crate here and point Cargo at /app/lib/vendor
+      # (where the manifest copies it) so cargo builds fully offline.
+      - name: Vendor Rust crates for the offline sandbox build
+        run: |
+          cd src-tauri
+          cargo vendor ../vendor
+          mkdir -p ../.cargo
+          cat > ../.cargo/config.toml <<'EOF'
+          [source.crates-io]
+          replace-with = "vendored-sources"
+
+          [source.vendored-sources]
+          directory = "/app/lib/vendor"
+          EOF
+
       # Keep the AppStream entry truthful: stamp THIS tag + today's date into
       # the <release> element before the bundle is built.
       - name: Stamp the release entry into metainfo
