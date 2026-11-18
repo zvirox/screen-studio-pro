@@ -119,8 +119,16 @@ jobs:
           test -n "$LIBDIR"
           mkdir -p libclang
           cp -a "$LIBDIR"/libclang.so* "$LIBDIR"/libclang-cpp.so* \
-            "$LIBDIR"/libLLVM.so.18* libclang/
-          ls libclang | head
+            "$LIBDIR"/libLLVM* libclang/
+          if [ -d "$LIBDIR/clang" ]; then
+            cp -a "$LIBDIR/clang" libclang/
+          fi
+          CLANG_INC=$(find "$LIBDIR" -type f -name stdbool.h -exec dirname {} \; | head -1)
+          test -n "$CLANG_INC"
+          mkdir -p libclang/include
+          cp -a "$CLANG_INC"/* libclang/include/
+          ls -la libclang
+          ls -la libclang/include | head -n 10
 
       # The frontend is built OUTSIDE the sandbox: the app module is a `dir`
       # source (this checkout) and node/npm do not exist inside it. Tauri 2
