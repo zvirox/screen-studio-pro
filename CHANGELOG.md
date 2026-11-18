@@ -6,7 +6,9 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: distro packages and first tag (7.5), AUR PKGBUILD, archived launch screenshots and G3 timing metric (7.6), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
-## [0.0.1-alpha.1] - 2026-11-18
+## [0.0.1+alpha.1] - 2026-11-18
+
+Released under tag `v0.0.1-alpha.1` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
 
 First buildable alpha. The MVP recording pipeline, UI and local library are implemented and CI-verified. No installer packages have been published yet.
 

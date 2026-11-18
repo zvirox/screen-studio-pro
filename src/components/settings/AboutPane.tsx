@@ -31,7 +31,7 @@ export default function AboutPane() {
           </div>
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink-secondary">Version</dt>
-            <dd className="text-body-sm text-ink text-mono-sm">0.0.1-alpha.1</dd>
+            <dd className="text-body-sm text-ink text-mono-sm">0.0.1+alpha.1</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink">IPC contract</dt>

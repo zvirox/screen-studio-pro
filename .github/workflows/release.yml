@@ -71,7 +71,7 @@ jobs:
           releaseBody: "See the assets below to download and install this build."
           releaseDraft: false
           # v0.0.1-alpha.1 → prerelease; vX.Y.Z → full release.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') || contains(github.ref_name, '+') }}
           args: --bundles deb,rpm,appimage
 
       # tauri-action's releaseBody is only a pointer — put the real change
