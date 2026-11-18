@@ -63,6 +63,15 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           args: --bundles deb,rpm,appimage
 
+      # tauri-action's releaseBody is only a pointer — put the real change
+      # note on the release page from the versioned file in the repo.
+      - name: Set release notes from change file
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES="docs/releases/${GITHUB_REF_NAME#v}.md"
+          gh release edit "$GITHUB_REF_NAME" --notes-file "$NOTES"
+
   flatpak:
     name: Flatpak (.flatpak bundle)
     runs-on: ubuntu-latest
