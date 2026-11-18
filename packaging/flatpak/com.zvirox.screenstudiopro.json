@@ -77,7 +77,7 @@
                 }
             ],
             "build-commands": [
-                "./install.sh --prefix=/app/lib/rust --disable=rust-docs"
+                "./install.sh --prefix=/app/lib/rust --without=rust-docs"
             ]
         },
         {
