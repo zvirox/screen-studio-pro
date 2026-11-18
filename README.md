@@ -4,106 +4,100 @@
 
 # ScreenStudio Pro
 
-**A modern, open-source screen recording app for Linux — a frosted-glass alternative to OBS for Hyprland, niri, MangoWC and KDE.**
+**An open-source screen recording app for Wayland-first Linux — a frosted-glass alternative built for Hyprland, niri, MangoWC and KDE Plasma.**
 
-> **Status: planning phase.** The product is fully specified and no application code exists yet. All source-of-truth documents are in this repo and reviewed. Implementation begins with the approved MVP milestone plan.
+> **Status: alpha (`0.0.1-alpha.1`).** The MVP recording pipeline and UI are implemented and CI-verified; distro packages are still being prepared. There is no published installer yet. See [release notes](docs/releases/0.0.1-alpha.1.md) for the honest capability matrix and known quirks.
 
 ## 📸 Screenshots
 
-<!-- TODO: replace with real captures from the first running build -->
-| Record screen | Recording HUD | Library |
-|:---:|:---:|:---:|
-| *placeholder — main window with source deck, audio strip, camera slab* | *placeholder — floating glass toolbar with timer* | *placeholder — recordings grid, dark mode* |
+| Record (dark) | Record (light) |
+|:---:|:---:|
+| ![Record view, dark theme](docs/screenshots/record-dark.jpeg) | ![Record view, light theme](docs/screenshots/record-light.jpeg) |
 
-## ✨ Key Features (MVP)
+| Settings (light) | Library |
+|:---:|:---:|
+| ![Settings view](docs/screenshots/settings-light.jpeg) | ![Library grid](docs/screenshots/library-preview.jpeg) |
 
-- **Wayland-native capture** — monitor, window, and region recording via xdg-desktop-portal + PipeWire
-- **Audio from PipeWire** — microphone and system/desktop audio with per-channel mute and level control
-- **Webcam picture-in-picture** — draggable glass PiP frame with circle or rounded-square shape
-- **Floating recording HUD** — translucent glass toolbar: record / pause / resume / flag / stop, draggable with corner snapping
-- **Hardware-first encoding** — auto-detects VAAPI (Intel/AMD) and NVENC (NVIDIA); falls back to x264 with a visible notice
-- **Crash-safe files** — records to MKV, auto-remuxes to MP4 on stop; a crash never loses the take
-- **Quality presets in plain language** — "For YouTube — 1080p60, ~12 Mbps" instead of encoder jargon
-- **Recording library** — thumbnail grid of past recordings with duration, size, encoder metadata
-- **A UI worth screenshotting** — frosted-glass panels, spring motion, dark mode by default
+> These are **UI previews** rendered from the Vite frontend with the Tauri IPC mocked; the Library preview uses sample rows. They show the shipped layout and v2 visual language, not a captured desktop recording session. Real in-app captures are still to be archived (task 7.6 residual).
 
-Parking-lot (from the roadmap, not in MVP): RTMP streaming, OBS-style scene compositor, replay buffer, screenshots, cursor spotlight/zoom effects — see PRD.md for the full V2/Later list.
+## ✨ What works in this alpha
 
-## 🛠 Tech Stack
+- **Wayland-native capture** — monitor/window/region selection via xdg-desktop-portal + PipeWire (window and region paths are implemented; live evidence is strongest on KDE Plasma — see [portal support](docs/portal-support.md)).
+- **Audio recording** — mic + desktop channels with per-channel enable/mute/level, live post-gain meters, and graceful handling of a device disappearing mid-take.
+- **Webcam PiP** — floating, draggable preview with corner snapping, size/shape controls, and optional self-insert compositing.
+- **Floating recording HUD** — timer, pause/resume, stop and chapter flags, rendered in its own always-on-top window.
+- **Recording library** — thumbnails, search, sort, detail drawer, soft delete and missing-file states, backed by a local SQLite index.
+- **Session lifecycle** — tray quick actions, minimize-to-tray on record, and finalize-on-quit.
+- **Files** — MKV takes with optional MP4 remux, strftime-style naming, plain-language quality presets.
+- **v2 interface** — burgundy-on-near-black glass theme, square preview centered in a two-column workspace, full light mode, reduced-motion-aware motion, keyboard-reachable controls.
 
-| Layer | Technology |
-|---|---|
-| Core / backend | **Rust** — PipeWire (`pipewire-rs`), portals (`ashpd`), encoding via `ffmpeg-next` (VAAPI/NVENC/x264), audio via `cpal`, camera via `v4l2r` |
-| App shell | **Tauri 2** (native Linux desktop app) |
-| Frontend | **React 19 + TypeScript + Vite** |
-| Styling / UI | **Tailwind CSS v4**, shadcn/ui (Radix primitives), framer-motion, dnd-kit, lucide-react |
-| State | **Zustand** on the webview side; Rust pipeline as single source of truth |
-| Data | **SQLite** (`rusqlite`) — local library index only, no server |
-| Packaging | Arch (AUR), deb, rpm — GitHub Releases |
+**Not in this alpha:** RTMP/live streaming, scene compositor, replay buffer, video editor, plugin API, and hardware-encoder acceleration (VAAPI/NVENC detection is currently a stub; x264 is the working fallback). These are PRD V2/Later items — see the roadmap in [PLAN.md](PLAN.md).
 
-No servers, no HTTP APIs, no telemetry. The Rust core does all capture and encoding; the webview renders UI only and never touches a video frame.
+## 🧰 Requirements for building from source
 
-## 🍴 Quick Start
+- Linux on Wayland (KDE Plasma, Hyprland, niri, MangoWC) with PipeWire and an xdg-desktop-portal implementation.
+- Rust stable (edition 2024), Node.js 22+, npm.
+- System dev libraries: PipeWire (`libpipewire-0.3-dev`), ALSA (`libasound2-dev`), FFmpeg development headers, and the usual Tauri/WebKitGTK build dependencies. Exact names vary by distro; CI installs the Ubuntu equivalents.
 
-> ⚠️ **No runnable build exists yet** — the repo is currently specification-only. The command-block below describes the *target* developer workflow for when the first buildable scaffold lands; it does not work today.
->
-> Steps 1–3 work right now if you want to contribute to the specs:
+## 🚀 Quick start (developers)
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/zvirox/screen-studio-pro.git
-   cd screen-studio-pro
-   ```
-2. **Read the product brief** — [PRD.md](PRD.md) (scope, features, target users)
-3. **Skim the contracts** — [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE.md](DATABASE.md), [API.md](API.md); the working rules for any AI or human contributor are in [AGENTS.md](AGENTS.md)
-4. **Install the prerequisites for the Rust build side** — Rust toolchain (rustup), plus the PipeWire/portal development libraries your distro needs *(exact package list will be finalized with the first buildable crate)*
-5. **Run the dev app once scaffolded** *(command will be documented here at scaffold time — nothing is invented here in advance)*
+```bash
+git clone https://github.com/zvirox/screen-studio-pro.git
+cd screen-studio-pro
+npm install
+npm run tauri dev          # build the Rust core and open the Tauri window
+```
 
-## 🌍 Environment Variables
+Checks used by CI and before every commit:
 
-Runtime/debug variables only (user-facing configuration lives in the app's Settings and TOML config — see ARCHITECTURE.md §5.3):
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --lib
+```
 
-| Name | Purpose | Example value |
+## 📦 Installing
+
+No packages are published yet — packaging and the first tagged release are tracked as task 7.5. Once published, the intended channels are Flatpak, `.deb`, `.rpm`/AppImage via GitHub Releases, with AUR as a follow-up. See [release notes](docs/releases/0.0.1-alpha.1.md) for current status.
+
+## 🌍 Environment variables
+
+Runtime/debug overrides only; user settings live in the app and its TOML config (ARCHITECTURE §5.3):
+
+| Name | Purpose | Example |
 |---|---|---|
-| `SSP_LOG_FILE` | Override the log file location | `~/ssp-debug.log` |
-| `SSP_LOG_LEVEL` | Log verbosity: `trace`/`debug`/`info`/`warn`/`error` | `debug` |
+| `SSP_LOG_FILE` | Override the log file path | `~/ssp-debug.log` |
+| `SSP_LOG_LEVEL` | Log verbosity (`trace`/`debug`/`info`/`warn`/`error`) | `debug` |
 | `SSP_DATA_DIR` | Override recordings/library data directory | `~/Videos/SSP` |
 | `SSP_CONFIG_DIR` | Override config directory | `~/.config/screen-studio-pro` |
-| `SSP_FORCE_ENCODER` | Force a specific encoder for testing | `vaapi` (or `nvenc`, `x264`) |
-| `SSP_DISABLE_PORTAL_CACHE` | Skip portal consent caching | `1` |
+| `SSP_FORCE_ENCODER` | Force an encoder backend for testing | `x264` |
 
-## 📁 Folder Structure
+## 📁 Repository layout
 
-**Today (specification phase):**
 ```
-screen-studio-pro/
-├── PRD.md              # Product requirements: scope, features, metrics
-├── PRODUCT.md          # Brand feel & product context for design work
-├── DESIGN.md           # UI design system: tokens, components, layouts, a11y law
-├── ARCHITECTURE.md     # Stack, folder tree, data flow, state & error strategy
-├── DATABASE.md         # SQLite schema, indexes, migrations
-├── API.md              # Full IPC contract: commands, events, error codes
-├── AGENTS.md           # Rulebook for AI coding assistants
-├── docs/               # (planned: portal-support.md per-compositor quirks)
-└── LICENSE             # MIT
+src-tauri/src/     Rust core: capture/, encode/, pipeline/, library/, ipc/, settings/
+src/               React webview: components/{chrome,record,library,settings,huds,ui}/, hooks/, lib/, types/
+src-tauri/sql/     numbered SQLite migrations
+packaging/         Flatpak manifest (AUR/deb/rpm follow-up)
+.github/workflows/ CI + tag-triggered release
+docs/              portal-support.md, releases/, screenshots/
+*.md               PRD, PRODUCT, DESIGN, ARCHITECTURE, DATABASE, API, PLAN, AGENTS
 ```
 
-**Target tree at MVP (from ARCHITECTURE.md §2):** `src-tauri/` (Rust: `capture/`, `encode/`, `pipeline/`, `library/`, `ipc/`) + `src/` (React: `components/{record,library,settings,huds,chrome}/`, `lib/`, `types/`) + `packaging/` (aur, deb, rpm, icons) + `.github/workflows/`.
+## 📜 Documentation
 
-## ⌨️ Available Scripts
-
-**Currently available: none** — there is no buildable code yet, and we don't list commands that don't exist.
-
-Planned once the scaffold lands (per ARCHITECTURE.md §5.2): Rust formatting/lint (`cargo fmt`, `cargo clippy -D warnings`), TypeScript strict check (`tsc --noEmit`), unit tests, Tauri dev/build entry points. Each will be wired into npm scripts and GitHub Actions CI and documented here at that time.
+- [PRD.md](PRD.md) — scope, MVP/V2/Later, success metrics
+- [DESIGN.md](DESIGN.md) — v2 visual law (tokens, components, layouts, a11y)
+- [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE.md](DATABASE.md), [API.md](API.md) — structure, schema, IPC contract
+- [PLAN.md](PLAN.md) — phased roadmap and evidence ledger
+- [docs/portal-support.md](docs/portal-support.md) — per-compositor quirks and live evidence
+- [REAOS.md](REAOS.md) — reverse-engineering study used to plan V2 work
 
 ## 🤝 Contributing
 
-Contributions are welcome — code, packaging, docs, and especially real-world Wayland bug reports (per-compositor quirks are our hardest problem). The rules of this repo are simple and binding for humans and AI assistants alike:
-
-1. **Read AGENTS.md first** — it covers the workflow (plan → code → verify → summarize) and the hard limits (no stack changes, no new dependencies without asking, schema changes require updating DATABASE.md first).
-2. **The contract files are law** — if a change conflicts with PRD/DESIGN/ARCHITECTURE/DATABASE/API, the request is a contract change, not a code change; propose it before implementing.
-3. **Small, verified PRs** — one focused change per PR, tests and lint passed on it. Issues tagged `good first issue` on the PRD's MVP checklist are the intended entry points.
-4. Bug reports: include your compositor (Hyprland/niri/MangoWC/KDE and version), portal/pipewire versions, GPU and driver — this data directly drives docs/portal-support.md.
+1. Read [AGENTS.md](AGENTS.md) first — workflow, source-of-truth priority and hard limits (no stack changes, no new dependencies without approval, schema changes require DATABASE.md first).
+2. Contract files are law: a conflicting request is a contract change, not a code change.
+3. Small, verified changes with real command output; pause between delivered tasks.
+4. Wayland bug reports should include compositor + version, PipeWire/portal versions, GPU and driver — that data drives `docs/portal-support.md`.
 
 ## 📜 License
 
