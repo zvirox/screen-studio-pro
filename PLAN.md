@@ -300,6 +300,15 @@ optional — measured band levels are the agreed accept signal.
 
 ---
 
+## UI v2 redesign — 2026-11-18 (contract-first, five stages)
+
+- **Conflict rule (AGENTS §6):** the user explicitly approved overruling DESIGN.md; PRD §Vision/G2 and PRODUCT.md's pinned brand feel were reviewed per DESIGN §8 (they require glassmorphic, translucent, animated, quiet-software — they pin no hue). DESIGN.md was bumped 1.0 → 2.0 in the **same task** as the regenerated token layer, before any component code. Stages 1–4 landed in `e7e5aa1`, `473c627`, `9da2063`, `1ef4a63`.
+- **v2.0 law now in force:** burgundy accent on warm near-black neutrals (dark `accent.text`/`accent` 9.04:1, light 9.12:1), 6-radius minimal-round rectangle scale, square 1:1 preview with letterboxed frames, one scroll owner per surface (§6.0), flat icon nav row, rectangular HUD, `m.press`/`m.reveal`/`m.spinner` compositions with JS reduced-motion support, and a fixed 6-level z-scale.
+- **Verification:** contrast re-measured from the CSS in both modes; DESIGN↔token audit (12 colors/mode, 6 radii, 4 durations, 6 z-levels) PASS; dark and light Record/Settings/Library rendered passes with no console errors; nav arrow-key roving verified in the browser; typecheck, lint, 222 frontend tests and production build green after every stage.
+- **Residual / not verified:** the browser tool has no viewport emulation, so 390px/1440px widths were checked through code + narrow/wide native viewports, not exact emulation; reduced-motion could not be emulated (CSS media rule + `MotionConfig` verified in code only); the HUD's separate webview was not rendered in the browser harness; light-mode off-switch boundary contrast inherits the existing §5.4 tokens and was not re-measured at 3:1. No new dependencies; no IPC, API or database changes.
+
+---
+
 ## Dependency map (phase level)
 
 ```
