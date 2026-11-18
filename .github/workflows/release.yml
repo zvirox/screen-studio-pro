@@ -108,14 +108,14 @@ jobs:
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --user --if-not-exists flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user --noninteractive \
+          flatpak install --user -y --noninteractive \
             org.gnome.Platform//48 org.gnome.Sdk//48 \
             org.freedesktop.Sdk.Extension.llvm18//24.08
 
       - name: Stage libclang for the offline sandbox build
         run: |
           set -euo pipefail
-          LIBDIR=$(dirname "$(find "$HOME/.local/share/flatpak/runtime/org.freedesktop.Sdk.Extension.llvm18/x86_64/24.08" -name libclang.so | head -1)")
+          LIBDIR=$(dirname "$(find "$HOME/.local/share/flatpak/runtime/org.freedesktop.Sdk.Extension.llvm18/x86_64/24.08" -name libclang.so -print -quit)")
           test -n "$LIBDIR"
           mkdir -p libclang
           cp -a "$LIBDIR"/libclang.so* "$LIBDIR"/libclang-cpp.so* \
@@ -123,12 +123,12 @@ jobs:
           if [ -d "$LIBDIR/clang" ]; then
             cp -a "$LIBDIR/clang" libclang/
           fi
-          CLANG_INC=$(find "$LIBDIR" -type f -name stdbool.h -exec dirname {} \; | head -1)
+          CLANG_INC=$(dirname "$(find "$LIBDIR" -type f -name stdbool.h -print -quit)")
           test -n "$CLANG_INC"
           mkdir -p libclang/include
           cp -a "$CLANG_INC"/* libclang/include/
           ls -la libclang
-          ls -la libclang/include | head -n 10
+          ls -la libclang/include || true
 
       # The frontend is built OUTSIDE the sandbox: the app module is a `dir`
       # source (this checkout) and node/npm do not exist inside it. Tauri 2
