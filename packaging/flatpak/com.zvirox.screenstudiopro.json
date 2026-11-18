@@ -88,10 +88,16 @@
             "name": "screen-studio-pro",
             "buildsystem": "simple",
             "build-options": {
-                "append-path": "/app/lib/rust/bin"
+                "append-path": "/app/lib/rust/bin",
+                "append-ld-library-path": "/app/lib/clang",
+                "no-debuginfo": true,
+                "env": {
+                    "LIBCLANG_PATH": "/app/lib/clang"
+                }
             },
             "build-commands": [
                 "mkdir -p /app/lib && cp -a vendor /app/lib/vendor",
+                "mkdir -p /app/lib/clang && cp -a libclang/. /app/lib/clang/",
                 "cd src-tauri && cargo build --release --offline",
                 "install -Dm755 src-tauri/target/release/screen-studio-pro /app/bin/screen-studio-pro",
                 "install -Dm644 packaging/flatpak/com.zvirox.screenstudiopro.desktop /app/share/applications/com.zvirox.screenstudiopro.desktop",
