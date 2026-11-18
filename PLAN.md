@@ -309,12 +309,87 @@ optional — measured band levels are the agreed accept signal.
 
 ---
 
+## Reference-app learnings → phased plan (planning only, 2026-11-18)
+
+Source: `REAOS.md` (reverse-engineering study of an installed production recorder). This section **turns findings into future work**; it does not change MVP scope. PRD §5 non-goals N1 (no scene/source compositor) and N2 (no live streaming) still govern, along with the V2/Later tables in PRD §5. Every item below is **planning-only**: it starts only after (a) the relevant contract files (PRD/DESIGN/ARCHITECTURE/DATABASE/API) are updated in the same task as the code, and (b) the user green-lights that task. No new dependency is added without the §4.2 approval.
+
+### Finding → current SSP state → disposition
+
+| REAOS finding | SSP today | Disposition |
+|---|---|---|
+| Layered core / frontend API / module descriptors (§2) | Rust core + thin Tauri IPC + React UI; no module registry | Phase 12.1 (contract change first) |
+| Dockable production workspace, reset/lock, projectors (§3) | Fixed Record/Library/Settings shell + square preview (UI v2) | Phase 9.4 (DESIGN v3 required) |
+| Preview/program split + transitions (§3, §6) | Single preview, no scenes | Phase 9.3 (PRD V2) |
+| Empirical auto-configuration wizard (§4) | Settings panes + First Run education pane | Phase 13.1 |
+| Global audio matrix, per-source filters, advanced mixer (§5) | Two channels (mic/desktop), meters, no filters/monitoring | Phase 10.1–10.3 |
+| Canvas vs output resolution, multiple downscale filters (§6) | Quality presets + `output_size`; x264 only | Phase 11.2–11.3 |
+| Capture sources, GPU filters, virtual camera (§6) | Portal monitor/window/region, V4L2 stub, PipeWire capture | Phase 9.1 / 12.4 |
+| Fragmented/hybrid containers + remux resilience (§7) | MKV + MP4 remux (6.2), no fragmented modes | Phase 11.1 |
+| Hardware encoder matrix, quality tiers (§7) | VAAPI/NVENC stubs (3.3), x264 fallback | Phase 11.2 |
+| Replay buffer with memory cap (§7) | Not present (PRD V3) | Phase 11.4 |
+| Overload banner + CPU/FPS/drop telemetry (§7, §9) | Stats line (3.5), no overload detection | Phase 11.5 |
+| Plugin/script model, UI extension points (§8) | None; Phase 8 only exposes the Starship UDS bridge | Phase 12.1–12.3 |
+| Missing-file recovery, safe state, projectors (§3, §4) | Library missing-file state exists; wizards/dialogs partial | Phase 13.2 |
+| Reliability lesson: container choice as crash protection (§7, §10) | Partially learned (remux, 6.2) | Phase 11.1 acceptance criterion |
+
+### Phase 9 — Production workspace & composition (PRD V2: scenes; gated by PRD/DESIGN/DATABASE/API)
+
+- [ ] **9.1 Source-node model** — generalize the capture traits into an input/filter/transition/scene descriptor set with per-source settings serialization (save/load, signals). *Verify:* unit tests for graph mutation + settings round-trip; API.md and ARCHITECTURE.md updated in-task. *Depends on:* 3.x, 4.x.
+- [ ] **9.2 Scene graph persistence** — numbered DATABASE migration for scenes/sources/order/transform, scene-collection IPC and project file import/export. *Verify:* sqlite readback + fresh-profile migration; DATABASE.md in-task. *Depends on:* 9.1.
+- [ ] **9.3 Preview/program mode + transitions** — dual preview canvas, transition duration/timeline, preview→program switch, disabled safe states. *Verify:* rendered pass over both canvases; DESIGN v3 entry for the workspace anatomy. *Depends on:* 9.2.
+- [ ] **9.4 Dockable workspace** — movable/lockable/resettable panels (scenes, sources, mixer, transitions, controls), keyboard reachability, projector outputs deferred to 13.2. *Verify:* compact/standard/wide rendered checks + focus pass; DESIGN v3. *Depends on:* 9.3.
+- **Phase gate:** none of 9.x starts until PRD V2 scope is explicitly activated and DESIGN.md/ARCHITECTURE.md/DATABASE.md/API.md carry the new law.
+
+### Phase 10 — Pro audio production (PRD V2-V5 / Later-L3; gated by API/DATABASE)
+
+- [ ] **10.1 Global device matrix** — multiple mic/aux device slots with safe default resolution; no new DSP dependency yet. *Verify:* device enumeration + start failure paths typed. *Depends on:* 2.1, 6.1.
+- [ ] **10.2 Per-source audio mixer** — mute, gain, monitoring mode, sync offset, advanced-audio-properties panel; post-gain meters stay honest (DESIGN §4.6 law). *Verify:* meter/mute A/B in-file with real devices; API.md in-task. *Depends on:* 10.1.
+- [ ] **10.3 Audio filters + latency modes** — gain/delay/gate/suppression and push-to-talk/push-to-mute with delays; monitoring deduplication learned from the study; true-peak metering only behind an explicit CPU-cost notice. *Verify:* typed errors and reduced-motion/CPU review; new DSP dependency requires §4.2 approval. *Depends on:* 10.2.
+- [ ] **10.4 Multitrack audio recording** — per-source tracks in the container + sidecar description; DATABASE/API updates in-task. *Verify:* ffprobe stream/track readback. *Depends on:* 10.2, 11.1.
+- **Phase gate:** 10.3+ requires dependency approval; 10.4 requires DATABASE.md migration in the same task.
+
+### Phase 11 — Encoding, containers & resilience (existing MVP seams + PRD V2-V3/V8)
+
+- [ ] **11.1 Crash-safe containers + remux** — extend 6.2's MKV→MP4 path with fragmented/hybrid modes and a Remux action; container choice documented as a reliability decision. *Verify:* interrupted-take playability + remux round-trip. *Depends on:* 6.2, 5.x.
+- [ ] **11.2 Hardware encoder completion** — finish 3.3's VAAPI/NVENC stubs, add capability probe/benchmarks and honest fallback notices. *Verify:* ffprobe + encoder chip on the real GPU; PRD §8 targets activate here. *Depends on:* 3.3.
+- [ ] **11.3 Advanced output modes** — simple/advanced/custom tiers, quality presets, dynamic bitrate, explicit CPU/bitrate tradeoff copy. *Verify:* preset→ffprobe dims/bitrate matrix; API.md in-task. *Depends on:* 11.2.
+- [ ] **11.4 Replay buffer** — bounded rolling last-N-seconds memory buffer + single-key save (PRD V3). *Verify:* memory cap respected, save-hotkey path, no leak; new memory budget test. *Depends on:* 11.1, 11.3.
+- [ ] **11.5 Overload + telemetry** — encoding-overload banner, CPU/FPS/drop/bitrate status, actionable copy per DESIGN §7.9. *Verify:* real-take harness results attached; no raw strings in UI. *Depends on:* 3.5, 7.4.
+- **Note:** 11.1–11.2 complete seams already present in SSP; they stay gated like any V2 work because they change contract files.
+
+### Phase 12 — Extensibility & control (PRD Later-L5/L6; no HTTP/cloud by default)
+
+- [ ] **12.1 Module descriptor API** — capability registry for capture/encoder/output modules, with load/unload lifecycle and typed failures. *Verify:* contract review + lifecycle tests; ARCHITECTURE.md in-task. *Depends on:* 9.1, 11.2.
+- [ ] **12.2 Scripting hooks** — Lua/Python-style automation over the descriptor API; **explicit dependency approval required**. *Verify:* sandboxed script test; no secrets in scripts. *Depends on:* 12.1.
+- [ ] **12.3 Control surface** — extend the Phase 8 UDS bridge with scene/source/record commands; WebSocket/NDI/cloud endpoints are **out of scope** unless AGENTS.md's no-server/no-cloud rule is explicitly overruled. *Verify:* external-client take over the socket; API.md in-task. *Depends on:* 8.2, 9.1.
+- [ ] **12.4 UI extension points** — user docks/tools-menu contributed by modules, with focus/keyboard law. *Verify:* keyboard pass + DESIGN v3. *Depends on:* 9.4, 12.1.
+- **Phase gate:** 12.x is Later-scope; 12.2 needs dependency approval, 12.3 needs an explicit contract override for any network surface.
+
+### Phase 13 — Auto-configuration & operator UX (PRD V2-V6 / Later-L1)
+
+- [ ] **13.1 Empirical auto-config wizard** — usage intent (record/stream/virtual camera), resolution/FPS selection, encoder test, apply settings; reuse First Run pane. *Verify:* fresh profile ≤60s to first recording (PRD G3). *Depends on:* 6.4, 11.2.
+- [ ] **13.2 Recovery & operator tools** — missing-files check, settings/profile folder reveal, local log viewer, safe-mode restart, projector/screenshot reuse (PRD V4). *Verify:* copy audit + screenshots; no cloud log upload. *Depends on:* 5.5, 11.1.
+- [ ] **13.3 Launch-state polish** — error copy sweep extension, release notes with capability matrix, screenshot freshness (links to Phase 7.6). *Verify:* link check + copy audit. *Depends on:* 7.5, 7.6.
+- **Phase gate:** 13.x starts only when 7.x launch items are closed; nothing here ships before the MVP release.
+
+### Sequencing rule for the new phases
+
+```
+9 (composition) ──▶ 10 (audio graph) ──▶ 11 (encoders/containers) ──▶ 12 (extensibility)
+        └──────────────▶ 13 (wizard/ops, after 7.x launch) ──────────────┘
+```
+
+Phases 9–13 run **after** the MVP release (Phase 7) and the Phase 8 ecosystem work. Existing unchecked-but-implemented items (6.1–6.4, 7.1–7.3) should be ledger-tidied before any 9+ work; 7.4/7.5 residuals stay attached to their phases. Each 9+ item repeats the same evidence discipline used in Phases 1–8: contract edits first, automated + live evidence, small commits, and a pause after every delivery.
+
+---
+
 ## Dependency map (phase level)
 
 ```
-0 ──▶ 1 ──▶ 2 ──▶ 3 ──▶ 4 ──▶ 5 ──▶ 6 ──▶ 7 ──▶ 8
-                ▲____________________|
+0 ──▶ 1 ──▶ 2 ──▶ 3 ──▶ 4 ──▶ 5 ──▶ 6 ──▶ 7 ──▶ 8 ──┬─▶ 9 ──▶ 10 ──▶ 11 ──▶ 12
+                ▲____________________|                    └──────────▶ 13 ───────┘
         (5 Library needs 1.x rows; 6 needs 3/4 pane content; 7 audits everything; 8 integrates ecosystem)
+        (9-13 are V2/Later, planning-only until PRD/contract gates are explicitly opened)
 ```
 
-Hard rules the map encodes: 1.x unlocks everything behind it; 5 starts only after phase 1 writes real rows; 6.3 can slip behind 7 without blocking 4/5; light mode (7.1) is a launch gate, not a deferred afterthought (DESIGN §8).
+Hard rules the map encodes: 1.x unlocks everything behind it; 5 starts only after phase 1 writes real rows; 6.3 can slip behind 7 without blocking 4/5; light mode (7.1) is a launch gate, not a deferred afterthought (DESIGN §8). Phases 9–13 run only after 7.x/8 are delivered, each behind its own PRD/DESIGN/ARCHITECTURE/DATABASE/API updates and user green-light; no new dependency or network/cloud surface is implied by the map.
