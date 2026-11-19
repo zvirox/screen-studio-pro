@@ -119,4 +119,38 @@ describe("RecordView (§6.1 slice)", () => {
     await screen.findByRole("button", { name: /Record/ });
     expect(screen.getByRole("button", { name: /Record/ })).toBeEnabled();
   });
+
+  it("renders wide-window tri-panel studio floating architecture (DESIGN v3.0)", () => {
+    render(<RecordView />);
+
+    // Left floating inspector
+    expect(screen.getByRole("complementary", { name: "Capture Inspector" })).toBeInTheDocument();
+
+    // Center hero canvas & sub-canvas audio mixer
+    expect(screen.getByRole("region", { name: "Source" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Audio Mixer Deck" })).toBeInTheDocument();
+
+    // Right takes and presets gallery
+    expect(
+      screen.getByRole("complementary", { name: "Takes and Presets Gallery" }),
+    ).toBeInTheDocument();
+  });
+
+  it("toggles takes gallery on compact viewports", () => {
+    render(<RecordView />);
+
+    const toggleBtn = screen.getByRole("button", {
+      name: "Toggle recent takes and presets gallery",
+    });
+    expect(toggleBtn).toBeInTheDocument();
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "true");
+    expect(toggleBtn).toHaveTextContent("Hide Takes & Presets");
+
+    fireEvent.click(toggleBtn);
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
+    expect(toggleBtn).toHaveTextContent("Show Takes & Presets");
+  });
 });

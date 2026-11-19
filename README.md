@@ -6,7 +6,7 @@
 
 **An open-source screen recording app for Wayland-first Linux — a frosted-glass alternative built for Hyprland, niri, MangoWC and KDE Plasma.**
 
-> **Status: alpha (`0.0.1+alpha.1`, release tag `v0.0.1-alpha.1`).** The MVP recording pipeline and UI are implemented and CI-verified. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See [release notes](docs/releases/0.0.1-alpha.1.md) for the honest capability matrix and known quirks.
+> **Status: alpha (`0.0.1+alpha.2`, release tag `v0.0.1-alpha.2`).** The wide-window floating-island studio UI (DESIGN.md v3.0), MVP recording pipeline, and local library are implemented and CI-verified. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See [release notes](docs/releases/0.0.1-alpha.2.md) for the honest capability matrix and known quirks.
 
 ## 📸 Screenshots
 

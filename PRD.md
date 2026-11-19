@@ -219,8 +219,43 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 
 ---
 
-## 10. Next Documents
+## 10. Release Timeline & Milestone Lifecycle
 
-1. **Technical Design Doc** — capture core architecture, PipeWire framing, encoder abstraction, Tauri command/event surface, UI↔Rust IPC contract.
-2. **UI/UX Doc with Visual Companion mockups** — glass design language, motion spec, component inventory.
-3. **Milestone/Release Plan** — MVP cut as issues, then V2 freeze criteria.
+Development and release progression follow three strict lifecycle tiers:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        SCREENSTUDIO PRO RELEASE TIMELINE                               │
+├─────────────────────┬─────────────────────────────────────┬────────────────────────────┤
+│ Lifecycle Tier      │ Covered Phases                      │ Target Version Scheme      │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ STRICT ALPHA        │ Phases 0 – 9                        │ v0.0.1-alpha.1 →           │
+│                     │ Foundation, Core Capture, Audio,    │ v0.1.0-alpha.x             │
+│                     │ Camera PiP, Library, UI v2,         │                            │
+│                     │ Ecosystem Bridge, Container Safety  │                            │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ STRICT BETA         │ Phases 10 – 14                      │ v0.9.0-beta.1 →            │
+│                     │ Zero-Copy GPU, Hardware Encoders,   │ v0.9.x-beta.*              │
+│                     │ Pro Audio DSP, Multitrack,          │                            │
+│                     │ Telemetry, Replay Buffer, Plugins   │                            │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ 1ST STABLE RELEASE  │ Post-Phase 14                       │ v1.0.0                     │
+│                     │ Production GA, Flathub Verified,    │                            │
+│                     │ Complete Distro Packaging, Zero Reg │                            │
+└─────────────────────┴─────────────────────────────────────┴────────────────────────────┤
+```
+
+### 10.1 Strict Alpha Releases (Phases 0 – 9)
+- **Focus:** Vertical recording foundation, Wayland portal capture (`ashpd`), lock-free SPSC frame ring, x264 software encoder, floating HUD window, Camera PiP, Library with thumbnails, UI v2 glassmorphism, Starship Control UDS bridge (Phase 8), and complete container crash-resilience with native hybrid MP4 (`hybrid_mp4`) and isolated subprocess muxing (`ssp-mux`) (Phase 9).
+- **Target Versions:** `v0.0.1-alpha.1` through `v0.1.0-alpha.x`.
+- **Exit Criteria for Alpha:** Zero corrupted recordings under force-kill stress testing; automated release artifacts (.deb, .rpm, AppImage, Flatpak) build and install cleanly.
+
+### 10.2 Strict Beta Releases (Phases 10 – 14)
+- **Focus:** Zero-copy PipeWire DMA-BUF GPU texture ingestion (`SPA_DATA_DmaBuf`), active VAAPI (`hw_vaapi`) and NVENC (`hw_nvenc`) hardware encoders, studio-grade DSP (RNNoise voice isolation, sidechain ducking, anti-feedback protection), multitrack audio isolation (Tracks 1–3), granular diagnostics (Rendering Lag vs Encoding Lag), canvas scaling & replay buffer, and dynamic module loading with remote control RPC bridge.
+- **Target Versions:** `v0.9.0-beta.1` through `v0.9.x-beta.*`.
+- **Exit Criteria for Beta:** Performance targets qualified across Intel, AMD, and NVIDIA hardware (**dropped frames < 0.5%** at 1080p60 on hardware encoders, **RSS < 150 MB**, zero A/V sync drift over 60-min takes); multitrack files verified in DaVinci Resolve and Kdenlive.
+
+### 10.3 First Stable Release (`v1.0.0`)
+- **Focus:** General Availability across Flathub, AUR (`screen-studio-pro`), Ubuntu PPA / Debian, Fedora Copr / RPM, and GitHub Releases.
+- **Target Version:** `v1.0.0`.
+- **Exit Criteria:** Production GA with 100% green CI test suites, verified multi-distro packages, complete user and developer documentation, and zero open critical bugs.

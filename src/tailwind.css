@@ -1,8 +1,8 @@
 /* src/tailwind.css — ScreenStudio Pro design tokens + fonts
-   Provenance: DESIGN.md v2.0 (§2 colors, §3 type, §4 foundations, §5 components).
+   Provenance: DESIGN.md v3.0 (§2 colors, §3 type, §4 foundations, §5 components).
    Tailwind v4 @theme mapped onto a runtime variable layer so dark (default) and
    light swap without re-generating utilities: @theme inline points at --ssp-*
-   vars that :root (dark) and .light override.
+   vars that :root (dark) and :root[data-theme="light"], .light override.
 
    GOVERNANCE (DESIGN §8): the closed set lives here and only here. Components
    reference tokens by name — a hex/px literal in a component is a review failure.
@@ -56,36 +56,41 @@
 
 /* ---------- Runtime palette layer (values from DESIGN.md §2, verbatim) ---------- */
 :root {
-  /* dark is default (§2.2) — DESIGN.md v2.0, burgundy on near-black */
-  --ssp-bg-canvas: #0a0809;
-  --ssp-bg-raised: #120e10;
-  --ssp-surface-glass: rgba(255, 240, 244, 0.055);
-  --ssp-surface-glass-strong: rgba(26, 12, 18, 0.76);
-  --ssp-surface-solid: #1a1417;
-  --ssp-border-subtle: rgba(255, 240, 244, 0.09);
-  --ssp-border-glass: rgba(255, 240, 244, 0.15);
-  --ssp-text-primary: #f5eef0;
-  --ssp-text-secondary: rgba(245, 238, 240, 0.68);
-  --ssp-text-disabled: rgba(245, 238, 240, 0.4);
-  --ssp-accent: #e2a0b0;
-  --ssp-accent-hover: #ecc0cc;
-  --ssp-accent-active: #c97f94;
-  --ssp-accent-text: #1a0a0f;
-  --ssp-accent-muted: rgba(226, 160, 176, 0.15);
-  --ssp-signal: #ff5a66;
-  --ssp-signal-muted: rgba(255, 90, 102, 0.16);
-  --ssp-success: #5ee58a;
-  --ssp-warning: #ffc24b;
-  --ssp-error: #ff7a85;
-  --ssp-error-muted: rgba(255, 122, 133, 0.14);
-  /* §4.3 dark shadow recipes — tinted near-black burgundy */
-  --ssp-elev-1: 0 1px 2px rgba(10, 4, 7, 0.32), 0 4px 12px rgba(10, 4, 7, 0.22);
-  --ssp-elev-2: 0 2px 6px rgba(10, 4, 7, 0.36), 0 12px 32px rgba(10, 4, 7, 0.3);
-  --ssp-elev-float: 0 2px 8px rgba(10, 4, 7, 0.4), 0 24px 64px -12px rgba(10, 4, 7, 0.55);
-  /* §4.4 recipe inputs (fill composed at use, see glass recipes below) */
+  /* dark is default (§2.1) — DESIGN.md v3.0, Obsidian palette */
+  --ssp-bg-canvas: #0A0B0E;
+  --ssp-bg-raised: #12141A;
+  --ssp-surface-glass: rgba(255, 255, 255, 0.045);
+  --ssp-surface-glass-strong: rgba(18, 20, 26, 0.82);
+  --ssp-surface-solid: #181A22;
+  --ssp-surface-hover: rgba(255, 255, 255, 0.06);
+  --ssp-border-subtle: rgba(255, 255, 255, 0.08);
+  --ssp-border-glass: rgba(255, 255, 255, 0.14);
+  --ssp-border-focus: #A3284E;
+  --ssp-text-primary: #F4F5F8;
+  --ssp-text-secondary: rgba(244, 245, 248, 0.65);
+  --ssp-text-disabled: rgba(244, 245, 248, 0.32);
+  /* Studio Burgundy Accent */
+  --ssp-accent: #A3284E;
+  --ssp-accent-hover: #BA335D;
+  --ssp-accent-active: #8C1E40;
+  --ssp-accent-text: #FFFFFF;
+  --ssp-accent-muted: rgba(163, 40, 78, 0.15);
+  /* Broadcast Signal Red */
+  --ssp-signal: #E53935;
+  --ssp-signal-muted: rgba(229, 57, 53, 0.16);
+  /* Status */
+  --ssp-success: #2ECC71;
+  --ssp-warning: #F39C12;
+  --ssp-error: #E74C3C;
+  --ssp-error-muted: rgba(231, 76, 60, 0.14);
+  /* §4.2 dark shadow recipes */
+  --ssp-elev-1: 0 2px 6px rgba(0, 0, 0, 0.30), 0 8px 24px rgba(0, 0, 0, 0.22);
+  --ssp-elev-2: 0 4px 12px rgba(0, 0, 0, 0.40), 0 16px 40px rgba(0, 0, 0, 0.35);
+  --ssp-elev-float: 0 8px 32px -4px rgba(0, 0, 0, 0.55), 0 24px 64px -8px rgba(0, 0, 0, 0.45);
+  /* §4.3 recipe inputs (fill composed at use, see glass recipes below) */
   --ssp-scrim-floor: 55%;
-  --ssp-modal-scrim: rgba(10, 4, 7, 0.5);
-  --ssp-input-hover-border: rgba(255, 240, 244, 0.16);
+  --ssp-modal-scrim: rgba(10, 11, 14, 0.6);
+  --ssp-input-hover-border: rgba(255, 255, 255, 0.16);
   /* §8 fixed z-level scale — never raw z-* in components */
   --ssp-z-base: 0;
   --ssp-z-sticky: 10;
@@ -95,63 +100,83 @@
   --ssp-z-hud: 70;
 }
 
-/* §2.3 Light mode — both faces are law (§8): complete, never afterthought */
-:root.light {
-  --ssp-bg-canvas: #f6f1f2;
-  --ssp-bg-raised: #ffffff;
-  --ssp-surface-glass: rgba(255, 255, 255, 0.62);
+/* §2.2 Light mode — both faces are law: complete, never afterthought */
+:root[data-theme="light"],
+:root.light,
+.light {
+  --ssp-bg-canvas: #F4F5F8;
+  --ssp-bg-raised: #FFFFFF;
+  --ssp-surface-glass: rgba(255, 255, 255, 0.70);
   --ssp-surface-glass-strong: rgba(255, 255, 255, 0.88);
-  --ssp-surface-solid: #ffffff;
-  --ssp-border-subtle: rgba(26, 10, 15, 0.09);
-  --ssp-border-glass: rgba(255, 255, 255, 0.9);
-  --ssp-text-primary: #1a0a0f;
-  --ssp-text-secondary: rgba(26, 10, 15, 0.66);
-  --ssp-text-disabled: rgba(26, 10, 15, 0.38);
-  --ssp-accent: #7e2a44;
-  --ssp-accent-hover: #6e223a;
-  --ssp-accent-active: #5c1b30;
-  --ssp-accent-text: #ffffff;
-  --ssp-accent-muted: rgba(126, 42, 68, 0.12);
-  --ssp-signal: #c42b45;
-  --ssp-signal-muted: rgba(196, 43, 69, 0.12);
-  --ssp-success: #1c7a44;
-  --ssp-warning: #8a5a00;
-  --ssp-error: #b3243e;
-  --ssp-error-muted: rgba(179, 36, 62, 0.12);
-  /* §4.3 light shadow recipes — tinted near-black burgundy */
-  --ssp-elev-1: 0 1px 2px rgba(26, 10, 15, 0.12), 0 4px 12px rgba(26, 10, 15, 0.1);
-  --ssp-elev-2: 0 2px 6px rgba(26, 10, 15, 0.16), 0 12px 32px rgba(26, 10, 15, 0.18);
-  --ssp-elev-float: 0 2px 8px rgba(26, 10, 15, 0.16), 0 24px 64px -12px rgba(26, 10, 15, 0.28);
-  --ssp-modal-scrim: rgba(26, 10, 15, 0.24);
-  --ssp-input-hover-border: rgba(26, 10, 15, 0.16);
+  --ssp-surface-solid: #EAECEF;
+  --ssp-surface-hover: rgba(18, 20, 26, 0.05);
+  --ssp-border-subtle: rgba(18, 20, 26, 0.08);
+  --ssp-border-glass: rgba(18, 20, 26, 0.12);
+  --ssp-border-focus: #8B1E3F;
+  --ssp-text-primary: #12141A;
+  --ssp-text-secondary: rgba(18, 20, 26, 0.65);
+  --ssp-text-disabled: rgba(18, 20, 26, 0.35);
+  --ssp-accent: #8B1E3F;
+  --ssp-accent-hover: #751834;
+  --ssp-accent-active: #5C1B30;
+  --ssp-accent-text: #FFFFFF;
+  --ssp-accent-muted: rgba(139, 30, 63, 0.12);
+  --ssp-signal: #D32F2F;
+  --ssp-signal-muted: rgba(211, 47, 47, 0.12);
+  --ssp-success: #27AE60;
+  --ssp-warning: #D35400;
+  --ssp-error: #C0392B;
+  --ssp-error-muted: rgba(192, 57, 43, 0.12);
+  /* §4.2 light shadow recipes */
+  --ssp-elev-1: 0 1px 3px rgba(18, 20, 26, 0.08), 0 4px 12px rgba(18, 20, 26, 0.06);
+  --ssp-elev-2: 0 2px 8px rgba(18, 20, 26, 0.10), 0 12px 32px rgba(18, 20, 26, 0.12);
+  --ssp-elev-float: 0 4px 16px -2px rgba(18, 20, 26, 0.12), 0 24px 64px -12px rgba(18, 20, 26, 0.18);
+  --ssp-modal-scrim: rgba(18, 20, 26, 0.28);
+  --ssp-input-hover-border: rgba(18, 20, 26, 0.16);
 }
 
 /* ---------- Tailwind theme bridge ---------- */
+/* DESIGN.md v3.0 */
 @theme inline {
-  /* DESIGN.md v2.0 §2 — colors (semantic names mirror the contract tokens) */
+  /* DESIGN.md v3.0 §2 — colors (semantic names mirror the contract tokens) */
   --color-canvas: var(--ssp-bg-canvas);
   --color-raised: var(--ssp-bg-raised);
   --color-glass: var(--ssp-surface-glass);
   --color-glass-strong: var(--ssp-surface-glass-strong);
   --color-solid: var(--ssp-surface-solid);
+  --color-surface-solid: var(--ssp-surface-solid);
+  --color-surface-glass: var(--ssp-surface-glass);
+  --color-surface-glass-strong: var(--ssp-surface-glass-strong);
+  --color-surface-hover: var(--ssp-surface-hover);
+
   --color-subtle: var(--ssp-border-subtle);
+  --color-border-subtle: var(--ssp-border-subtle);
   --color-line-glass: var(--ssp-border-glass);
+  --color-border-glass: var(--ssp-border-glass);
+  --color-border-focus: var(--ssp-border-focus);
+
   --color-ink: var(--ssp-text-primary);
   --color-ink-secondary: var(--ssp-text-secondary);
   --color-ink-disabled: var(--ssp-text-disabled);
+  --color-text-primary: var(--ssp-text-primary);
+  --color-text-secondary: var(--ssp-text-secondary);
+  --color-text-disabled: var(--ssp-text-disabled);
+
   --color-accent: var(--ssp-accent);
   --color-accent-hover: var(--ssp-accent-hover);
   --color-accent-active: var(--ssp-accent-active);
   --color-accent-text: var(--ssp-accent-text);
   --color-accent-muted: var(--ssp-accent-muted);
+
   --color-signal: var(--ssp-signal);
   --color-signal-muted: var(--ssp-signal-muted);
+
   --color-success: var(--ssp-success);
   --color-warning: var(--ssp-warning);
   --color-error: var(--ssp-error);
   --color-error-muted: var(--ssp-error-muted);
 
-  /* DESIGN.md v2.0 §8 — fixed z-level scale (no raw z-* in components) */
+  /* DESIGN.md v3.0 §8 — fixed z-level scale (no raw z-* in components) */
   --z-base: var(--ssp-z-base);
   --z-sticky: var(--ssp-z-sticky);
   --z-overlay: var(--ssp-z-overlay);
@@ -159,7 +184,7 @@
   --z-modal: var(--ssp-z-modal);
   --z-hud: var(--ssp-z-hud);
 
-  /* DESIGN.md v2.0 §3 — type scale (fixed rem) + §3 faces */
+  /* DESIGN.md v3.0 §3 — type scale (fixed rem) + §3 faces */
   --font-sans: "Familjen Grotesk", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
   --text-display-lg: 1.75rem;
@@ -177,27 +202,29 @@
   --text-body-sm--line-height: 1.45;
   --text-label: 0.75rem;
   --text-label--line-height: 1.3;
-  --text-label--font-weight: 500;
+  --text-label--font-weight: 600;
   --text-mono-md: 0.9375rem;
   --text-mono-md--line-height: 1.2;
   --text-mono-md--font-weight: 500;
   --text-mono-sm: 0.8125rem;
   --text-mono-sm--line-height: 1.3;
 
-  /* DESIGN.md v2.0 §4.2 — radii: minimal-rounded rectangles */
+  /* DESIGN.md v3.0 §4.1 — hardware-grade radius scale */
   --radius-none: 0px;
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-full: 999px;
 
-  /* DESIGN.md v2.0 §4.3 — elevation (shadow recipes live on the palette layer) */
+  /* DESIGN.md v3.0 §4.2 — elevation (shadow recipes live on the palette layer) */
   --shadow-elev-1: var(--ssp-elev-1);
   --shadow-elev-2: var(--ssp-elev-2);
+  --shadow-elev-float: var(--ssp-elev-float);
   --shadow-float: var(--ssp-elev-float);
 
-  /* DESIGN.md v2.0 §4.6 — motion: four numeric tokens (m.fast/base/slow/
+  /* DESIGN.md v3.0 §4.6 — motion: four numeric tokens (m.fast/base/slow/
      settle). Named compositions: m.press = scale(0.96) over m.fast;
      m.reveal = opacity 0→1 + translateY(6px→0) over m.base. JS motion must
      also honor reduced motion via <MotionConfig reducedMotion="user">. */
@@ -206,15 +233,15 @@
   --duration-slow: 240ms; /* m.slow */
   --duration-settle: 90ms; /* m.settle */
 
-  /* DESIGN.md v2.0 §4.6 — motion */
+  /* DESIGN.md v3.0 §4.6 — motion */
   --ease-fast: cubic-bezier(0.25, 1, 0.5, 1); /* 140ms */
   --ease-base: cubic-bezier(0.34, 1.56, 0.64, 1); /* ≈spring(300, 24) */
   --ease-slow: cubic-bezier(0.34, 1.32, 0.64, 1); /* ≈spring(260, 20) */
   --ease-settle: ease-in; /* 90ms */
   --animate-pulse-rec: hud-pulse-rec 1.4s ease-in-out infinite;
-  --animate-spin-slow: spin 800ms linear infinite; /* DESIGN.md v2.0 §4.6 m.spinner */
+  --animate-spin-slow: spin 800ms linear infinite; /* DESIGN.md v3.0 §4.6 m.spinner */
 
-  /* DESIGN.md v2.0 §4.1 — 4px base; named steps for the closed set */
+  /* 4px base; named steps for the closed set */
   --spacing: 4px;
 }
 
@@ -228,7 +255,7 @@
   }
 }
 
-/* DESIGN.md v2.0 §4.6 — reduced motion: transforms removed, opacity-only (§7.5) */
+/* DESIGN.md v3.0 §4.6 — reduced motion: transforms removed, opacity-only (§7.3) */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -239,7 +266,7 @@
   }
 }
 
-/* ---------- §4.4 Glass recipes (the only sanctioned blur treatments) ---------- */
+/* ---------- §4.3 Glass recipes (the only sanctioned blur treatments) ---------- */
 @utility pane {
   /* fill = surface.glass over the 55% bg.canvas scrim floor */
   background-color: color-mix(
@@ -258,7 +285,7 @@
     var(--ssp-bg-canvas) var(--ssp-scrim-floor),
     var(--ssp-surface-glass-strong)
   );
-  backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(200%);
   border: 1px solid var(--ssp-border-glass);
   box-shadow: var(--ssp-elev-float);
 }
@@ -274,7 +301,73 @@
   box-shadow: var(--ssp-elev-2);
 }
 
-/* ---------- DESIGN.md v2.0 §8: fixed z-level scale as real utilities ---------- */
+/* DESIGN.md v3.0 §4.3 Studio Glass Recipes */
+@utility studio-deck {
+  background-color: var(--ssp-surface-glass-strong);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-2);
+}
+
+@utility glass-studio-deck {
+  background-color: var(--ssp-surface-glass-strong);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-2);
+}
+
+@utility floating-hud {
+  background-color: var(--ssp-surface-glass-strong);
+  backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-float);
+}
+
+@utility glass-hud {
+  background-color: var(--ssp-surface-glass-strong);
+  backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-float);
+}
+
+@utility hero-canvas {
+  background-color: #000000;
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-float);
+}
+
+@utility glass-hero-canvas {
+  background-color: #000000;
+  border: 1px solid var(--ssp-border-glass);
+  box-shadow: var(--ssp-elev-float);
+}
+
+/* DESIGN.md v3.0 §5.1 CSD Window Control Dots */
+@utility csd-dot-close {
+  background-color: var(--ssp-signal);
+  transition-property: filter, background-color;
+  &:hover {
+    filter: brightness(1.15);
+  }
+}
+
+@utility csd-dot-min {
+  background-color: var(--ssp-warning);
+  transition-property: filter, background-color;
+  &:hover {
+    filter: brightness(1.15);
+  }
+}
+
+@utility csd-dot-max {
+  background-color: var(--ssp-success);
+  transition-property: filter, background-color;
+  &:hover {
+    filter: brightness(1.15);
+  }
+}
+
+/* ---------- DESIGN.md v3.0 §8: fixed z-level scale as real utilities ---------- */
 @utility z-base {
   z-index: var(--ssp-z-base);
 }
@@ -299,7 +392,7 @@
   .app-mark {
     width: 16px;
     height: 16px;
-    border-radius: 4px; /* DESIGN.md v2.0 §4.2 r.xs */
+    border-radius: 4px; /* DESIGN.md v3.0 §4.1 r.xs */
     background: var(--ssp-accent-muted);
     display: inline-flex;
     align-items: center;

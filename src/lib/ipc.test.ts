@@ -43,7 +43,7 @@ describe("lib/ipc", () => {
     invokeMock.mockResolvedValue({
       encoders: [],
       portal: {},
-      version: { app: "0.0.1+alpha.1", ipcContract: "1.0.0" },
+      version: { app: "0.0.1+alpha.2", ipcContract: "1.0.0" },
     });
     await systemCapabilities();
     expect(invokeMock).toHaveBeenCalledWith("system_capabilities");

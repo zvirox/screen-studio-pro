@@ -317,6 +317,107 @@ optional — measured band levels are the agreed accept signal.
 
 ---
 
+## UI v3 Studio Redesign — Camo-Inspired Wide-Window Floating Studio (Contract-First)
+
+- **Authority & Conflict Rule (AGENTS §6):** The user explicitly rejected the square (1:1) letterboxed frame and narrow layout in favor of modern, wide-canvas desktop studios (referencing **Camo Studio**, **Meld Studio**, and **PRISM Live Studio**).
+- **v3.0 Architectural Law (`DESIGN.md v3.0`):**
+  1. **Hero 16:9 Canvas:** Complete abolition of the square 1:1 preview box; replaced with a widescreen 16:9 hero preview canvas with 16px corner radius, 1px specular glass border, and ambient drop shadow.
+  2. **Tri-Panel Floating Island Architecture:** The window expands to wide desktop proportions (default 1360×820, min 1040×680). Content floats in three disciplined, symmetrically aligned glass islands:
+     - **Left Inspector Deck (300px):** Source switcher (Monitor/Window/Region), Display picker, Camera PiP controls (shape/size/corner snap/self-insert), and Quality Presets.
+     - **Center Hero Canvas + Sub-Canvas Audio Mixer Deck:** 16:9 canvas with interactive overlays + horizontal bottom card containing dedicated Mic and Desktop audio channel strips with dual peak/RMS meters, dB faders, mute switches, and DSP status badges (`[AI Noise Filter]`, `[Auto-Ducking]`).
+     - **Right Takes & Presets Gallery (260px):** Floating glass dock showing recent recordings with 16:9 thumbnails and quick actions, or Quick Presets with hotkey tags (`F1`, `F2`).
+  3. **Studio Titlebar (CSD):** 52px integrated glass chrome with window controls, centered view capsule (`Record` | `Library` | `Settings`), right-aligned telemetry badge (`1080p60 VAAPI`), and primary **Record Pill CTA** (with pulsing broadcast signal red dot).
+  4. **Hardware Radius Scale:** `r.sm=8px`, `r.md=12px`, `r.lg=16px`, `r.xl=20px`, `r.full=999px`.
+
+### UI v3 Execution Stages:
+
+- [ ] **v3.1 Design Tokens & Tailwind Theme Bridge**
+  - Update `src/tailwind.css` with v3.0 tokens: Obsidian palette (`bg.canvas` `#0A0B0E`, `bg.raised` `#12141A`, `surface.solid` `#181A22`), hardware radii (`r.sm=8px`, `r.md=12px`, `r.lg=16px`, `r.xl=20px`), and floating island shadows (`elev.1`, `elev.2`, `elev.float`).
+  - *Verify:* `npm run typecheck && npm run lint && npm test` pass; token values match `DESIGN.md v3.0`.
+- [ ] **v3.2 Integrated Studio Titlebar & Window Dimensions**
+  - Update `src-tauri/tauri.conf.json` window defaults: `width: 1360, height: 820, minWidth: 1040, minHeight: 680`.
+  - Rebuild `src/components/chrome/NavBar.tsx`: custom CSD with window controls, centered segmented capsule, right telemetry badge (`1080p60 VAAPI`) and 40px primary `Record` pill CTA button.
+  - *Verify:* Window renders with correct proportions; top bar aligns cleanly across compact and wide widths.
+- [ ] **v3.3 Hero 16:9 Floating Preview Canvas**
+  - Refactor `src/components/record/SourceDeck.tsx` and preview rendering into a widescreen 16:9 canvas with `rounded-2xl` (16px), 1px glass border, and ambient shadow.
+  - Integrate interactive Camera PiP and region drag-rect directly onto the 16:9 canvas surface without letterboxing.
+  - *Verify:* 16:9 test pattern fills canvas edge-to-edge; PiP snaps to all 4 corners.
+- [ ] **v3.4 Left Floating Inspector Deck**
+  - Create `src/components/record/CaptureInspector.tsx`: 300px floating glass island.
+  - Houses segmented source chips (`Monitor` | `Window` | `Region`), active display card with resolution tag, Camera PiP control group (device, circle/rounded toggle, size slider, self-insert switch), and Quality Preset dropdown.
+  - *Verify:* All settings persist; switching sources and presets updates state cleanly.
+- [ ] **v3.5 Floating Audio Mixer Deck (Meld Studio Style)**
+  - Rebuild `src/components/record/AudioStrip.tsx` into a studio mixer deck positioned symmetrically below the 16:9 canvas.
+  - Features two vertical channel cards (Mic & Desktop) with high-res peak/RMS meter bars, dB level faders, mute toggles, device popovers, and DSP badges (`RNNoise`, `Ducking`).
+  - *Verify:* Meters animate in sync; mute and volume faders control audio stream properly.
+- [ ] **v3.6 Right Takes & Presets Gallery (Camo Studio Style)**
+  - Create `src/components/record/TakesGallery.tsx`: 260px floating glass island.
+  - Lists recent recordings with 16:9 card thumbnails, duration chips, and hover quick-actions (Play, Reveal, Copy Path); toggleable to Quick Presets.
+  - *Verify:* Clicking recent take opens RecordingDrawer; gallery renders empty state when no recordings exist.
+- [ ] **v3.7 Tri-Panel Studio Integration & Responsive Polish**
+  - Integrate all three floating decks and hero canvas in `src/components/record/RecordView.tsx`.
+  - Responsive behavior: On viewports <1120px, right gallery collapses into an accessible slide-out drawer or top-bar toggle.
+  - Full test pass: vitest, typecheck, lint, build, and visual inspection.
+
+---
+
+## Release Timeline & Lifecycle Strategy (Alpha → Beta → Stable)
+
+Governed by repository governance rules, releases are strictly segmented into three disciplined stages:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        SCREENSTUDIO PRO RELEASE TIMELINE                               │
+├─────────────────────┬─────────────────────────────────────┬────────────────────────────┤
+│ Lifecycle Tier      │ Covered Phases                      │ Target Version Scheme      │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ STRICT ALPHA        │ Phases 0 – 9                        │ v0.0.1-alpha.1 →           │
+│                     │ Foundation, Core Capture, Audio,    │ v0.1.0-alpha.x             │
+│                     │ Camera PiP, Library, UI v2,         │                            │
+│                     │ Ecosystem Bridge, Container Safety  │                            │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ STRICT BETA         │ Phases 10 – 14                      │ v0.9.0-beta.1 →            │
+│                     │ Zero-Copy GPU, Hardware Encoders,   │ v0.9.x-beta.*              │
+│                     │ Pro Audio DSP, Multitrack,          │                            │
+│                     │ Telemetry, Replay Buffer, Plugins   │                            │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ 1ST STABLE RELEASE  │ Post-Phase 14                       │ v1.0.0                     │
+│                     │ Production GA, Flathub Verified,    │                            │
+│                     │ Complete Distro Packaging, Zero Reg │                            │
+└─────────────────────┴─────────────────────────────────────┴────────────────────────────┤
+```
+
+### Stage 1: Strict Alpha Releases (Phases 0 through 9)
+- **Scope:** Vertical recording pipeline, Wayland portal negotiation (`ashpd`), lock-free SPSC bus, software x264/AAC, floating HUD window, Camera PiP compositing, Library grid & drawer, Settings panes, UI v2 redesign, Starship Control UDS bridge (Phase 8), and complete container crash-resilience with hybrid MP4 and muxer subprocess isolation (Phase 9).
+- **Versioning Scheme:** `v0.0.1-alpha.1` through `v0.1.0-alpha.x`.
+- **Target Audience:** Early adopters, ricers, and developers running Hyprland, KDE Plasma, niri, and MangoWC.
+- **Alpha Exit Gate (Transition to Beta):**
+  1. Phase 9 completed and verified: Subprocess muxer isolation (`ssp-mux`) and hybrid MP4 writer (`hybrid_mp4`) guarantee zero corrupted recordings upon application crash or `SIGKILL`.
+  2. Packaging matrix (.deb, .rpm, AppImage, Flatpak) runs clean in CI.
+  3. Starship Control bridge auto-registration verified.
+
+---
+
+### Stage 2: Strict Beta Releases (Phases 10 through 14)
+- **Scope:** Full hardware encoder acceleration (VAAPI/NVENC zero-copy surfaces), zero-copy PipeWire DMA-BUF texture ingestion, studio-grade DSP (RNNoise voice isolation, sidechain ducking, anti-feedback loop protection), multi-track audio isolation (Mix, Mic, Desktop), granular diagnostics (Rendering Lag vs Encoding Lag), canvas scaling & replay buffer, and dynamic module loading.
+- **Versioning Scheme:** `v0.9.0-beta.1` through `v0.9.x-beta.*`.
+- **Target Audience:** Content creators, streamers, Linux tutorial authors, and daily screen recorders testing under heavy, real-world multi-monitor and gaming workloads.
+- **Beta Exit Gate (Transition to Stable):**
+  1. Hardware encoder qualification across Intel, AMD, and NVIDIA GPUs.
+  2. Performance verification against PRD §8 metrics: **steady dropped frames < 0.5%** at 1080p60 on hardware encoders, **RSS memory settled < 150 MB**, and zero audio/video sync drift (<50 ms over 60 min).
+  3. Multitrack audio files probe clean across major video editing suites (DaVinci Resolve, Kdenlive, Blender).
+  4. Flathub submission ready with strict sandbox permissions.
+
+---
+
+### Stage 3: First Stable Production Release (`v1.0.0`)
+- **Scope:** Complete, hardened production release of ScreenStudio Pro.
+- **Versioning:** `v1.0.0`.
+- **Distribution:** General Availability across Flathub, AUR (`screen-studio-pro`), Ubuntu PPA / Debian, Fedora Copr / RPM, and GitHub Releases.
+- **Quality Gates:** 100% green CI test suites (Rust + Frontend), zero known crash bugs, full accessibility (WCAG 2.2 AA conformance), complete documentation, and fresh high-resolution video/screenshot showcases.
+
+---
+
 ## Reference-app learnings → phased plan (planning only, 2026-11-18)
 
 Source: `REAOS.md` (reverse-engineering study of an installed production recorder). This section **turns findings into future work**; it does not change MVP scope. PRD §5 non-goals N1 (no scene/source compositor) and N2 (no live streaming) still govern, along with the V2/Later tables in PRD §5. Every item below is **planning-only**: it starts only after (a) the relevant contract files (PRD/DESIGN/ARCHITECTURE/DATABASE/API) are updated in the same task as the code, and (b) the user green-lights that task. No new dependency is added without the §4.2 approval.
@@ -325,79 +426,175 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 
 | REAOS finding | SSP today | Disposition |
 |---|---|---|
-| Layered core / frontend API / module descriptors (§2) | Rust core + thin Tauri IPC + React UI; no module registry | Phase 12.1 (contract change first) |
-| Dockable production workspace, reset/lock, projectors (§3) | Fixed Record/Library/Settings shell + square preview (UI v2) | Phase 9.4 (DESIGN v3 required) |
-| Preview/program split + transitions (§3, §6) | Single preview, no scenes | Phase 9.3 (PRD V2) |
-| Empirical auto-configuration wizard (§4) | Settings panes + First Run education pane | Phase 13.1 |
-| Global audio matrix, per-source filters, advanced mixer (§5) | Two channels (mic/desktop), meters, no filters/monitoring | Phase 10.1–10.3 |
-| Canvas vs output resolution, multiple downscale filters (§6) | Quality presets + `output_size`; x264 only | Phase 11.2–11.3 |
-| Capture sources, GPU filters, virtual camera (§6) | Portal monitor/window/region, V4L2 stub, PipeWire capture | Phase 9.1 / 12.4 |
-| Fragmented/hybrid containers + remux resilience (§7) | MKV + MP4 remux (6.2), no fragmented modes | Phase 11.1 |
-| Hardware encoder matrix, quality tiers (§7) | VAAPI/NVENC stubs (3.3), x264 fallback | Phase 11.2 |
-| Replay buffer with memory cap (§7) | Not present (PRD V3) | Phase 11.4 |
-| Overload banner + CPU/FPS/drop telemetry (§7, §9) | Stats line (3.5), no overload detection | Phase 11.5 |
-| Plugin/script model, UI extension points (§8) | None; Phase 8 only exposes the Starship UDS bridge | Phase 12.1–12.3 |
-| Missing-file recovery, safe state, projectors (§3, §4) | Library missing-file state exists; wizards/dialogs partial | Phase 13.2 |
-| Reliability lesson: container choice as crash protection (§7, §10) | Partially learned (remux, 6.2) | Phase 11.1 acceptance criterion |
-
-### Phase 9 — Production workspace & composition (PRD V2: scenes; gated by PRD/DESIGN/DATABASE/API)
-
-- [ ] **9.1 Source-node model** — generalize the capture traits into an input/filter/transition/scene descriptor set with per-source settings serialization (save/load, signals). *Verify:* unit tests for graph mutation + settings round-trip; API.md and ARCHITECTURE.md updated in-task. *Depends on:* 3.x, 4.x.
-- [ ] **9.2 Scene graph persistence** — numbered DATABASE migration for scenes/sources/order/transform, scene-collection IPC and project file import/export. *Verify:* sqlite readback + fresh-profile migration; DATABASE.md in-task. *Depends on:* 9.1.
-- [ ] **9.3 Preview/program mode + transitions** — dual preview canvas, transition duration/timeline, preview→program switch, disabled safe states. *Verify:* rendered pass over both canvases; DESIGN v3 entry for the workspace anatomy. *Depends on:* 9.2.
-- [ ] **9.4 Dockable workspace** — movable/lockable/resettable panels (scenes, sources, mixer, transitions, controls), keyboard reachability, projector outputs deferred to 13.2. *Verify:* compact/standard/wide rendered checks + focus pass; DESIGN v3. *Depends on:* 9.3.
-- **Phase gate:** none of 9.x starts until PRD V2 scope is explicitly activated and DESIGN.md/ARCHITECTURE.md/DATABASE.md/API.md carry the new law.
-
-### Phase 10 — Pro audio production (PRD V2-V5 / Later-L3; gated by API/DATABASE)
-
-- [ ] **10.1 Global device matrix** — multiple mic/aux device slots with safe default resolution; no new DSP dependency yet. *Verify:* device enumeration + start failure paths typed. *Depends on:* 2.1, 6.1.
-- [ ] **10.2 Per-source audio mixer** — mute, gain, monitoring mode, sync offset, advanced-audio-properties panel; post-gain meters stay honest (DESIGN §4.6 law). *Verify:* meter/mute A/B in-file with real devices; API.md in-task. *Depends on:* 10.1.
-- [ ] **10.3 Audio filters + latency modes** — gain/delay/gate/suppression and push-to-talk/push-to-mute with delays; monitoring deduplication learned from the study; true-peak metering only behind an explicit CPU-cost notice. *Verify:* typed errors and reduced-motion/CPU review; new DSP dependency requires §4.2 approval. *Depends on:* 10.2.
-- [ ] **10.4 Multitrack audio recording** — per-source tracks in the container + sidecar description; DATABASE/API updates in-task. *Verify:* ffprobe stream/track readback. *Depends on:* 10.2, 11.1.
-- **Phase gate:** 10.3+ requires dependency approval; 10.4 requires DATABASE.md migration in the same task.
-
-### Phase 11 — Encoding, containers & resilience (existing MVP seams + PRD V2-V3/V8)
-
-- [ ] **11.1 Crash-safe containers + remux** — extend 6.2's MKV→MP4 path with fragmented/hybrid modes and a Remux action; container choice documented as a reliability decision. *Verify:* interrupted-take playability + remux round-trip. *Depends on:* 6.2, 5.x.
-- [ ] **11.2 Hardware encoder completion** — finish 3.3's VAAPI/NVENC stubs, add capability probe/benchmarks and honest fallback notices. *Verify:* ffprobe + encoder chip on the real GPU; PRD §8 targets activate here. *Depends on:* 3.3.
-- [ ] **11.3 Advanced output modes** — simple/advanced/custom tiers, quality presets, dynamic bitrate, explicit CPU/bitrate tradeoff copy. *Verify:* preset→ffprobe dims/bitrate matrix; API.md in-task. *Depends on:* 11.2.
-- [ ] **11.4 Replay buffer** — bounded rolling last-N-seconds memory buffer + single-key save (PRD V3). *Verify:* memory cap respected, save-hotkey path, no leak; new memory budget test. *Depends on:* 11.1, 11.3.
-- [ ] **11.5 Overload + telemetry** — encoding-overload banner, CPU/FPS/drop/bitrate status, actionable copy per DESIGN §7.9. *Verify:* real-take harness results attached; no raw strings in UI. *Depends on:* 3.5, 7.4.
-- **Note:** 11.1–11.2 complete seams already present in SSP; they stay gated like any V2 work because they change contract files.
-
-### Phase 12 — Extensibility & control (PRD Later-L5/L6; no HTTP/cloud by default)
-
-- [ ] **12.1 Module descriptor API** — capability registry for capture/encoder/output modules, with load/unload lifecycle and typed failures. *Verify:* contract review + lifecycle tests; ARCHITECTURE.md in-task. *Depends on:* 9.1, 11.2.
-- [ ] **12.2 Scripting hooks** — Lua/Python-style automation over the descriptor API; **explicit dependency approval required**. *Verify:* sandboxed script test; no secrets in scripts. *Depends on:* 12.1.
-- [ ] **12.3 Control surface** — extend the Phase 8 UDS bridge with scene/source/record commands; WebSocket/NDI/cloud endpoints are **out of scope** unless AGENTS.md's no-server/no-cloud rule is explicitly overruled. *Verify:* external-client take over the socket; API.md in-task. *Depends on:* 8.2, 9.1.
-- [ ] **12.4 UI extension points** — user docks/tools-menu contributed by modules, with focus/keyboard law. *Verify:* keyboard pass + DESIGN v3. *Depends on:* 9.4, 12.1.
-- **Phase gate:** 12.x is Later-scope; 12.2 needs dependency approval, 12.3 needs an explicit contract override for any network surface.
-
-### Phase 13 — Auto-configuration & operator UX (PRD V2-V6 / Later-L1)
-
-- [ ] **13.1 Empirical auto-config wizard** — usage intent (record/stream/virtual camera), resolution/FPS selection, encoder test, apply settings; reuse First Run pane. *Verify:* fresh profile ≤60s to first recording (PRD G3). *Depends on:* 6.4, 11.2.
-- [ ] **13.2 Recovery & operator tools** — missing-files check, settings/profile folder reveal, local log viewer, safe-mode restart, projector/screenshot reuse (PRD V4). *Verify:* copy audit + screenshots; no cloud log upload. *Depends on:* 5.5, 11.1.
-- [ ] **13.3 Launch-state polish** — error copy sweep extension, release notes with capability matrix, screenshot freshness (links to Phase 7.6). *Verify:* link check + copy audit. *Depends on:* 7.5, 7.6.
-- **Phase gate:** 13.x starts only when 7.x launch items are closed; nothing here ships before the MVP release.
-
-### Sequencing rule for the new phases
-
-```
-9 (composition) ──▶ 10 (audio graph) ──▶ 11 (encoders/containers) ──▶ 12 (extensibility)
-        └──────────────▶ 13 (wizard/ops, after 7.x launch) ──────────────┘
-```
-
-Phases 9–13 run **after** the MVP release (Phase 7) and the Phase 8 ecosystem work. The unchecked-but-implemented items (6.1–6.4, 7.1–7.3) were ledger-tidied on 2026-11-18, with residual live-evidence items recorded in their notes; 7.4/7.5 residuals stay attached to their phases. Each 9+ item repeats the same evidence discipline used in Phases 1–8: contract edits first, automated + live evidence, small commits, and a pause after every delivery.
+| Subprocess Muxer Isolation (`media-mux-subprocess`) (§2.1, §12.1) | Direct in-process worker thread muxing | Phase 9.2 (Alpha closer) |
+| Fragmented & Hybrid MP4 (`hybrid_mp4`) (§4.3, §12.2) | MKV + post-take MP4 stream-copy remux (6.2) | Phase 9.1 (Alpha closer) |
+| In-take Chapter Markers & Lossless File Splitting (§4.4) | Flag button stub on HUD; manual stop only | Phase 9.3 (Alpha closer) |
+| Zero-Copy DMA-BUF Ingestion (`SPA_DATA_DmaBuf`) (§4.2, §12.4) | PipeWire MemFd system memory mapping | Phase 10.1 (Beta Track) |
+| Hardware Encoder Zero-Copy (`PASS_TEXTURE`) (§7.1, §7.3) | VAAPI/NVENC stubs (3.3), x264 software fallback | Phase 10.2 (Beta Track) |
+| Multitrack Audio Isolation (Tracks 1–6) (§6, §12.5) | Combined 2-channel master mix only | Phase 11.1 (Beta Track) |
+| Real-time Voice Isolation via RNNoise (§6.3) | Unfiltered microphone capture | Phase 11.2 (Beta Track) |
+| Sidechain Ducking Compressor & Anti-Feedback (§6.2, §6.3) | Static gain multiplier only | Phase 11.3–11.4 (Beta Track) |
+| Granular Frame Drop Diagnostics (Lag vs Skip) (§9.2, §12.7) | Basic stats line (3.5), no drop classification | Phase 12.1 (Beta Track) |
+| Sub-Millisecond Latency Tracing (CTS/FER/PIR) (§7.2) | Wall-µs tick timestamp only | Phase 12.2 (Beta Track) |
+| Empirical Hardware Auto-Configuration Wizard (§4.4, §8.4) | Static presets + First Run education pane | Phase 12.3 (Beta Track) |
+| Decoupled Canvas vs Output Scaler (Lanczos/Bicubic) (§5.1) | Preset downscaling via x264 options | Phase 13.1 (Beta Track) |
+| Instant Replay Buffer (RAM ring buffer) (§4.4, §7) | Not present (PRD V3) | Phase 13.2 (Beta Track) |
+| Dual-Canvas Concurrent Output (16:9 + 9:16) (§3.1, §12.3) | Single widescreen canvas only | Phase 13.3 (Beta Track) |
+| Dynamic Module Loading ABI & Auto-Properties UI (§10.1–10.2) | Built-in compile-time modules only | Phase 14.1 (Beta Track) |
+| Remote Control WebSocket RPC & Companion Protocol (§10.3) | Phase 8 UDS socket only | Phase 14.2 (Beta Track) |
 
 ---
 
-## Dependency map (phase level)
+### Phase 9 — Crash-Resilience & Container Innovation (Strict Alpha Closer)
+
+> **Milestone Tag:** `v0.1.0-alpha.1`  
+> **Goal:** Eliminate recording corruption risks under unexpected application termination and remove post-take remux latency.
+
+- [ ] **9.1 Native Hybrid MP4 (`hybrid_mp4`) Container Writer**
+  - Implement fragmented MP4 output (`moof` + `mdat` rolling clusters with secondary index sync) in `pipeline/muxer.rs`.
+  - Produces immediately playable `.mp4` recordings up to the last written frame without requiring external recovery tools or post-recording remux delays.
+  - *Verify:* Force-terminate (`SIGKILL`) live recording; verify file plays cleanly in `mpv` with full seekability.
+- [ ] **9.2 Subprocess Muxer Isolation (`ssp-mux`)**
+  - Create dedicated subprocess multiplexer helper spawned via anonymous pipe (`stdin`).
+  - Serializes encoded AV packets over IPC pipe; kernel pipe teardown on parent crash guarantees safe file finalization.
+  - *Verify:* Simulate main Tauri/webview panic; verify child process catches EOF, finalizes container headers, and exits cleanly.
+- [ ] **9.3 In-Take Chapter Markers & Lossless File Auto-Splitting**
+  - Connect HUD "Flag" button to `recording_add_chapter` API command; muxer injects MP4/MKV chapter metadata markers.
+  - Add auto-splitting triggers in `FilesPane` based on duration (e.g. 30 min) or file size (e.g. 4 GB) without dropping frames.
+  - *Verify:* Flagging take creates valid chapter tags in `ffprobe`; time-based split creates gapless multi-file output.
+- **Phase Gate (Alpha Exit):** All three items verified; zero corrupt recordings under force-kill stress test.
+
+---
+
+### Phase 10 — Zero-Copy GPU Pipeline & Hardware Encoders (Strict Beta Track)
+
+> **Milestone Tag:** `v0.9.0-beta.1`  
+> **Goal:** Keep frames inside VRAM from PipeWire capture through GPU composition to hardware encoder submission.
+
+- [ ] **10.1 Direct PipeWire DMA-BUF Ingestion (`SPA_DATA_DmaBuf`)**
+  - Support Linux DRM format modifiers and multi-plane DMA-BUF file descriptors in `capture/pipewire.rs`.
+  - Import buffers straight into GPU textures via EGL (`eglCreateImageKHR` with `EGL_LINUX_DMA_BUF_EXT`).
+  - *Verify:* Measure CPU usage at 1080p60/4K60; verify zero host RAM frame readback during capture.
+- [ ] **10.2 VAAPI & NVENC Zero-Copy Hardware Encoders**
+  - Implement `encode/hw_vaapi.rs` (Intel/AMD) and `encode/hw_nvenc.rs` (NVIDIA) using direct surface ingestion (`PASS_TEXTURE`).
+  - Add hardware HEVC (H.265) and AV1 encoding support where supported by GPU hardware.
+  - *Verify:* Activate PRD §8 hardware gates: **CPU < 10%**, **dropped frames < 0.1%**, **RSS < 150 MB** on test machines.
+
+---
+
+### Phase 11 — Pro Audio DSP & Multitrack Isolation (Strict Beta Track)
+
+> **Milestone Tag:** `v0.9.1-beta.1`  
+> **Goal:** Studio-grade multi-track audio isolation, real-time AI noise suppression, and intelligent ducking.
+
+- [ ] **11.1 Discrete Multitrack Audio Recording**
+  - Configure container muxer to write discrete audio streams: Track 1 = Master Mix, Track 2 = Clean Voice Mic, Track 3 = Clean Desktop Audio.
+  - Update `AudioPane` UI with track assignments; update SQLite schema with track layout.
+  - *Verify:* `ffprobe` confirms 3 discrete audio streams with independent level controls.
+- [ ] **11.2 Real-Time Voice Isolation via RNNoise DSP**
+  - Integrate native RNNoise recurrent neural network (GRU) into microphone capture pipeline (`pipeline/audio.rs`).
+  - Suppress keyboard clatter, laptop fans, and room reverberation in real time with <15ms latency.
+  - *Verify:* Audio listen A/B test with mechanical typing shows clean speech isolation with >30 dB hum attenuation.
+- [ ] **11.3 Sidechain Ducking Compressor & Anti-Feedback Loop Protection**
+  - Implement sidechain compressor: desktop audio automatically ducks by -12 dB when voice is detected on mic.
+  - Implement device ID collision detection in PipeWire graph to prevent acoustic feedback squeals when monitoring.
+  - *Verify:* Speaking over desktop music smoothly ducks background audio; duplicate monitoring sink automatically mutes loop.
+- [ ] **11.4 True Peak Metering & Broadcast Faders**
+  - ITU-R BS.1770-4 4x oversampling True Peak meter calculation to detect inter-sample clipping; `IEC_60_268_18` fader scaling.
+  - *Verify:* High-frequency near-0dBFS signal correctly detects inter-sample peaks in UI meters.
+
+---
+
+### Phase 12 — Granular Diagnostics, Telemetry & Auto-Optimization (Strict Beta Track)
+
+> **Milestone Tag:** `v0.9.2-beta.1`  
+> **Goal:** Transparent hardware performance telemetry eliminating guesswork when frames are dropped.
+
+- [ ] **12.1 Granular Frame-Drop Classification & Overload Banners**
+  - Distinguish between **Rendering Lag** (GPU render loop >16.6ms), **Encoding Lag** (encoder queue overflow), and **Capture Starvation**.
+  - Surface actionable, human-friendly warning banners in HUD and ActionRow when thresholds are exceeded.
+  - *Verify:* Synthetic load correctly triggers separate "GPU busy" vs "Encoder overloaded" diagnostic warnings.
+- [ ] **12.2 Sub-Millisecond Pipeline Latency Tracing**
+  - Instrument `EncodedPacket` with CTS (Composition Timestamp), FER (Frame Encode Request), FERC (Encode Complete), and PIR (Packet Interleaved).
+  - *Verify:* Automated latency assertion test confirms monotonic sub-ms progression across the pipeline.
+- [ ] **12.3 Empirical Hardware Auto-Configuration Wizard**
+  - 2-second benchmark on first run testing encoder throughput and portal resolution.
+  - Auto-selects optimal defaults (resolution, FPS, encoder backend, preset) tailored to detected GPU power.
+  - *Verify:* Low-end iGPU vs discrete dGPU configurations choose appropriate presets automatically.
+
+---
+
+### Phase 13 — Canvas Scaling, Replay Buffer & Dual Output (Strict Beta Track)
+
+> **Milestone Tag:** `v0.9.3-beta.1`  
+> **Goal:** Support creator workflows: instant replay clips, independent canvas downscaling, and vertical shorts.
+
+- [ ] **13.1 Decoupled Base Canvas vs Scaled Output Resolutions**
+  - Separate internal composition resolution (e.g. 4K / 1440p) from final encoded resolution (e.g. 1080p).
+  - GPU-accelerated scaling passes (Bicubic, Lanczos, Area) on the render thread.
+  - *Verify:* 4K canvas downscaled to 1080p outputs high-detail video with zero CPU scaling penalty.
+- [ ] **13.2 Instant Replay Buffer**
+  - Circular RAM ring buffer caching the rolling last $N$ seconds of video/audio (e.g. 30 seconds / 512 MB).
+  - Single hotkey or HUD button dumps the buffer asynchronously to disk as an independent highlight clip.
+  - *Verify:* Triggering save replay generates a playable, gapless 30-second clip without interrupting ongoing capture.
+- [ ] **13.3 Dual-Canvas Concurrent Rendering (16:9 + 9:16 Shorts)**
+  - Simultaneous dual-canvas pipeline producing a standard landscape recording and an auto-cropped 9:16 vertical short.
+  - *Verify:* Single recording session produces two synchronized output files (`.mp4` and `-vertical.mp4`).
+
+---
+
+### Phase 14 — Dynamic Extension Model & Remote Control Bridge (Strict Beta Track)
+
+> **Milestone Tag:** `v0.9.4-beta.1` $\rightarrow$ `v0.9.5-beta.closer`  
+> **Goal:** Safe extensibility and companion control surfaces without compromising core app stability.
+
+- [ ] **14.1 Dynamic Module Loading ABI (`ssp-module`)**
+  - C-compatible dynamic library (`.so`) plugin loader for custom video filters and audio processors.
+  - Dynamic properties UI engine automatically maps C module parameters to glassmorphic React settings dialogs.
+  - *Verify:* Sample third-party filter plugin loads, registers source node, and renders interactive sliders in UI.
+- [ ] **14.2 Remote Control WebSocket RPC & Companion Protocol**
+  - Complete Starship Control UDS bridge and expose optional local WebSocket server for Stream Deck and mobile controllers.
+  - Supports atomic request batching (`RequestBatch`) and real-time state event streaming.
+  - *Verify:* External controller triggers atomic multi-command macros (`select_source` + `unmute` + `start_recording`).
+- **Phase Gate (Beta Exit):** Full test pass, zero regressions, hardware matrix validated, PRD §8 performance metrics met.
+
+---
+
+### Phase 15 — First Stable Production Release (`v1.0.0`)
+
+> **Milestone Tag:** `v1.0.0`  
+> **Goal:** Rock-solid production release for general distribution.
+
+- [ ] **15.1 Production Hardening & Flathub Verification**
+  - Submit official verified manifest to Flathub with minimal, compliant portal permissions.
+  - Maintain native AUR package (`screen-studio-pro`) and signed Debian/Ubuntu `.deb` + Fedora `.rpm` releases.
+- [ ] **15.2 Documentation, Localization & Showcase Assets**
+  - Complete user guide, developer FFI docs, and verified per-compositor capability matrices.
+  - High-resolution UI showcase media and release announcement for r/unixporn, Hyprland, and Linux creator communities.
+- **Stable Definition of Done:** General Availability release tagged `v1.0.0` with all 14 phases delivered and verified.
+
+---
+
+## Dependency & Release Cadence Map
 
 ```
-0 ──▶ 1 ──▶ 2 ──▶ 3 ──▶ 4 ──▶ 5 ──▶ 6 ──▶ 7 ──▶ 8 ──┬─▶ 9 ──▶ 10 ──▶ 11 ──▶ 12
-                ▲____________________|                    └──────────▶ 13 ───────┘
-        (5 Library needs 1.x rows; 6 needs 3/4 pane content; 7 audits everything; 8 integrates ecosystem)
-        (9-13 are V2/Later, planning-only until PRD/contract gates are explicitly opened)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [STRICT ALPHA TRACK]                                                                   │
+│ Phases 0-7 (Done) ──▶ Phase 8 (Starship SDK) ──▶ Phase 9 (Hybrid MP4 & Muxer Subproc) │
+└──────────────────────────────────────────────────┬─────────────────────────────────────┘
+                                                   │  Alpha Exit Gate (v0.1.0-alpha.x)
+                                                   ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [STRICT BETA TRACK]                                                                    │
+│ Phase 10 (Zero-Copy GPU & HW Encoders) ──▶ Phase 11 (Pro Audio DSP & Multitrack)       │
+│                                        ──▶ Phase 12 (Diagnostics & Latency Tracing)    │
+│                                        ──▶ Phase 13 (Canvas Scaling & Replay Buffer)   │
+│                                        ──▶ Phase 14 (Plugin ABI & Remote WebSocket)    │
+└──────────────────────────────────────────────────┬─────────────────────────────────────┘
+                                                   │  Beta Exit Gate (PRD §8 Qualified)
+                                                   ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ [FIRST STABLE PRODUCTION RELEASE]                                                      │
+│ v1.0.0 (Flathub, AUR, Distro Packages, Full Documentation & Community GA)              │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-Hard rules the map encodes: 1.x unlocks everything behind it; 5 starts only after phase 1 writes real rows; 6.3 can slip behind 7 without blocking 4/5; light mode (7.1) is a launch gate, not a deferred afterthought (DESIGN §8). Phases 9–13 run only after 7.x/8 are delivered, each behind its own PRD/DESIGN/ARCHITECTURE/DATABASE/API updates and user green-light; no new dependency or network/cloud surface is implied by the map.

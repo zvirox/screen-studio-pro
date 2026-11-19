@@ -1,5 +1,6 @@
 import { Check, LoaderCircle, Monitor, AppWindow, Crop } from "lucide-react";
 import { useState, useCallback } from "react";
+import { cn } from "../../lib/cn";
 import { useSspStore } from "../../lib/store";
 import { useSourcePreview } from "../../hooks/useSourcePreview";
 import CameraPip from "../huds/CameraPip";
@@ -155,7 +156,11 @@ function RegionDragHandle({
   );
 }
 
-export default function SourceDeck() {
+export interface SourceDeckProps {
+  hideHeaderChips?: boolean;
+}
+
+export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps = {}) {
   const source = useSspStore((s) => s.source);
   const sessionStatus = useSspStore((s) => s.session.status);
   const camera = useSspStore((s) => s.camera);
@@ -222,48 +227,53 @@ export default function SourceDeck() {
   }, [selectable, selectRegion]);
 
   return (
-    <section aria-label="Source" className="pane rounded-md p-4">
-      <div className="flex items-center gap-2">
-        <SourceChip
-          label="Monitor"
-          icon={<Monitor size={16} strokeWidth={1.5} aria-hidden="true" />}
-          selectAction={selectMonitor}
-          isActive={isMonitorActive}
-          isSelecting={isMonitorSelecting}
-          disabled={!selectable}
-          capsText={isMonitorActive ? capsText : null}
-        />
-        {windowCaptureSupported && (
+    <section aria-label="Source" className="studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2">
+      {!hideHeaderChips && (
+        <div className="flex items-center gap-2">
           <SourceChip
-            label="Window"
-            icon={<AppWindow size={16} strokeWidth={1.5} aria-hidden="true" />}
-            selectAction={selectWindow}
-            isActive={isWindowActive}
-            isSelecting={isWindowSelecting}
+            label="Monitor"
+            icon={<Monitor size={16} strokeWidth={1.5} aria-hidden="true" />}
+            selectAction={selectMonitor}
+            isActive={isMonitorActive}
+            isSelecting={isMonitorSelecting}
             disabled={!selectable}
-            capsText={isWindowActive ? capsText : null}
+            capsText={isMonitorActive ? capsText : null}
           />
-        )}
-        <SourceChip
-          label="Region"
-          icon={<Crop size={16} strokeWidth={1.5} aria-hidden="true" />}
-          selectAction={handleRegionSelect}
-          isActive={isRegionActive}
-          isSelecting={isRegionSelecting}
-          disabled={!selectable}
-          capsText={isRegionActive ? capsText : null}
-        />
-      </div>
+          {windowCaptureSupported && (
+            <SourceChip
+              label="Window"
+              icon={<AppWindow size={16} strokeWidth={1.5} aria-hidden="true" />}
+              selectAction={selectWindow}
+              isActive={isWindowActive}
+              isSelecting={isWindowSelecting}
+              disabled={!selectable}
+              capsText={isWindowActive ? capsText : null}
+            />
+          )}
+          <SourceChip
+            label="Region"
+            icon={<Crop size={16} strokeWidth={1.5} aria-hidden="true" />}
+            selectAction={handleRegionSelect}
+            isActive={isRegionActive}
+            isSelecting={isRegionSelecting}
+            disabled={!selectable}
+            capsText={isRegionActive ? capsText : null}
+          />
+        </div>
+      )}
 
       <div
         aria-label="Source preview"
-        className="relative mx-auto mt-3 flex aspect-square w-full max-w-lg items-center justify-center rounded-md bg-solid"
+        className={cn(
+          "relative mx-auto flex aspect-video w-full items-center justify-center rounded-lg hero-canvas border border-line-glass shadow-elev-float overflow-hidden",
+          !hideHeaderChips && "mt-4",
+        )}
       >
         {still ? (
           <img
             src={still.dataUrl}
             alt="Source preview"
-            className="absolute inset-0 h-full w-full rounded-sm object-contain"
+            className="absolute inset-0 h-full w-full rounded-lg object-contain"
           />
         ) : null}
         {slotVisible ? (
