@@ -32,18 +32,13 @@ jobs:
       # plus libfuse2t64 — the AppImage tooling needs a FUSE runtime present
       # on ubuntu-24.04-based runners.
       - name: Install Tauri system dependencies
-        # Noninteractive + IPv4 + timeout bounds to prevent Azure runner stalls
         run: |
-          set -euo pipefail
-          echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
-          sudo debconf-set-selections <<< "man-db man-db/auto-update boolean false"
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::ForceIPv4=true update
-          PKGS="libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-            librsvg2-dev libxdo-dev libssl-dev libavcodec-dev libavformat-dev \
-            libavutil-dev libswscale-dev libswresample-dev libavdevice-dev \
-            libavfilter-dev libpipewire-0.3-dev libasound2-dev \
-            pkg-config ffmpeg libfuse2t64"
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::ForceIPv4=true install -y --no-install-recommends $PKGS
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+            libswresample-dev libavdevice-dev libavfilter-dev \
+            libpipewire-0.3-dev libasound2-dev pkg-config ffmpeg libfuse2t64
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -97,10 +92,8 @@ jobs:
       # than declared as an SDK extension, for the same branch reason.
       - name: Install flatpak tooling
         run: |
-          echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
-          sudo debconf-set-selections <<< "man-db man-db/auto-update boolean false"
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::ForceIPv4=true update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::ForceIPv4=true install -y --no-install-recommends flatpak flatpak-builder
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder elfutils
           flatpak remote-add --user --if-not-exists flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y --noninteractive \
