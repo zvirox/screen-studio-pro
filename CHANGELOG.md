@@ -4,7 +4,7 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 ## [Unreleased]
 
-Planned but not shipped: distro packages and first tag (7.5), AUR PKGBUILD, archived launch screenshots and G3 timing metric (7.6), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
+Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
 ## [0.0.1+alpha.2] - 2026-11-19
 
@@ -39,7 +39,7 @@ Second alpha release: complete wide-window floating-island studio redesign inspi
 
 Released under tag `v0.0.1-alpha.1` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
 
-First buildable alpha. The MVP recording pipeline, UI and local library are implemented and CI-verified. No installer packages have been published yet.
+First buildable alpha. The MVP recording pipeline, UI and local library are implemented and CI-verified. Four installer formats (`.deb`, `.rpm`, `.AppImage`, `.flatpak`) were attached to this release by the tag-triggered release workflow.
 
 ### Added
 
@@ -70,6 +70,6 @@ First buildable alpha. The MVP recording pipeline, UI and local library are impl
 ### Known limitations
 
 - VAAPI/NVENC encoder backends are stubs; x264 is the working fallback.
-- No published packages yet; Flatpak manifest and release workflow exist but have never been run against a tag.
+- Installers shipped with this release for all four formats (.deb/.rpm/.AppImage/.flatpak), published without VM install verification (Tier-2); AUR packaging follows.
 - AUR PKGBUILD, archived launch screenshots and the ≤60s first-recording metric are open.
 - Hardware-path perf targets, no-tray-host compositor behavior, live portal global-shortcut activation, and two rare portal/webcam anomalies remain unresolved — see [release notes](docs/releases/0.0.1-alpha.1.md) and [portal support](docs/portal-support.md).

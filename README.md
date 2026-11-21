@@ -18,7 +18,7 @@
 |:---:|:---:|
 | ![Settings view](docs/screenshots/settings-light.jpeg) | ![Library grid](docs/screenshots/library-preview.jpeg) |
 
-> These are **UI previews** rendered from the Vite frontend with the Tauri IPC mocked; the Library preview uses sample rows. They show the shipped layout and v2 visual language, not a captured desktop recording session. Real in-app captures are still to be archived (task 7.6 residual).
+> These are **UI previews** rendered from the Vite frontend with the Tauri IPC mocked; the Library preview uses sample rows. They show the shipped layout and v3 visual language, not a captured desktop recording session. Real in-app captures are still to be archived (task 7.6 residual).
 
 ## ✨ What works in this alpha
 
@@ -29,7 +29,7 @@
 - **Recording library** — thumbnails, search, sort, detail drawer, soft delete and missing-file states, backed by a local SQLite index.
 - **Session lifecycle** — tray quick actions, minimize-to-tray on record, and finalize-on-quit.
 - **Files** — MKV takes with optional MP4 remux, strftime-style naming, plain-language quality presets.
-- **v2 interface** — burgundy-on-near-black glass theme, square preview centered in a two-column workspace, full light mode, reduced-motion-aware motion, keyboard-reachable controls.
+- **v3 studio interface** — wide-window floating-island layout (DESIGN.md v3.0): left capture-inspector, 16:9 hero preview canvas, sub-canvas audio mixer, right takes/presets gallery, integrated studio titlebar; full light mode, reduced-motion-aware motion, keyboard-reachable controls.
 
 **Not in this alpha:** RTMP/live streaming, scene compositor, replay buffer, video editor, plugin API, and hardware-encoder acceleration (VAAPI/NVENC detection is currently a stub; x264 is the working fallback). These are PRD V2/Later items — see the roadmap in [PLAN.md](PLAN.md).
 
@@ -57,7 +57,14 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 ## 📦 Installing
 
-No packages are published yet — packaging and the first tagged release are tracked as task 7.5. Once published, the intended channels are Flatpak, `.deb`, `.rpm`/AppImage via GitHub Releases, with AUR as a follow-up. See [release notes](docs/releases/0.0.1-alpha.1.md) for current status.
+Pre-built packages are attached to each [GitHub Release](https://github.com/zvirox/screen-studio-pro/releases). Both alpha tags ship the same four formats:
+
+- **`.deb`** — Debian / Ubuntu (`sudo apt install ./ScreenStudio.Pro_*.deb`)
+- **`.rpm`** — Fedora / RHEL / openSUSE (`sudo dnf install ScreenStudio.Pro-*.rpm`)
+- **`.AppImage`** — portable (chmod +x, then run)
+- **`.flatpak`** — single-file bundle (`flatpak install --user ./ScreenStudio.Pro-*.flatpak`)
+
+These are **prerelease alpha builds** attached by the tag-triggered CI workflow (task 7.5); they are published without install verification on test VMs yet, so expect the honest capability matrix and known quirks in the release notes. AUR is a follow-up (task 7.5 residual). See [release notes](docs/releases/0.0.1-alpha.2.md) and [CHANGELOG.md](CHANGELOG.md) for current status and history.
 
 ## 🌍 Environment variables
 
@@ -77,7 +84,7 @@ Runtime/debug overrides only; user settings live in the app and its TOML config 
 src-tauri/src/     Rust core: capture/, encode/, pipeline/, library/, ipc/, settings/
 src/               React webview: components/{chrome,record,library,settings,huds,ui}/, hooks/, lib/, types/
 src-tauri/sql/     numbered SQLite migrations
-packaging/         Flatpak manifest (AUR/deb/rpm follow-up)
+packaging/         Flatpak manifest (AUR PKGBUILD follow-up)
 .github/workflows/ CI + tag-triggered release
 docs/              portal-support.md, releases/, screenshots/
 *.md               PRD, PRODUCT, DESIGN, ARCHITECTURE, DATABASE, API, PLAN, AGENTS
@@ -86,7 +93,7 @@ docs/              portal-support.md, releases/, screenshots/
 ## 📜 Documentation
 
 - [PRD.md](PRD.md) — scope, MVP/V2/Later, success metrics
-- [DESIGN.md](DESIGN.md) — v2 visual law (tokens, components, layouts, a11y)
+- [DESIGN.md](DESIGN.md) — v3 visual law (tokens, components, layouts, a11y)
 - [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE.md](DATABASE.md), [API.md](API.md) — structure, schema, IPC contract
 - [PLAN.md](PLAN.md) — phased roadmap and evidence ledger
 - [docs/portal-support.md](docs/portal-support.md) — per-compositor quirks and live evidence

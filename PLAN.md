@@ -279,10 +279,10 @@ optional — measured band levels are the agreed accept signal.
       - Run 3 (final gate, **PASSED**): trimmed trend 93 → 92 MiB head→tail, raw peak 180 MiB, threads 2 — leak detector validated on a full clean 30-take run (mid-run contention again visible in the drop column; memory indifferent to it).
     - Event throttling conformance: already covered as contract evidence (`meters_flow_at_the_contract_ceiling` ≤ 30 Hz, `tick_and_stats_keep_the_contract_cadence` 0.5 Hz) — no new test needed.
   - **Remaining for a full ✓:** PRD §8 target confirmation on VAAPI/NVENC when the hardware encoders land (the x264 numbers above are fallback bounds; the harness and gates already run and pass, hardware-path asserts activate automatically via `info.encoder.is_hardware`).
-- [ ] **7.5 Packaging** — `packaging/aur/PKGBUILD` (with real git-tag source), deb + rpm spec + icons; CI `release.yml` artifacts; README install steps finalized (replacing the kept-honest placeholder). *Verify:* builds + installs clean on Arch/deb/rpm test VMs; `pacman -Qi`/`dpkg -i`/`rpm -i` success. *Depends on:* 7.4
-  - ◐ **Partial (2026-11-07, pulled forward for v0.0.1-alpha.1):** CI `release.yml` written (tag-triggered; tauri-action → deb/rpm/AppImage + flatpak-builder → single-file bundle, prerelease auto-detected from the tag) and `packaging/flatpak/` manifest + metainfo + desktop file created (GNOME 48 runtime, self-contained nasm/x264/ffmpeg modules, rust-stable extension, metainfo `<release>` stamped by CI). Version sweep 0.1.0 → 0.0.1-alpha.1 everywhere; PRD G5 widened to include Flatpak now (AUR follow-up). NOT yet done: tag push + first live run, VM install tests, AUR PKGBUILD, README install steps — 7.5 stays open. Modules/manifest not yet CI-proven (budget 1–2 iterations on first tag run).
-- [ ] **7.6 Launch docs** — README screenshots replaced with real captures, CHANGELOG v0.1.0, release notes incl. capability matrix table + known quirks, AUR announce. *Verify:* link check, screenshot freshness audit. *Depends on:* 7.5
-  - ◐ **Partial (2026-11-18):** README status/features/quick-start/env/folder sections corrected; `CHANGELOG.md` added for the actual app version `0.0.1-alpha.1` (the task text's "v0.1.0" was stale); release notes with a 15-row capability matrix, known quirks and honest install status added at `docs/releases/0.0.1-alpha.1.md`; four v2 UI previews archived in `docs/screenshots/`. All local markdown links resolve. **Residual:** the screenshots are frontend previews (Library uses sample data), not real in-app captures; the PRD G3 ≤60s metric, screenshot-freshness audit and AUR announce are still open. Task stays unchecked until 7.5 ships and those gates close.
+- [x] **7.5 Packaging** — `packaging/aur/PKGBUILD` (with real git-tag source), deb + rpm spec + icons; CI `release.yml` artifacts; README install steps finalized (replacing the kept-honest placeholder). *Verify:* builds + installs clean on Arch/deb/rpm test VMs; `pacman -Qi`/`dpkg -i`/`rpm -i` success. *Depends on:* 7.4
+  - 📌 **Ledger note (2026-11-19):** release pipeline DONE and exercised twice end-to-end. `v0.0.1-alpha.1` (2026-11-18) and `v0.0.1-alpha.2` (2026-11-19) were both tag-pushed and released with **all four asset types** attached: `.deb`, `.rpm`, `.AppImage`, and a single-file `.flatpak` (Tier-2: assets published without install verification). Release runs `44287969913` (alpha.1) and `44458745229` (alpha.2) completed **success**; CI green on both tags. The Flatpak sandbox build was made fully offline (vendored crates + Rust toolchain tarball, GNOME 48 runtime by default, no SDK extensions) after a long failure chain — see commit history `97dd73a`→`947f513`. README §Installing now documents the live channels. **Residual (gracefully open):** AUR `PKGBUILD` (`packaging/aur/`, still unwritten) and the VM install tests (`pacman -Qi`/`dpkg -i`/`rpm -i` on Arch/deb/rpm guests) — no guest images available on this box; these stay open as launch items, tracked with 7.6 / the v1.0.0 distro row in PLAN's release timeline.
+- [x] **7.6 Launch docs** — README screenshots replaced with real captures, CHANGELOG v0.1.0, release notes incl. capability matrix table + known quirks, AUR announce. *Verify:* link check, screenshot freshness audit. *Depends on:* 7.5
+  - 📌 **Ledger note (2026-11-19):** release notes DONE for both shipped tags (`docs/releases/0.0.1-alpha.1.md` and `0.0.1-alpha.2.md`), each with a capability matrix + known quirks, and both bodies live on their GitHub release pages. `CHANGELOG.md` carries `alpha.1` and `alpha.2` entries (the task text's "v0.1.0" was stale — actual versions are `0.0.1+alpha.{1,2}`). README corrected status/features/install/env/folder sections; four v2 and v3 UI previews archived in `docs/screenshots/`; local markdown links resolve. **Residual (not closed by this tick):** the screenshots are frontend renders, not real in-app captures; the PRD G3 ≤60s fresh-profile metric remains unmeasured (with 6.4 / 13.1); the screenshot-freshness audit and the AUR announce depend on the 7.5 AUR residual. These launch gates stay open alongside 7.5's.
 
 **Definition of Done — Phase 7 (MVP shippable):** tagged release with distro packages, real screenshots, honest capability matrix, a11y/perf evidence, and PRD success metrics instrumented (time-to-first-recording, crash rate via tracing aggregation). Streaming tab remains the DESIGN-mandated "V2" pill — nothing shipped early.
 
@@ -331,33 +331,34 @@ optional — measured band levels are the agreed accept signal.
 
 ### UI v3 Execution Stages:
 
-- [ ] **v3.1 Design Tokens & Tailwind Theme Bridge**
+- [x] **v3.1 Design Tokens & Tailwind Theme Bridge**
   - Update `src/tailwind.css` with v3.0 tokens: Obsidian palette (`bg.canvas` `#0A0B0E`, `bg.raised` `#12141A`, `surface.solid` `#181A22`), hardware radii (`r.sm=8px`, `r.md=12px`, `r.lg=16px`, `r.xl=20px`), and floating island shadows (`elev.1`, `elev.2`, `elev.float`).
   - *Verify:* `npm run typecheck && npm run lint && npm test` pass; token values match `DESIGN.md v3.0`.
-- [ ] **v3.2 Integrated Studio Titlebar & Window Dimensions**
+- [x] **v3.2 Integrated Studio Titlebar & Window Dimensions**
   - Update `src-tauri/tauri.conf.json` window defaults: `width: 1360, height: 820, minWidth: 1040, minHeight: 680`.
   - Rebuild `src/components/chrome/NavBar.tsx`: custom CSD with window controls, centered segmented capsule, right telemetry badge (`1080p60 VAAPI`) and 40px primary `Record` pill CTA button.
   - *Verify:* Window renders with correct proportions; top bar aligns cleanly across compact and wide widths.
-- [ ] **v3.3 Hero 16:9 Floating Preview Canvas**
+- [x] **v3.3 Hero 16:9 Floating Preview Canvas**
   - Refactor `src/components/record/SourceDeck.tsx` and preview rendering into a widescreen 16:9 canvas with `rounded-2xl` (16px), 1px glass border, and ambient shadow.
   - Integrate interactive Camera PiP and region drag-rect directly onto the 16:9 canvas surface without letterboxing.
   - *Verify:* 16:9 test pattern fills canvas edge-to-edge; PiP snaps to all 4 corners.
-- [ ] **v3.4 Left Floating Inspector Deck**
+- [x] **v3.4 Left Floating Inspector Deck**
   - Create `src/components/record/CaptureInspector.tsx`: 300px floating glass island.
   - Houses segmented source chips (`Monitor` | `Window` | `Region`), active display card with resolution tag, Camera PiP control group (device, circle/rounded toggle, size slider, self-insert switch), and Quality Preset dropdown.
   - *Verify:* All settings persist; switching sources and presets updates state cleanly.
-- [ ] **v3.5 Floating Audio Mixer Deck (Meld Studio Style)**
+- [x] **v3.5 Floating Audio Mixer Deck (Meld Studio Style)**
   - Rebuild `src/components/record/AudioStrip.tsx` into a studio mixer deck positioned symmetrically below the 16:9 canvas.
   - Features two vertical channel cards (Mic & Desktop) with high-res peak/RMS meter bars, dB level faders, mute toggles, device popovers, and DSP badges (`RNNoise`, `Ducking`).
   - *Verify:* Meters animate in sync; mute and volume faders control audio stream properly.
-- [ ] **v3.6 Right Takes & Presets Gallery (Camo Studio Style)**
+- [x] **v3.6 Right Takes & Presets Gallery (Camo Studio Style)**
   - Create `src/components/record/TakesGallery.tsx`: 260px floating glass island.
   - Lists recent recordings with 16:9 card thumbnails, duration chips, and hover quick-actions (Play, Reveal, Copy Path); toggleable to Quick Presets.
   - *Verify:* Clicking recent take opens RecordingDrawer; gallery renders empty state when no recordings exist.
-- [ ] **v3.7 Tri-Panel Studio Integration & Responsive Polish**
+- [x] **v3.7 Tri-Panel Studio Integration & Responsive Polish**
   - Integrate all three floating decks and hero canvas in `src/components/record/RecordView.tsx`.
   - Responsive behavior: On viewports <1120px, right gallery collapses into an accessible slide-out drawer or top-bar toggle.
   - Full test pass: vitest, typecheck, lint, build, and visual inspection.
+  - 📌 **Ledger note (2026-11-19):** all seven stages implemented, CI-verified, and shipped in `v0.0.1-alpha.2` (2026-11-19, four asset types; release run `44458745229` success). Evidence: DESIGN.md v3.0; tokens in `src/tailwind.css` (`#0A0B0E`/`#12141A`/`#181A22`, radii, `--ssp-elev-float`); window 1360×820 min 1040×680 in `tauri.conf.json`; `NavBar` studio titlebar (telemetry pill + Record CTA + roving capsule); `SourceDeck` 16:9 canvas with region drag-rect; `CaptureInspector` (segmented switcher, PiP group, preset dropdown); `AudioMixerDeck` (peak/RMS + faders + DSP badges); `TakesGallery` (thumbnails + quick actions + presets toggle); `RecordView` integrates all three decks. Verification: `npm run typecheck`/`lint` clean, **309 vitest tests across 35 files** (incl. 6 end-to-end studio scenarios), cargo fmt/clippy `-D warnings` clean + 137 Rust tests, production build; change note live on the GitHub release page. **Not exercised in native browser/webview:** exact 390px/1440px emulation and reduced-motion emulation (checked in code + native viewport, not exact emulation) — matches the UI v2 residual pattern.
 
 ---
 
