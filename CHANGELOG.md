@@ -28,7 +28,7 @@ Third alpha release: DESIGN.md v3.1 legibility, responsive-layout and accessibil
 
 - Frontend: `npm run typecheck`, `npm run lint`, 321 Vitest tests across 35 files, and production build all pass.
 - Rendered browser checks: 1440×960, 1040×680 and 640×800 in both themes, keyboard navigation, reduced motion, no horizontal overflow and no console errors.
-- CI run `44995837385` passed the frontend and Rust jobs for the UI/documentation change set. The local Rust rerun was blocked by host FFmpeg 8 bindgen requiring unavailable CUDA SDK types; no Rust source changed in this release.
+- CI run `44995837385` passed the frontend and Rust jobs for the UI/documentation change set. The local Rust rerun was blocked by host FFmpeg 8 bindgen requiring unavailable CUDA SDK types; no production Rust behavior changed in this release.
 
 ### Known limitations
 

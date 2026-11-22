@@ -1002,7 +1002,7 @@ mod tests {
             .collect();
         assert_eq!(backends, ["nvenc", "vaapi", "x264"]);
         assert_eq!(v["version"]["ipcContract"], "1.6.0");
-        assert_eq!(v["version"]["app"], "0.0.1+alpha.2");
+        assert_eq!(v["version"]["app"], env!("CARGO_PKG_VERSION"));
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());
     }
