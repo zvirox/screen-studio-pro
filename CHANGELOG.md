@@ -6,6 +6,36 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
+## [0.0.1+alpha.3] - 2026-11-22
+
+Released under tag `v0.0.1-alpha.3` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
+
+Third alpha release: DESIGN.md v3.1 legibility, responsive-layout and accessibility refinement, with refreshed documentation and labelled mocked-IPC UI previews.
+
+### Added
+
+- Responsive two-column and stacked Record layouts below the desktop tri-panel breakpoint, without horizontal page overflow.
+- Shared button treatment and clearer control, gallery, mixer and settings states across both themes.
+- Four refreshed 1440×960 README previews covering Record dark/light, Settings and Library.
+
+### Fixed
+
+- Region crop dragging now registers with its drag provider, uses native-source coordinates and respects letterboxed preview geometry; keyboard nudges remain native-pixel steps.
+- Settings tabs now implement arrow-key navigation and explicit tab/panel relationships.
+- Navigation targets, text wrapping, focus visibility, scale/translate motion and reduced-motion behavior were corrected across the studio UI.
+
+### Verified
+
+- Frontend: `npm run typecheck`, `npm run lint`, 321 Vitest tests across 35 files, and production build all pass.
+- Rendered browser checks: 1440×960, 1040×680 and 640×800 in both themes, keyboard navigation, reduced motion, no horizontal overflow and no console errors.
+- CI run `44995837385` passed the frontend and Rust jobs for the UI/documentation change set. The local Rust rerun was blocked by host FFmpeg 8 bindgen requiring unavailable CUDA SDK types; no Rust source changed in this release.
+
+### Known limitations
+
+- VAAPI/NVENC remain unimplemented; x264 is the working fallback.
+- Packages are CI-built but have not been install-verified on test VMs.
+- README screenshots are mocked-IPC frontend previews, not real recording sessions or packaged-app captures.
+
 ## [0.0.1+alpha.2] - 2026-11-19
 
 Released under tag `v0.0.1-alpha.2` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
