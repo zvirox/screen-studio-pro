@@ -6,16 +6,16 @@
 
 **An open-source screen recording app for Wayland-first Linux — a frosted-glass alternative built for Hyprland, niri, MangoWC and KDE Plasma.**
 
-> **Status: alpha (`0.0.1+alpha.4`, release tag `v0.0.1-alpha.4`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.4.md) and [full progress ledger](PLAN.md).
+> **Status: alpha (`0.0.1+alpha.5`, release tag `v0.0.1-alpha.5`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.5.md) and [full progress ledger](PLAN.md).
 
 ## 📸 Screenshots
 
-| Record (dark) | Record (light) |
-|:---:|:---:|
+|                         Record (dark)                         |                         Record (light)                          |
+| :-----------------------------------------------------------: | :-------------------------------------------------------------: |
 | ![Record view, dark theme](docs/screenshots/record-dark.jpeg) | ![Record view, light theme](docs/screenshots/record-light.jpeg) |
 
-| Settings (light) | Library |
-|:---:|:---:|
+|                    Settings (light)                    |                        Library                         |
+| :----------------------------------------------------: | :----------------------------------------------------: |
 | ![Settings view](docs/screenshots/settings-light.jpeg) | ![Library grid](docs/screenshots/library-preview.jpeg) |
 
 > These are **UI previews** rendered from the Vite frontend with the Tauri IPC mocked; the Library preview uses sample rows. They show the current v3.1 layout and visual language, not a captured desktop recording session. Real in-app captures are still to be archived (task 7.6 residual).
@@ -57,53 +57,53 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 ## 📦 Installation
 
-The alpha.4 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.4](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.4), change to the download directory, then run the matching commands.
+The alpha.5 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.5](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.5), change to the download directory, then run the matching commands.
 
 ### Debian / Ubuntu (`.deb`)
 
 ```bash
-sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.4_amd64.deb
+sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.5_amd64.deb
 ```
 
 ### Fedora and other dnf-based distros (`.rpm`)
 
 ```bash
-sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.4-1.x86_64.rpm
+sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.5-1.x86_64.rpm
 ```
 
 ### AppImage
 
 ```bash
-chmod +x ScreenStudio.Pro_0.0.1+alpha.4_amd64.AppImage
-./ScreenStudio.Pro_0.0.1+alpha.4_amd64.AppImage
+chmod +x ScreenStudio.Pro_0.0.1+alpha.5_amd64.AppImage
+./ScreenStudio.Pro_0.0.1+alpha.5_amd64.AppImage
 ```
 
 ### Flatpak (single-file bundle)
 
-The bundle uses the GNOME 48 runtime:
+The bundle uses the GNOME 49 runtime:
 
 ```bash
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub org.gnome.Platform//48
-flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.4-x86_64.flatpak
+flatpak install --user flathub org.gnome.Platform//49
+flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.5-x86_64.flatpak
 flatpak run com.zvirox.screenstudiopro
 ```
 
 For `.deb` and `.rpm`, launch **ScreenStudio Pro** from your application launcher or run `screen-studio-pro`. Select a monitor/window/region, approve the desktop portal's consent dialog, then select **Record**.
 
-> These prerelease assets are built and attached by CI. They have **not been install-verified on test VMs**. There is no AUR package yet. Check the [release notes](docs/releases/0.0.1-alpha.4.md) and [portal support matrix](docs/portal-support.md) before installing on an untested compositor.
+> These prerelease assets are built and attached by CI. They have **not been install-verified on test VMs**. There is no AUR package yet. Check the [release notes](docs/releases/0.0.1-alpha.5.md) and [portal support matrix](docs/portal-support.md) before installing on an untested compositor.
 
 ## 🌍 Environment variables
 
 Runtime/debug overrides only; user settings live in the app and its TOML config (ARCHITECTURE §5.3):
 
-| Name | Purpose | Example |
-|---|---|---|
-| `SSP_LOG_FILE` | Override the log file path | `~/ssp-debug.log` |
-| `SSP_LOG_LEVEL` | Log verbosity (`trace`/`debug`/`info`/`warn`/`error`) | `debug` |
-| `SSP_DATA_DIR` | Override the library database directory | `~/.local/share/screen-studio-pro` |
-| `SSP_CONFIG_DIR` | Override config directory | `~/.config/screen-studio-pro` |
-| `SSP_FORCE_ENCODER` | Force an encoder backend for testing | `x264` |
+| Name                | Purpose                                               | Example                            |
+| ------------------- | ----------------------------------------------------- | ---------------------------------- |
+| `SSP_LOG_FILE`      | Override the log file path                            | `~/ssp-debug.log`                  |
+| `SSP_LOG_LEVEL`     | Log verbosity (`trace`/`debug`/`info`/`warn`/`error`) | `debug`                            |
+| `SSP_DATA_DIR`      | Override the library database directory               | `~/.local/share/screen-studio-pro` |
+| `SSP_CONFIG_DIR`    | Override config directory                             | `~/.config/screen-studio-pro`      |
+| `SSP_FORCE_ENCODER` | Force an encoder backend for testing                  | `x264`                             |
 
 ## FAQ
 
@@ -111,7 +111,7 @@ Runtime/debug overrides only; user settings live in the app and its TOML config 
 
 Live capture evidence is primarily from **KDE Plasma 6 on Wayland**: monitor and window selection, audio, pause/resume, chapter flags and tray actions have observed runs there. Hyprland, niri and MangoWC are target desktops, but their sections in the [portal support matrix](docs/portal-support.md) do not yet contain live capture observations. Region capture, webcam self-insert and unfocused global-shortcut activation still rely mainly on automated evidence.
 
-### Does alpha.4 use VAAPI or NVENC?
+### Does alpha.5 use VAAPI or NVENC?
 
 No. Hardware encoding is not implemented in this release; `auto` falls through to **x264 software encoding**. The VAAPI/NVENC selection helpers return unavailable, so forcing either backend does not enable hardware acceleration.
 
@@ -168,7 +168,7 @@ AppImage normally needs a FUSE 2 runtime. On Ubuntu 24.04, install it with:
 
 ```bash
 sudo apt install libfuse2t64
-./ScreenStudio.Pro_0.0.1+alpha.4_amd64.AppImage
+./ScreenStudio.Pro_0.0.1+alpha.5_amd64.AppImage
 ```
 
 Using the `.deb`, `.rpm` or Flatpak asset avoids the AppImage FUSE requirement.

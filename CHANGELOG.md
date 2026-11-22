@@ -6,6 +6,27 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
+## [0.0.1+alpha.5] - 2026-11-22
+
+Released under tag `v0.0.1-alpha.5` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
+
+Flatpak runtime hotfix; application behavior and the DESIGN.md v3.1 interface are otherwise unchanged from alpha.4.
+
+### Changed
+
+- Build and run the Flatpak on GNOME 49 instead of GNOME 48 to address the remaining external `SIGKILL` during WebKit startup.
+- Preserve the bundled libappindicator tray runtime and the release-time shared-library and 20-second startup gates.
+
+### Diagnostic evidence
+
+- The same alpha.4 binary and real app data survived five eight-second launches and three full 20-second launches with GNOME 49; three matched GNOME 48 controls exited with status `137` within five seconds.
+- The evidence isolates the correction to the runtime stack, not to WebKitGTK or Mesa individually.
+
+### Validation boundaries
+
+- Packaging-only change: no capture, recording, encoder or production frontend behavior changed.
+- The published alpha.5 Flatpak must still pass release CI and repeated 20-second launches from the existing system installation before the startup correction is considered verified; clean-VM installation and full recording validation remain open.
+
 ## [0.0.1+alpha.4] - 2026-11-22
 
 Released under tag `v0.0.1-alpha.4` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).

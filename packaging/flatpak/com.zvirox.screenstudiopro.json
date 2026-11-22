@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/flatpak/flatpak-builder/main/data/flatpak-manifest.schema.json",
     "id": "com.zvirox.screenstudiopro",
     "runtime": "org.gnome.Platform",
-    "runtime-version": "48",
+    "runtime-version": "49",
     "sdk": "org.gnome.Sdk",
     "command": "screen-studio-pro",
     "finish-args": [

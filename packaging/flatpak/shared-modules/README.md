@@ -9,6 +9,6 @@ Imported files:
 - `intltool/intltool-0.51.json` and its Perl compatibility patch
 - `dbus-glib/dbus-glib.json`
 
-Tauri's Linux tray integration loads `libappindicator3.so.1` dynamically. The GNOME 48
+Tauri's Linux tray integration loads `libappindicator3.so.1` dynamically. The GNOME
 runtime does not provide it or its libdbusmenu/libindicator dependencies, so the recipes
 are vendored here instead of adding a git submodule to the release build.

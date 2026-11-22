@@ -82,12 +82,12 @@ jobs:
           node-version: 22
           cache: npm
 
-      # GNOME 48 runtime: ships webkit2gtk-4.1 (Tauri's webview) and the
+      # GNOME 49 runtime: ships webkit2gtk-4.1 (Tauri's webview) and the
       # PipeWire/ALSA headers the capture core builds against. ffmpeg is NOT
       # in the runtime — the manifest builds nasm/x264/ffmpeg self-contained
       # into /app. The Rust toolchain is a manifest source (flatpak-builder
       # 1.4.2 appends the runtime branch to sdk-extensions, and no
-      # rust-stable//48 exists). LLVM 18 is installed here only as a source
+      # rust-stable//49 exists). LLVM 18 is installed here only as a source
       # of libclang for bindgen; it is staged into the checkout below rather
       # than declared as an SDK extension, for the same branch reason.
       - name: Install flatpak tooling
@@ -97,7 +97,7 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y --noninteractive \
-            org.gnome.Platform//48 org.gnome.Sdk//48 \
+            org.gnome.Platform//49 org.gnome.Sdk//49 \
             org.freedesktop.Sdk.Extension.llvm18//24.08
 
       - name: Stage libclang for the offline sandbox build
@@ -156,7 +156,7 @@ jobs:
       - name: Build flatpak
         # Runtime, SDK and the rust-stable extension were installed explicitly
         # above. flatpak-builder's --install-deps-from re-checks the extension
-        # against the *runtime* metadata (GNOME 48 does not declare it) and
+        # against the *runtime* metadata (GNOME 49 does not declare it) and
         # fails with "Unknown extension ... in runtime" — so do not use it.
         run: |
           flatpak-builder --user --force-clean \

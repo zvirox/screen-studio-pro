@@ -36,9 +36,9 @@
   <content_rating type="oars-1.1" />
   <releases>
     <!-- STAMPED BY CI: release.yml replaces version/date with the pushed tag. -->
-    <release version="0.0.1-alpha.1" date="2026-11-07">
+    <release version="v0.0.1-alpha.5" date="2026-11-22">
       <description>
-        <p>First public prerelease: recording core (capture, audio, encoders, library).</p>
+        <p>Flatpak runtime hotfix: use the GNOME 49 runtime.</p>
       </description>
     </release>
   </releases>
