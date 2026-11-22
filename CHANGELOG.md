@@ -20,7 +20,7 @@ Flatpak startup hotfix; application behavior and the DESIGN.md v3.1 interface ar
 ### Validation boundaries
 
 - Packaging-only change: no capture, recording, encoder or production frontend behavior changed.
-- The Flatpak release job must pass the new startup check before bundle publication; clean-VM installation and full recording validation remain open.
+- Release run `45004143614` passed the library/startup gates and all four package jobs. The published Flatpak also passed an isolated host install, dependency-resolution and 30-second launch check; clean-VM installation and full recording validation remain open.
 
 ## [0.0.1+alpha.3] - 2026-11-22
 
