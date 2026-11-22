@@ -89,7 +89,10 @@ jobs:
       # 1.4.2 appends the runtime branch to sdk-extensions, and no
       # rust-stable//49 exists). LLVM 18 is installed here only as a source
       # of libclang for bindgen; it is staged into the checkout below rather
-      # than declared as an SDK extension, for the same branch reason.
+      # than declared as an SDK extension, for the same branch reason. LLVM's
+      # libclang still needs libxml2.so.2 / ICU 75; GNOME 49 moved to
+      # libxml2.so.16 / ICU 77, so retain GNOME 48 only as a build-time source
+      # for those compatibility libraries (the app still runs on GNOME 49).
       - name: Install flatpak tooling
         run: |
           sudo apt-get update
@@ -97,10 +100,10 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y --noninteractive \
-            org.gnome.Platform//49 org.gnome.Sdk//49 \
+            org.gnome.Platform//49 org.gnome.Platform//48 org.gnome.Sdk//49 \
             org.freedesktop.Sdk.Extension.llvm18//24.08
 
-      - name: Stage libclang for the offline sandbox build
+      - name: Stage libclang and XML libraries for the offline sandbox build
         run: |
           set -euo pipefail
           LIBDIR=$(dirname "$(find "$HOME/.local/share/flatpak/runtime/org.freedesktop.Sdk.Extension.llvm18/x86_64/24.08" -name libclang.so -print -quit)")
@@ -108,6 +111,11 @@ jobs:
           mkdir -p libclang
           cp -a "$LIBDIR"/libclang.so* "$LIBDIR"/libclang-cpp.so* \
             "$LIBDIR"/libLLVM* libclang/
+          GNOME48=$(flatpak info --user --show-location org.gnome.Platform//48)
+          cp -a "$GNOME48/files/lib/x86_64-linux-gnu"/libxml2.so.2* \
+            "$GNOME48/files/lib/x86_64-linux-gnu"/libicudata.so.75* \
+            "$GNOME48/files/lib/x86_64-linux-gnu"/libicui18n.so.75* \
+            "$GNOME48/files/lib/x86_64-linux-gnu"/libicuuc.so.75* libclang/
           if [ -d "$LIBDIR/clang" ]; then
             cp -a "$LIBDIR/clang" libclang/
           fi
@@ -115,6 +123,18 @@ jobs:
           test -n "$CLANG_INC"
           mkdir -p libclang/include
           cp -a "$CLANG_INC"/* libclang/include/
+          flatpak run --user --command=sh --filesystem="$PWD" org.gnome.Platform//49 -c '
+            set -eu
+            export LD_LIBRARY_PATH="$PWD/libclang"
+            for library in "$PWD/libclang/libclang.so.18.1.8" "$PWD/libclang/libclang-cpp.so.18.1"; do
+              output=$(ldd "$library")
+              printf "%s\n" "$output"
+              if printf "%s\n" "$output" | grep -q "not found"; then
+                echo "Unresolved libclang dependency in GNOME 49" >&2
+                exit 1
+              fi
+            done
+          '
           ls -la libclang
           ls -la libclang/include || true
 
