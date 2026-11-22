@@ -36,9 +36,9 @@
   <content_rating type="oars-1.1" />
   <releases>
     <!-- STAMPED BY CI: release.yml replaces version/date with the pushed tag. -->
-    <release version="v0.0.1-alpha.6" date="2026-11-22">
+    <release version="v0.0.1-alpha.7" date="2026-11-22">
       <description>
-        <p>Flatpak runtime hotfix: allow WebKitGTK proxy-resolution portal calls and fix the in-app GDBus error.</p>
+        <p>Flatpak packaging hotfix: grant network access so the ProxyResolver portal call completes and the in-app GDBus error is gone.</p>
       </description>
     </release>
   </releases>

@@ -6,6 +6,17 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
+## [0.0.1+alpha.7] - 2026-11-22
+
+Released under tag `v0.0.1-alpha.7` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
+
+Flpak packaging hotfix; application behavior and the DESIGN.md v3.1 interface are otherwise unchanged from alpha.6.
+
+### Fixed
+
+- Grant network access with `--share=network`; the `xdg-desktop-portal` ProxyResolver returns `NotAllowed` when the app has no network access, which was the persistent in-app GDBus error after alpha.6.
+- Preserve the GNOME 49 runtime, the `--talk-name=org.freedesktop.portal.ProxyResolver` permission, and the alpha.6 release-time shared-library and 20-second startup gates.
+
 ## [0.0.1+alpha.6] - 2026-11-22
 
 Released under tag `v0.0.1-alpha.6` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
