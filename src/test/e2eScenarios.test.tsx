@@ -230,7 +230,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
     expect(useSspStore.getState().view).toBe("library");
     expect(libraryBtn).toHaveAttribute("aria-selected", "true");
     expect(recordBtn).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Library" })).toBeInTheDocument();
 
     // 6. Click Settings tab in navigation and verify DOM update
     await act(async () => {
@@ -520,7 +520,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
     });
 
     expect(screen.getByText("take_e2e_001.mp4")).toBeInTheDocument();
-    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Library" })).toBeInTheDocument();
   });
 
   /* --------------------------------------------------------------------------
@@ -547,7 +547,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
     const recordTab = screen.getByRole("tab", { name: /record/i });
     expect(recordTab).toHaveAttribute("aria-selected", "true");
 
-    const mainPanel = screen.getByRole("tabpanel");
+    const mainPanel = screen.getByRole("tabpanel", { name: "Record" });
     expect(mainPanel).toBeInTheDocument();
 
     const sourceRegion = screen.getByRole("region", { name: /source/i });
@@ -565,7 +565,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
     // 4. Genuine DOM assertions: Header, Navigation, and Record Panel remain fully functional without breaking
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(screen.getByRole("tablist", { name: /views/i })).toBeInTheDocument();
-    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Record" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /source/i })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /audio/i })).toBeInTheDocument();
 
@@ -584,7 +584,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
 
     // 7. Verify layout elements remain stable after viewport restoration
     expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Record" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /record/i })).toHaveAttribute("aria-selected", "true");
   });
 

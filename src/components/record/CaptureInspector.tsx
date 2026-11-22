@@ -17,11 +17,12 @@ import {
 import { cn } from "../../lib/cn";
 import { useSspStore } from "../../lib/store";
 import type { PresetId } from "../../types/ipc";
+import Button from "../ui/Button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Switch } from "../ui/switch";
 import { CORNERS, clampSize, type PipCorner, type PipShape } from "../huds/CameraPip";
 
-/* DESIGN.md v3.0 §5.2 — Left Floating Inspector (Capture & Device Deck)
+/* DESIGN.md v3.1 §5.2/§7.4 — Left Floating Inspector (Capture & Device Deck)
    300px fixed width floating inside workspace (r.lg = 16px, Studio Deck recipe).
    Contains:
    1. Segmented Source Switcher: Monitor | Window | Region (hotkeys 1, 2, 3)
@@ -54,18 +55,18 @@ export function CameraDevicePopover() {
       <PopoverTrigger
         type="button"
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-sm border px-3 text-body-sm font-medium",
+          "flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-sm border px-3 text-body-sm font-medium",
           error
             ? "border-error text-error hover:bg-error-muted"
             : "border-subtle bg-solid text-ink enabled:hover:border-accent enabled:hover:bg-accent-muted",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         )}
       >
-        <span className="flex items-center gap-2">
-          <Video size={16} strokeWidth={1.5} aria-hidden="true" />
-          Add camera
+        <span className="flex min-w-0 items-center gap-2">
+          <Video size={16} strokeWidth={1.5} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">Add camera</span>
         </span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <ChevronDown size={16} className="shrink-0" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent
         role="listbox"
@@ -117,12 +118,12 @@ export function CameraDevicePopover() {
                 setOpen(false);
               }}
               className={cn(
-                "flex h-11 w-full items-center justify-between gap-2 rounded-xs px-3",
+                "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xs px-3 text-left",
                 "text-body-sm text-ink hover:bg-accent-muted",
                 "focus-visible:bg-accent-muted focus-visible:outline-none",
               )}
             >
-              <span className="truncate">{d.label}</span>
+              <span className="min-w-0 truncate">{d.label}</span>
               {d.isDefault ? (
                 <span className="shrink-0 font-mono text-mono-sm text-ink-secondary">default</span>
               ) : (
@@ -193,7 +194,11 @@ export default function CaptureInspector() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept when typing in inputs or select elements
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
         return;
       }
       if (!selectable) return;
@@ -231,7 +236,7 @@ export default function CaptureInspector() {
   return (
     <aside
       aria-label="Capture Inspector"
-      className="flex w-full shrink-0 flex-col gap-5 studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2 min-[1120px]:w-[300px]"
+      className="studio-deck flex w-full min-w-0 shrink-0 flex-col gap-5 rounded-lg border border-line-glass p-4 shadow-elev-2 min-[1120px]:w-[300px]"
     >
       {/* Title */}
       <div className="flex items-center justify-between border-b border-subtle pb-3">
@@ -252,7 +257,7 @@ export default function CaptureInspector() {
         <div
           role="group"
           aria-label="Capture source switcher"
-          className="grid grid-cols-3 gap-1 rounded-sm border border-subtle bg-solid p-1"
+          className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-1 rounded-sm border border-subtle bg-solid p-1"
         >
           {/* Monitor Button */}
           <button
@@ -261,7 +266,7 @@ export default function CaptureInspector() {
             disabled={!selectable}
             onClick={() => void selectMonitor()}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-xs text-body-sm font-medium transition-colors",
+              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs px-1 text-body-sm font-medium transition-colors",
               isMonitorActive
                 ? "bg-accent text-accent-text shadow-sm"
                 : "text-ink hover:bg-accent-muted hover:text-ink disabled:text-ink-disabled",
@@ -274,7 +279,7 @@ export default function CaptureInspector() {
             ) : (
               <Monitor size={14} strokeWidth={1.5} aria-hidden="true" />
             )}
-            <span>Monitor</span>
+            <span className="whitespace-nowrap">Monitor</span>
           </button>
 
           {/* Window Button */}
@@ -284,7 +289,7 @@ export default function CaptureInspector() {
             disabled={!selectable || !windowCaptureSupported}
             onClick={() => void selectWindow()}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-xs text-body-sm font-medium transition-colors",
+              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs px-1 text-body-sm font-medium transition-colors",
               isWindowActive
                 ? "bg-accent text-accent-text shadow-sm"
                 : "text-ink hover:bg-accent-muted hover:text-ink disabled:text-ink-disabled",
@@ -301,7 +306,7 @@ export default function CaptureInspector() {
             ) : (
               <AppWindow size={14} strokeWidth={1.5} aria-hidden="true" />
             )}
-            <span>Window</span>
+            <span className="whitespace-nowrap">Window</span>
           </button>
 
           {/* Region Button */}
@@ -311,7 +316,7 @@ export default function CaptureInspector() {
             disabled={!selectable}
             onClick={() => void handleRegionSelect()}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-xs text-body-sm font-medium transition-colors",
+              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs px-1 text-body-sm font-medium transition-colors",
               isRegionActive
                 ? "bg-accent text-accent-text shadow-sm"
                 : "text-ink hover:bg-accent-muted hover:text-ink disabled:text-ink-disabled",
@@ -324,16 +329,19 @@ export default function CaptureInspector() {
             ) : (
               <Crop size={14} strokeWidth={1.5} aria-hidden="true" />
             )}
-            <span>Region</span>
+            <span className="whitespace-nowrap">Region</span>
           </button>
         </div>
 
         {/* Source Status & Resolution Display */}
         {source.status === "live" && source.capabilities ? (
-          <div className="flex items-center justify-between rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm">
-            <span className="truncate font-medium text-ink">{source.label ?? "Live Source"}</span>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm">
+            <span className="min-w-0 flex-1 break-words font-medium text-ink">
+              {source.label ?? "Live Source"}
+            </span>
             <span className="shrink-0 font-mono text-mono-sm text-ink-secondary">
-              {source.capabilities.width}×{source.capabilities.height} · {source.capabilities.fps}fps
+              {source.capabilities.width}×{source.capabilities.height} · {source.capabilities.fps}
+              fps
             </span>
           </div>
         ) : (
@@ -361,32 +369,38 @@ export default function CaptureInspector() {
             role="status"
             aria-live="polite"
           >
-            <LoaderCircle size={16} strokeWidth={2} className="animate-spin-slow" aria-hidden="true" />
+            <LoaderCircle
+              size={16}
+              strokeWidth={2}
+              className="animate-spin-slow"
+              aria-hidden="true"
+            />
             Opening camera…
           </span>
         ) : (
-          <div className="flex flex-col gap-3 rounded-md border border-subtle bg-solid p-3">
+          <div className="flex min-w-0 flex-col divide-y divide-subtle rounded-md border border-subtle bg-solid p-3">
             {/* Active Camera Device Row with Remove button */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <Video size={16} className="shrink-0 text-accent" aria-hidden="true" />
-                <span className="truncate text-body-sm font-medium text-ink">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                <Video size={16} className="mt-0.5 shrink-0 text-ink" aria-hidden="true" />
+                <span className="min-w-0 break-words text-body-sm font-medium text-ink">
                   {camera.label ?? "Camera"}
                 </span>
               </div>
-              <button
+              <Button
                 type="button"
+                size="sm"
                 title="Remove camera"
                 onClick={() => void closeCamera()}
-                className="flex h-8 items-center gap-1 rounded-xs border border-subtle bg-canvas px-2 text-label text-ink-secondary hover:border-error hover:text-error focus-visible:outline-2 focus-visible:outline-error"
+                className="shrink-0 bg-canvas px-2 text-label text-ink-secondary hover:border-error hover:text-error focus-visible:ring-error"
               >
                 <VideoOff size={14} aria-hidden="true" />
                 <span>Remove</span>
-              </button>
+              </Button>
             </div>
 
             {/* Shape Switcher: Circle vs Rounded */}
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-subtle">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
               <span className="text-label font-medium text-ink-secondary">Shape</span>
               <div
                 role="group"
@@ -399,7 +413,7 @@ export default function CaptureInspector() {
                   aria-label="Circle shape"
                   onClick={() => void setPipShape("circle")}
                   className={cn(
-                    "flex h-7 w-8 items-center justify-center rounded-xs transition-colors",
+                    "flex h-9 w-9 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     activeShape === "circle"
                       ? "bg-accent text-accent-text"
                       : "text-ink-secondary hover:text-ink",
@@ -413,7 +427,7 @@ export default function CaptureInspector() {
                   aria-label="Rounded rectangle shape"
                   onClick={() => void setPipShape("rounded")}
                   className={cn(
-                    "flex h-7 w-8 items-center justify-center rounded-xs transition-colors",
+                    "flex h-9 w-9 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     activeShape === "rounded"
                       ? "bg-accent text-accent-text"
                       : "text-ink-secondary hover:text-ink",
@@ -425,7 +439,7 @@ export default function CaptureInspector() {
             </div>
 
             {/* Corner Snap Grid (4 corners) */}
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-subtle">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
               <div className="flex items-center gap-1.5 text-label font-medium text-ink-secondary">
                 <Grid2x2 size={14} aria-hidden="true" />
                 <span>Corner Snap</span>
@@ -445,10 +459,10 @@ export default function CaptureInspector() {
                       aria-label={`Snap to ${c}`}
                       onClick={() => void setPipPosition(`corner:${c},margin:24`)}
                       className={cn(
-                        "h-5 w-5 rounded-xs transition-colors",
+                        "flex h-9 w-9 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                         active
-                          ? "bg-accent text-white"
-                          : "bg-solid hover:bg-accent-muted text-ink-secondary",
+                          ? "bg-accent text-accent-text"
+                          : "bg-solid text-ink-secondary hover:bg-accent-muted",
                       )}
                     />
                   );
@@ -457,13 +471,14 @@ export default function CaptureInspector() {
             </div>
 
             {/* Size Slider (160 to 320 px) */}
-            <div className="flex flex-col gap-1.5 pt-1 border-t border-subtle">
-              <div className="flex items-center justify-between text-label">
+            <div className="flex min-w-0 flex-col gap-1.5 py-3 first:pt-0 last:pb-0">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-label">
                 <span className="font-medium text-ink-secondary">Size</span>
                 <span className="font-mono text-mono-sm text-ink">
                   {activeSize}px · {Math.round((activeSize / 240) * 100)}%
                 </span>
               </div>
+              {/* DESIGN §7.4: the input keeps a 36px pointer target around the 6px track. */}
               <input
                 type="range"
                 min={160}
@@ -472,13 +487,13 @@ export default function CaptureInspector() {
                 value={activeSize}
                 aria-label="Camera PiP size"
                 onChange={(e) => void setPipSize(Number(e.target.value))}
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent"
+                className="h-9 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-accent [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-raised [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-raised [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
               />
             </div>
 
             {/* Self-Insert Switch */}
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-subtle">
-              <div className="flex flex-col">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
+              <div className="flex min-w-0 flex-col">
                 <span className="text-body-sm font-medium text-ink">Self-Insert</span>
                 <span className="text-label text-ink-secondary">Composite into recording</span>
               </div>
@@ -498,14 +513,14 @@ export default function CaptureInspector() {
         <span className="text-label font-semibold uppercase tracking-wider text-ink-secondary">
           Quality Preset
         </span>
-        <label className="flex flex-col gap-1">
+        <label className="flex min-w-0 flex-col gap-1">
           <span className="sr-only">Quality preset</span>
           <select
             aria-label="Quality preset"
             value={presets.presetId ?? ""}
             disabled={recording || presets.status !== "ready"}
             onChange={(e) => void setPreset(e.target.value as PresetId)}
-            className="h-10 w-full truncate rounded-sm border border-subtle bg-solid px-3 text-body-sm font-medium text-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-10 w-full min-w-0 max-w-full truncate rounded-sm border border-subtle bg-solid px-3 pr-9 text-body-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60"
           >
             {presets.presets.length === 0 && <option value="">Loading presets…</option>}
             {presets.presets.map((p) => (
@@ -518,21 +533,21 @@ export default function CaptureInspector() {
       </div>
 
       {/* 4. HARDWARE ENCODER STATUS */}
-      <div className="mt-auto flex flex-col gap-2 pt-2 border-t border-subtle">
+      <div className="mt-auto flex min-w-0 flex-col gap-2 border-t border-subtle pt-4">
         <span className="text-label font-semibold uppercase tracking-wider text-ink-secondary">
           Encoder
         </span>
-        <div className="flex items-center justify-between rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-mono">
-          <div className="flex items-center gap-2 text-ink">
-            <Cpu size={16} strokeWidth={1.5} className="text-accent" aria-hidden="true" />
-            <span>{encoderBackend.toUpperCase()}</span>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 font-mono text-body-sm">
+          <div className="flex min-w-0 items-center gap-2 text-ink">
+            <Cpu size={16} strokeWidth={1.5} className="shrink-0 text-ink" aria-hidden="true" />
+            <span className="min-w-0 break-all">{encoderBackend.toUpperCase()}</span>
           </div>
           {isHardwareEncoder ? (
-            <span className="rounded-xs bg-accent-muted px-1.5 py-0.5 text-label font-sans font-medium text-accent">
+            <span className="shrink-0 rounded-xs bg-accent-muted px-1.5 py-0.5 font-sans text-label font-medium text-ink">
               Hardware
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-label font-sans text-warning">
+            <span className="flex shrink-0 items-center gap-1 font-sans text-label text-warning">
               <Zap size={12} strokeWidth={1.5} aria-hidden="true" />
               CPU Fallback
             </span>

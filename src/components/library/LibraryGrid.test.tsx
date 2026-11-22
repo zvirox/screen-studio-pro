@@ -58,8 +58,8 @@ const MISSING_RECORDING = {
 describe("LibraryGrid (§5.5 / §6.3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, 'error').mockImplementation((msg: unknown) => {
-      if (typeof msg === 'string' && msg.includes('not wrapped in act')) {
+    vi.spyOn(console, "error").mockImplementation((msg: unknown) => {
+      if (typeof msg === "string" && msg.includes("not wrapped in act")) {
         return;
       }
       console.error(msg);
@@ -80,17 +80,19 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
 
   it("shows search empty state with Clear search chip", async () => {
     mockLibraryList.mockResolvedValue({ items: [], total: 0, page: { limit: 50, offset: 0 } });
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice });
+    useSspStore.setState({
+      library: { ...EMPTY_LIBRARY, items: [], total: 0, status: "idle" } as LibrarySlice,
+    });
     render(<LibraryGrid />);
     // Wait for loadLibrary() to complete before searching
     await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalled());
-    fireEvent.change(screen.getByPlaceholderText("Search recordings…"), {
+    const searchInput = screen.getByLabelText("Search recordings");
+    expect(searchInput).toHaveAttribute("type", "search");
+    fireEvent.change(searchInput, {
       target: { value: "demo" },
     });
     await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalledTimes(1));
-    expect(
-      screen.getByText('No recordings match “demo”'),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No recordings match “demo”")).toHaveClass("wrap-anywhere");
     expect(screen.getByRole("button", { name: /Clear search/ })).toBeInTheDocument();
   });
 
@@ -113,14 +115,20 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     mockLibraryList.mockRejectedValue(err);
     useSspStore.setState({ library: { ...EMPTY_LIBRARY, status: "idle" } as LibrarySlice });
     render(<LibraryGrid />);
-    await vi.waitFor(() => expect(screen.getByRole("heading", { name: "Could not load recordings" })).toBeInTheDocument());
+    await vi.waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "Could not load recordings" }),
+      ).toBeInTheDocument(),
+    );
     expect(screen.getByText("Disk write failed.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Try again/ }));
     await vi.waitFor(() => expect(mockLibraryList).toHaveBeenCalledTimes(2));
   });
 
   it("shows missing-file chip on missing recording card", () => {
-    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [MISSING_RECORDING] } as LibrarySlice });
+    useSspStore.setState({
+      library: { ...EMPTY_LIBRARY, items: [MISSING_RECORDING] } as LibrarySlice,
+    });
     render(<LibraryGrid />);
     expect(screen.getByText("File missing")).toBeInTheDocument();
     expect(screen.getByText("screen-2026-11-01-1413.mp4")).toBeInTheDocument();
@@ -132,5 +140,22 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     expect(screen.getByText("screen-2026-11-01-1412.mp4")).toBeInTheDocument();
     expect(screen.getByText("1:42")).toBeInTheDocument();
     expect(screen.getByText(/140\.4 MB/)).toBeInTheDocument();
+  });
+
+  it("keeps card actions available without making the article a nested button", () => {
+    useSspStore.setState({ library: { ...EMPTY_LIBRARY, items: [RECORDING] } as LibrarySlice });
+    render(<LibraryGrid />);
+
+    const card = screen.getByRole("article");
+    expect(card).not.toHaveAttribute("role", "button");
+    expect(card).not.toHaveAttribute("tabindex");
+    expect(
+      screen.getByRole("button", { name: `Open recording ${RECORDING.fileName}` }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open recording" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy path" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete recording" })).toBeInTheDocument();
+    expect(screen.getByText("1:42")).toHaveClass("bg-black/50", "text-white");
+    expect(screen.getByText(/140\.4 MB/)).toHaveClass("text-ink-secondary");
   });
 });

@@ -217,6 +217,80 @@ describe("CaptureInspector (Stage v3.4 Left Floating Inspector Deck)", () => {
     expect(screen.getByText("1920×1080 · 60fps")).toBeInTheDocument();
   });
 
+  it("keeps the source switcher and live metadata compact without truncation collisions", () => {
+    const sourceLabel = "Monitor 1 — Built-in Display with a very long name";
+    useSspStore.setState({
+      source: {
+        ...INITIAL_SOURCE,
+        status: "live",
+        sourceId: "mon_0",
+        label: sourceLabel,
+        capabilities: DUMMY_CAPS,
+      },
+    });
+
+    render(<CaptureInspector />);
+
+    expect(screen.getByRole("group", { name: "Capture source switcher" })).toHaveClass(
+      "grid-cols-[repeat(3,minmax(0,1fr))]",
+    );
+    for (const name of ["Monitor", "Window", "Region"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("h-11", "min-w-0", "flex-col");
+      expect(button.querySelector("span")).toHaveClass("whitespace-nowrap");
+      expect(button.querySelector("span")).not.toHaveClass("truncate");
+    }
+
+    const metadata = screen.getByText(sourceLabel);
+    expect(metadata).toHaveClass("min-w-0", "break-words");
+    expect(metadata.parentElement).toHaveClass("min-w-0", "flex-wrap", "gap-y-1");
+    expect(screen.getByRole("combobox", { name: "Quality preset" })).toHaveClass(
+      "min-w-0",
+      "max-w-full",
+      "pr-9",
+    );
+  });
+
+  it("uses resilient wrapping and 36px camera controls", () => {
+    const cameraLabel = "Facecam HD — USB Video Device With An Extremely Long Name";
+    useSspStore.setState({
+      camera: {
+        ...INITIAL_CAMERA,
+        status: "open",
+        cameraId: "cam_handle_1",
+        deviceId: "cam_1",
+        label: cameraLabel,
+        width: 1280,
+        height: 720,
+      },
+    });
+
+    render(<CaptureInspector />);
+
+    const deviceLabel = screen.getByText(cameraLabel);
+    expect(deviceLabel).toHaveClass("min-w-0", "break-words");
+    expect(deviceLabel.parentElement?.parentElement).toHaveClass("min-w-0", "flex-wrap");
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveClass("min-h-9");
+
+    for (const name of ["Circle shape", "Rounded rectangle shape"]) {
+      expect(screen.getByRole("button", { name })).toHaveClass("h-9", "w-9");
+    }
+    const corners = screen.getAllByRole("button", { name: /Snap to / });
+    expect(corners).toHaveLength(4);
+    for (const corner of corners) {
+      expect(corner).toHaveClass("h-9", "w-9");
+    }
+
+    const slider = screen.getByRole("slider", { name: "Camera PiP size" });
+    expect(slider).toHaveClass("h-9");
+    expect(slider.className).toContain("[&::-webkit-slider-runnable-track]:h-1.5");
+
+    const hardware = screen.getByText("Hardware");
+    expect(hardware).toHaveClass("text-ink");
+    expect(hardware).not.toHaveClass("text-accent");
+    expect(hardware.parentElement).toHaveClass("min-w-0", "flex-wrap");
+  });
+
   it("lists camera devices and opens selected camera device", async () => {
     vi.mocked(cameraListDevices).mockResolvedValue({ devices: DUMMY_CAMERAS });
     vi.mocked(cameraOpen).mockResolvedValue({

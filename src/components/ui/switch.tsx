@@ -1,31 +1,27 @@
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { cn } from "../../lib/cn";
 
-/* DESIGN §5.4 Switch — 40×24 pill; on = `accent` track, off = `bg.raised`
-   + `border.subtle`; knob white, `m.fast` translate. Radix supplies the
-   keyboard + role=switch semantics (§7.3); the universal focus ring
-   (§7.2) wraps the pill. Token references only (DESIGN §8). */
-
-export function Switch({
-  className,
-  ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+/* DESIGN.md v3.1 §4.6/§7.4 — a 40×24 visual track inside a 40×36
+   hit target. Radix supplies keyboard and role=switch semantics. */
+export function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
     <SwitchPrimitive.Root
       className={cn(
-        "relative h-6 w-10 shrink-0 rounded-full border border-subtle bg-raised",
-        "transition-colors duration-fast ease-fast",
-        "data-[state=checked]:border-accent data-[state=checked]:bg-accent",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+        "group relative flex h-9 w-10 shrink-0 items-center rounded-full",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
     >
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 h-6 rounded-full border border-subtle bg-raised transition-colors duration-fast ease-fast group-data-[state=checked]:border-accent group-data-[state=checked]:bg-accent"
+      />
       <SwitchPrimitive.Thumb
         className={cn(
-          "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-elev-1",
-          "transition-transform duration-fast ease-fast",
+          "pointer-events-none relative z-base ml-0.5 block h-5 w-5 rounded-full bg-white shadow-elev-1",
+          "transition-[translate] duration-fast ease-fast",
           "data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0",
         )}
       />

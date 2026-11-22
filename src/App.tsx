@@ -10,7 +10,7 @@ import { useRecordingState } from "./hooks/useRecordingState";
 import { useSspStore, type ViewId } from "./lib/store";
 import { MOTION } from "./lib/motion";
 
-/* App shell — NavBar + view router (ARCHITECTURE §2).
+/* App shell — NavBar + view router (ARCHITECTURE §2; DESIGN.md v3.1).
    The session-event hook mounts once here (§4.1: the event stream is the
    state sync, so projections keep updating on any view). useHudWindow is
    the spawn side of the §5.9 HUD float: main hears recording/started and
@@ -65,8 +65,12 @@ export default function App() {
       <div className="flex h-dvh flex-col bg-canvas text-ink">
         <NavBar />
         <main
+          id="main-workspace"
           role="tabpanel"
-          className={`min-h-0 flex-1 ${selfScrolling ? "overflow-hidden" : "overflow-y-auto p-6"}`}
+          aria-labelledby={`view-tab-${view}`}
+          className={`min-h-0 min-w-0 flex-1 ${
+            selfScrolling ? "overflow-hidden" : "overflow-y-auto p-4 min-[720px]:p-5 min-[1280px]:p-6"
+          }`}
         >
           <motion.div key={view} {...enter} className={selfScrolling ? "h-full" : undefined}>
             {view === "record" ? (

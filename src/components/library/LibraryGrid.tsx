@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Copy, ExternalLink, LoaderCircle, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CircleAlert,
+  Copy,
+  ExternalLink,
+  Film,
+  LoaderCircle,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import RecordingDrawer from "./RecordingDrawer";
 import DeleteConfirm from "./DeleteConfirm";
 import type { LibraryListItem } from "../../types/ipc";
 import { cn } from "../../lib/cn";
 import { Reveal } from "../ui/Reveal";
+import Button from "../ui/Button";
 
 /* §6.5 Cards & the recording library grid (task 5.2).
    Card: surface.solid, r.md, border.subtle, elev.1, padding space.4.
@@ -13,8 +24,8 @@ import { Reveal } from "../ui/Reveal";
    Loading: skeleton grid — shimmer on surface.solid shapes, never spinners
    mid-page. Recording item: 16:9 thumbnail (r.sm), duration chip bottom-right
    (mono-sm, rgba(0,0,0,0.5) ground), name body-sm 500, meta row
-   (label/mono-sm: date · size · fps · encoder). Hover reveals icon-action
-   row: open, copy path, delete-danger. Click = detail drawer (§5.7).
+   (label/mono-sm: date · size · fps · encoder). Actions remain visible for
+   touch and keyboard users. Thumbnail/open action = detail drawer (§5.7).
    Nothing important hidden behind hover. */
 
 function formatDuration(ms: number): string {
@@ -52,111 +63,104 @@ function LibraryCard({
   onOpen: (id: number) => void;
   onDelete: (id: number) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   const handleDelete = () => {
     onDelete(item.id);
   };
 
   return (
     <article
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={() => onOpen(item.id)}
-      tabIndex={0}
-      role="button"
-      aria-label={`Open recording ${item.fileName}`}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(item.id);
-        }
-      }}
       className={cn(
-        "relative group cursor-pointer bg-solid border border-subtle rounded-md shadow-[var(--shadow-elev-1)] p-4",
-        hovered ? "border-accent -translate-y-1" : "",
-        "transition-[transform,border-color] duration-fast ease-fast",
+        "group relative rounded-md border border-subtle bg-solid p-4 shadow-[var(--shadow-elev-1)]",
+        "transition-[translate,border-color] duration-fast ease-fast hover:-translate-y-1 hover:border-accent focus-within:border-accent motion-reduce:translate-none",
       )}
     >
-      {/* 16:9 thumbnail (r.sm) */}
-      <div className="relative aspect-video w-full rounded-sm bg-raised overflow-hidden">
+      {/* 16:9 thumbnail (r.sm). The separate open button keeps the article
+          non-interactive and gives keyboard users the same drawer action. */}
+      <div className="relative aspect-video w-full overflow-hidden rounded-sm bg-raised">
         {item.thumbPath ? (
           <img src={item.thumbPath} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-ink">
-            <ExternalLink size={24} strokeWidth={1.5} className="opacity-60" />
+          <div className="flex h-full w-full items-center justify-center text-ink-secondary">
+            <Film size={24} strokeWidth={1.5} aria-hidden="true" />
           </div>
         )}
-        {/* Duration chip bottom-right (mono-sm, ground) */}
-        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-[var(--ssp-modal-scrim)] px-1.5 py-0.5 text-mono-sm text-ink">
+        <button
+          type="button"
+          aria-label={`Open recording ${item.fileName}`}
+          onClick={() => onOpen(item.id)}
+          className="absolute inset-0 rounded-sm focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+        />
+        {/* Duration chip bottom-right (mono-sm, dark ground and white text). */}
+        <span className="pointer-events-none absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-black/50 px-1.5 py-0.5 font-mono text-mono-sm text-white">
           {formatDuration(item.durationMs)}
-        </div>
-        {/* Missing-file overlay (§5.5): thumbnail persists + signal.muted chip. */}
+        </span>
+        {/* Missing-file overlay (§5.5): thumbnail persists + error chip. */}
         {item.status === "missing" && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-[var(--ssp-modal-scrim)]">
-            <div className="flex items-center gap-2 bg-error/10 border border-error rounded-md p-2">
-              <span className="text-error font-medium text-body-sm">File missing</span>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-sm bg-black/50">
+            <div className="flex items-center gap-2 rounded-md border border-error bg-error/10 p-2">
+              <span className="text-body-sm font-medium text-white">File missing</span>
             </div>
           </div>
         )}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 min-w-0">
         {/* Name body-sm 500 */}
-        <h3 className="text-body-sm font-medium text-ink line-clamp-1">{item.fileName}</h3>
+        <h3 className="line-clamp-1 text-body-sm font-medium text-ink">{item.fileName}</h3>
         {/* Meta row (label/mono-sm): date · size · fps · encoder */}
-        <p className="mt-1 text-label text-ink truncate">
-          {formatDate(item.createdAt)} ·{formatSize(item.sizeBytes)} ·{item.fps}fps ·{item.encoder}
+        <p className="mt-1 truncate text-label text-ink-secondary">
+          {formatDate(item.createdAt)} · {formatSize(item.sizeBytes)} · {item.fps}fps ·{" "}
+          {item.encoder}
         </p>
       </div>
 
-      {/* Hover reveals icon-action row */}
-      {hovered && (
-        <div className="absolute top-4 right-4 flex gap-2">
-          <button
-            type="button"
-            aria-label="Open recording"
-            className="h-9 w-9 rounded-sm border border-subtle bg-solid flex items-center justify-center text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <ExternalLink size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Copy path"
-            onClick={() => {
-              navigator.clipboard.writeText(item.path);
-            }}
-            className="h-9 w-9 rounded-sm border border-subtle bg-solid flex items-center justify-center text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <Copy size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Delete recording"
-            onClick={handleDelete}
-            className="h-9 w-9 rounded-sm border border-subtle bg-solid flex items-center justify-center text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <Trash2 size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-        </div>
-      )}
+      {/* Quick actions stay visible: hover is enhancement, never a prerequisite. */}
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-subtle pt-3">
+        <Button
+          variant="secondary"
+          size="icon"
+          aria-label="Open recording"
+          onClick={() => onOpen(item.id)}
+        >
+          <ExternalLink size={14} strokeWidth={1.5} aria-hidden="true" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          aria-label="Copy path"
+          onClick={() => {
+            void navigator.clipboard.writeText(item.path);
+          }}
+        >
+          <Copy size={14} strokeWidth={1.5} aria-hidden="true" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          aria-label="Delete recording"
+          onClick={handleDelete}
+          className="text-error hover:border-error hover:bg-error-muted"
+        >
+          <Trash2 size={14} strokeWidth={1.5} aria-hidden="true" />
+        </Button>
+      </div>
     </article>
   );
 }
 
 function SkeletonCard() {
   return (
-    <article className="relative group cursor-default bg-solid border border-subtle rounded-md shadow-[var(--shadow-elev-1)] p-4">
+    <article className="group relative cursor-default rounded-md border border-subtle bg-solid p-4 shadow-[var(--shadow-elev-1)]">
       {/* §6.5 loading: skeleton grid — shimmer on surface.solid shapes, never spinners mid-page. */}
-      <div className="relative aspect-video w-full rounded-sm bg-solid overflow-hidden">
-        <div className="h-full w-full bg-solid animate-pulse" />
-        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-[var(--ssp-modal-scrim)] px-1.5 py-0.5">
+      <div className="relative aspect-video w-full overflow-hidden rounded-sm bg-solid">
+        <div className="h-full w-full animate-pulse bg-solid" />
+        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-black/50 px-1.5 py-0.5">
           <div className="h-3 w-8 rounded bg-ink-disabled" />
         </div>
       </div>
       <div className="mt-3">
-        <div className="h-4 bg-solid animate-pulse w-3/4" />
-        <div className="mt-1 h-3 bg-solid animate-pulse w-1/2" />
+        <div className="h-4 w-3/4 animate-pulse bg-solid" />
+        <div className="mt-1 h-3 w-1/2 animate-pulse bg-solid" />
       </div>
     </article>
   );
@@ -205,32 +209,38 @@ export default function LibraryGrid() {
   );
 
   return (
-    <section className="flex flex-col h-full" data-testid="library-grid">
+    <section className="flex h-full min-w-0 flex-col" data-testid="library-grid">
       {/* Header with search */}
-      <div className="flex-shrink-0 px-6 py-4">
-        <div className="relative max-w-md">
+      <div className="flex shrink-0 flex-wrap px-4 py-4 min-[720px]:px-6">
+        <div className="relative w-full min-w-0 max-w-md">
+          <label htmlFor="library-search" className="sr-only">
+            Search recordings
+          </label>
           <input
-            type="text"
+            id="library-search"
+            type="search"
             placeholder="Search recordings…"
             value={search}
             onChange={handleSearch}
-            className="h-10 w-full rounded-sm border border-subtle bg-solid pl-9 pr-3 text-body-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-10 w-full min-w-0 rounded-sm border border-subtle bg-solid pl-9 pr-3 text-body-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink">
-            <ExternalLink size={16} strokeWidth={1.5} aria-hidden="true" />
+          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-secondary">
+            <Search size={16} strokeWidth={1.5} aria-hidden="true" />
           </div>
         </div>
       </div>
 
       {/* Grid header */}
-      <div className="flex-shrink-0 px-6 py-2 border-b border-subtle bg-raised">
-        <div className="flex items-center justify-between text-label font-medium text-ink">
-          <span>Recordings</span>
-          <div className="flex items-center gap-2 text-label">
+      <div className="shrink-0 border-b border-subtle bg-raised px-4 py-2 min-[720px]:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-label font-medium text-ink">
+          <span className="flex min-h-9 items-center">Recordings</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-1 text-label">
             <button
+              type="button"
               onClick={() => handleSort("created_at")}
+              aria-pressed={sortField === "created_at"}
               className={cn(
-                "flex items-center gap-1 hover:text-accent",
+                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm px-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
                 sortField === "created_at" && "text-accent",
               )}
             >
@@ -243,9 +253,11 @@ export default function LibraryGrid() {
                 ))}
             </button>
             <button
+              type="button"
               onClick={() => handleSort("duration")}
+              aria-pressed={sortField === "duration"}
               className={cn(
-                "flex items-center gap-1 hover:text-accent",
+                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm px-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
                 sortField === "duration" && "text-accent",
               )}
             >
@@ -258,9 +270,11 @@ export default function LibraryGrid() {
                 ))}
             </button>
             <button
+              type="button"
               onClick={() => handleSort("size")}
+              aria-pressed={sortField === "size"}
               className={cn(
-                "flex items-center gap-1 hover:text-accent",
+                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm px-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
                 sortField === "size" && "text-accent",
               )}
             >
@@ -277,32 +291,30 @@ export default function LibraryGrid() {
       </div>
 
       {/* Content area */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
+      <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-6 min-[720px]:px-6">
         {library.status === "error" ? (
           // §5.5 error state — show §1 copy with retry.
-          <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <ExternalLink
+          <div className="flex h-full min-w-0 max-w-full flex-col items-center justify-center py-20 text-center">
+            <CircleAlert
               size={48}
               strokeWidth={1.5}
-              className="text-error mb-4"
+              className="mb-4 shrink-0 text-error"
               aria-hidden="true"
             />
-            <h2 className="text-heading font-medium text-ink">Could not load recordings</h2>
-            <p className="mt-2 text-body-sm text-ink max-w-md">
+            <h2 className="max-w-full wrap-anywhere text-heading font-medium text-ink">
+              Could not load recordings
+            </h2>
+            <p className="mt-2 max-w-md wrap-anywhere text-body-sm text-ink-secondary">
               {library.error?.userMessage ?? "Failed to load recordings."}
             </p>
-            <button
-              type="button"
-              onClick={() => void loadLibrary()}
-              className="mt-4 flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <LoaderCircle size={14} strokeWidth={1.5} className="mr-1.5" aria-hidden="true" />
+            <Button onClick={() => void loadLibrary()} className="mt-4">
+              <LoaderCircle size={14} strokeWidth={1.5} aria-hidden="true" />
               Try again
-            </button>
+            </Button>
           </div>
         ) : library.status === "loading" && library.items.length === 0 ? (
           // §6.5 loading: skeleton grid, never spinners mid-page.
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(8)].map((_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -311,48 +323,44 @@ export default function LibraryGrid() {
           // §6.3 empty: teach the interface, never say "nothing here".
           search ? (
             // Search empty.
-            <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <ExternalLink
+            <div className="flex h-full min-w-0 max-w-full flex-col items-center justify-center py-20 text-center">
+              <Search
                 size={48}
                 strokeWidth={1.5}
-                className="text-ink mb-4"
+                className="mb-4 shrink-0 text-ink-secondary"
                 aria-hidden="true"
               />
-              <h2 className="text-heading font-medium text-ink">No recordings match “{search}”</h2>
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="mt-4 flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-              >
+              <h2 className="max-w-full wrap-anywhere text-heading font-medium text-ink">
+                No recordings match “{search}”
+              </h2>
+              <Button onClick={() => setSearch("")} className="mt-4">
                 Clear search
-              </button>
+              </Button>
             </div>
           ) : (
             // Library empty.
-            <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <ExternalLink
+            <div className="flex h-full min-w-0 max-w-full flex-col items-center justify-center py-20 text-center">
+              <Film
                 size={48}
                 strokeWidth={1.5}
-                className="text-ink mb-4"
+                className="mb-4 shrink-0 text-ink-secondary"
                 aria-hidden="true"
               />
-              <h2 className="text-heading font-medium text-ink">Nothing recorded yet</h2>
-              <p className="mt-2 text-body-sm text-ink max-w-md">
+              <h2 className="max-w-full wrap-anywhere text-heading font-medium text-ink">
+                Nothing recorded yet
+              </h2>
+              <p className="mt-2 max-w-md wrap-anywhere text-body-sm text-ink-secondary">
                 Choose a source on the Record tab, then hit Record. Your clips will land here.
               </p>
-              <button
-                type="button"
-                onClick={() => setView("record")}
-                className="mt-4 flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-              >
+              <Button onClick={() => setView("record")} className="mt-4">
                 Go to Record
-              </button>
+              </Button>
             </div>
           )
         ) : (
           // Grid of recording cards.
           <Reveal>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {library.items.map((item) => (
                 <LibraryCard
                   key={item.id}
@@ -362,16 +370,16 @@ export default function LibraryGrid() {
                 />
               ))}
               {library.items.length < library.total && (
-                <button
+                <Button
                   onClick={() => {
                     setLibraryOffset(library.offset + library.limit);
                     void loadLibrary();
                   }}
-                  className="col-span-full flex w-full items-center justify-center gap-2 py-3 rounded-sm border border-subtle bg-solid text-body-sm text-accent hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                  className="col-span-full w-full"
                 >
                   <LoaderCircle size={16} strokeWidth={2} aria-hidden="true" />
                   Show more
-                </button>
+                </Button>
               )}
             </div>
           </Reveal>
@@ -379,7 +387,7 @@ export default function LibraryGrid() {
       </div>
 
       {/* Status bar */}
-      <div className="flex-shrink-0 px-6 py-2 text-label text-ink">
+      <div className="shrink-0 px-4 py-2 text-label text-ink-secondary min-[720px]:px-6">
         Showing {library.items.length} of {library.total} recording
         {library.total !== 1 ? "s" : ""}.
       </div>

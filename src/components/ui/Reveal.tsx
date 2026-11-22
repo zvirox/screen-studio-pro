@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "../../lib/cn";
 
-/* DESIGN.md v2.0 §4.6 m.reveal — opacity 0→1 + translateY(6px→0) on
+/* DESIGN.md v3.1 §4.6 m.reveal — opacity 0→1 + translateY(6px→0) on
    m.base when a section enters the viewport. The global reduced-motion
-   rule and motion-reduce:transform-none keep this opacity-only for users
+   rule and motion-reduce:translate-none keep this opacity-only for users
    who ask for less motion. jsdom has no IntersectionObserver, so tests
    render the revealed state immediately. */
 export function Reveal({ children, className }: { children: ReactNode; className?: string }) {
@@ -34,7 +34,7 @@ export function Reveal({ children, className }: { children: ReactNode; className
     <div
       ref={ref}
       className={cn(
-        "transition-[opacity,transform] duration-base ease-fast motion-reduce:transform-none",
+        "transition-[opacity,translate] duration-base ease-fast motion-reduce:translate-none",
         shown ? "translate-y-0 opacity-100" : "translate-y-1.5 opacity-0",
         className,
       )}

@@ -1,11 +1,7 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TakesGallery from "./TakesGallery";
-import {
-  INITIAL_LIBRARY,
-  INITIAL_PRESETS,
-  useSspStore,
-} from "../../lib/store";
+import { INITIAL_LIBRARY, INITIAL_PRESETS, useSspStore } from "../../lib/store";
 import type { LibraryListItem, Preset } from "../../types/ipc";
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -113,7 +109,9 @@ describe("TakesGallery (Stage v3.6 Right Takes & Presets Gallery)", () => {
     render(<TakesGallery />);
     await flushEffects();
 
-    expect(screen.getByRole("complementary", { name: "Takes and Presets Gallery" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Takes and Presets Gallery" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("take_001.mp4")).toBeInTheDocument();
     expect(screen.getByText("take_002.mp4")).toBeInTheDocument();
 
@@ -121,6 +119,35 @@ describe("TakesGallery (Stage v3.6 Right Takes & Presets Gallery)", () => {
     expect(screen.getByText("1:14")).toBeInTheDocument();
     // Formatted duration 140000ms = 2:20
     expect(screen.getByText("2:20")).toBeInTheDocument();
+    // Duration sits on an opaque, high-contrast token surface above thumbnails.
+    expect(screen.getByText("1:14")).toHaveClass("bg-canvas", "text-ink");
+  });
+
+  it("uses a native Open control with persistent sibling actions inside each article", async () => {
+    render(<TakesGallery />);
+    await flushEffects();
+
+    const card = screen.getByRole("article", { name: "take_001.mp4" });
+    expect(card).not.toHaveAttribute("role", "button");
+    expect(card).not.toHaveAttribute("tabindex");
+    expect(
+      within(card).getByRole("button", { name: "Recording take_001.mp4" }),
+    ).toBeInTheDocument();
+
+    const play = within(card).getByRole("button", { name: "Play take_001.mp4" });
+    const reveal = within(card).getByRole("button", {
+      name: "Reveal take_001.mp4 in file manager",
+    });
+    const copy = within(card).getByRole("button", { name: "Copy path of take_001.mp4" });
+
+    for (const action of [play, reveal, copy]) {
+      expect(action).toBeVisible();
+      expect(action).toBeEnabled();
+      expect(action).not.toHaveAttribute("tabindex", "-1");
+    }
+    expect(play).toHaveClass("min-h-9");
+    expect(reveal).toHaveClass("h-9", "w-9");
+    expect(copy).toHaveClass("h-9", "w-9");
   });
 
   it("opens detail drawer on card click", async () => {
@@ -153,7 +180,9 @@ describe("TakesGallery (Stage v3.6 Right Takes & Presets Gallery)", () => {
     const copyBtn = screen.getByRole("button", { name: "Copy path of take_001.mp4" });
     fireEvent.click(copyBtn);
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("/home/zvirox/Videos/screenstudio/take_001.mp4");
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      "/home/zvirox/Videos/screenstudio/take_001.mp4",
+    );
   });
 
   it("renders empty state illustration and message when library has no takes", async () => {
@@ -169,6 +198,44 @@ describe("TakesGallery (Stage v3.6 Right Takes & Presets Gallery)", () => {
     await flushEffects();
 
     expect(screen.getByText("No takes recorded yet")).toBeInTheDocument();
+  });
+
+  it("connects tabs to panels and supports arrow, Home, and End navigation", async () => {
+    render(<TakesGallery />);
+    await flushEffects();
+
+    const takesTab = screen.getByRole("tab", { name: /Takes/i });
+    const presetsTab = screen.getByRole("tab", { name: /Presets/i });
+    expect(takesTab).toHaveClass("min-h-9");
+    expect(presetsTab).toHaveClass("min-h-9");
+    expect(takesTab).toHaveAttribute("aria-controls", "gallery-panel-takes");
+    expect(document.getElementById("gallery-panel-presets")).not.toBeNull();
+    expect(document.getElementById("gallery-panel-presets")).toHaveAttribute("hidden");
+    expect(screen.getByRole("tabpanel", { name: /Takes/i })).toHaveAttribute(
+      "id",
+      "gallery-panel-takes",
+    );
+
+    fireEvent.keyDown(takesTab, { key: "End" });
+    expect(presetsTab).toHaveAttribute("aria-selected", "true");
+    expect(presetsTab).toHaveFocus();
+    expect(takesTab).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("tabpanel", { name: /Presets/i })).toHaveAttribute(
+      "id",
+      "gallery-panel-presets",
+    );
+
+    fireEvent.keyDown(presetsTab, { key: "ArrowRight" });
+    expect(takesTab).toHaveAttribute("aria-selected", "true");
+    expect(takesTab).toHaveFocus();
+
+    fireEvent.keyDown(takesTab, { key: "ArrowLeft" });
+    expect(presetsTab).toHaveAttribute("aria-selected", "true");
+    expect(presetsTab).toHaveFocus();
+
+    fireEvent.keyDown(presetsTab, { key: "Home" });
+    expect(takesTab).toHaveAttribute("aria-selected", "true");
+    expect(takesTab).toHaveFocus();
   });
 
   it("switches to Presets tab and shows quick presets with hotkey badges", async () => {

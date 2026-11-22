@@ -46,13 +46,13 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
     expect(css).toContain("--ssp-bg-canvas: #0A0B0E;");
     expect(css).toContain("--ssp-bg-raised: #12141A;");
     expect(css).toContain("--ssp-surface-solid: #181A22;");
-    expect(css).toContain("--ssp-surface-glass: rgba(255, 255, 255, 0.045);");
-    expect(css).toContain("--ssp-surface-glass-strong: rgba(18, 20, 26, 0.82);");
-    expect(css).toContain("--ssp-border-subtle: rgba(255, 255, 255, 0.08);");
-    expect(css).toContain("--ssp-border-glass: rgba(255, 255, 255, 0.14);");
+    expect(css).toContain("--ssp-surface-glass: rgba(255, 255, 255, 0.06);");
+    expect(css).toContain("--ssp-surface-glass-strong: rgba(18, 20, 26, 0.94);");
+    expect(css).toContain("--ssp-border-subtle: rgba(255, 255, 255, 0.14);");
+    expect(css).toContain("--ssp-border-glass: rgba(255, 255, 255, 0.20);");
     expect(css).toContain("--ssp-text-primary: #F4F5F8;");
-    expect(css).toContain("--ssp-text-secondary: rgba(244, 245, 248, 0.65);");
-    expect(css).toContain("--ssp-text-disabled: rgba(244, 245, 248, 0.32);");
+    expect(css).toContain("--ssp-text-secondary: rgba(244, 245, 248, 0.78);");
+    expect(css).toContain("--ssp-text-disabled: rgba(244, 245, 248, 0.46);");
   });
 
   it("F1-T1-02: defines Studio Burgundy Accent and Broadcast Signal Red tokens with variants", () => {
@@ -64,8 +64,8 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
     expect(css).toContain("--ssp-accent-muted: rgba(163, 40, 78, 0.15);");
 
     // Broadcast Signal Red
-    expect(css).toContain("--ssp-signal: #E53935;");
-    expect(css).toContain("--ssp-signal-muted: rgba(229, 57, 53, 0.16);");
+    expect(css).toContain("--ssp-signal: #C92A2A;");
+    expect(css).toContain("--ssp-signal-muted: rgba(201, 42, 42, 0.16);");
   });
 
   it("F1-T1-03: defines the hardware radii scale in @theme inline", () => {
@@ -79,10 +79,10 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
   });
 
   it("F1-T1-04: defines atmospheric elevation shadows for floating surfaces", () => {
-    expect(css).toContain("--ssp-elev-1: 0 2px 6px rgba(0, 0, 0, 0.30), 0 8px 24px rgba(0, 0, 0, 0.22);");
-    expect(css).toContain("--ssp-elev-2: 0 4px 12px rgba(0, 0, 0, 0.40), 0 16px 40px rgba(0, 0, 0, 0.35);");
+    expect(css).toContain("--ssp-elev-1: 0 1px 3px rgba(0, 0, 0, 0.24), 0 6px 18px rgba(0, 0, 0, 0.16);");
+    expect(css).toContain("--ssp-elev-2: 0 3px 10px rgba(0, 0, 0, 0.28), 0 14px 32px rgba(0, 0, 0, 0.24);");
     expect(css).toContain(
-      "--ssp-elev-float: 0 8px 32px -4px rgba(0, 0, 0, 0.55), 0 24px 64px -8px rgba(0, 0, 0, 0.45);",
+      "--ssp-elev-float: 0 6px 24px -4px rgba(0, 0, 0, 0.4), 0 20px 56px -8px rgba(0, 0, 0, 0.32);",
     );
     expect(css).toContain("--shadow-elev-1: var(--ssp-elev-1);");
     expect(css).toContain("--shadow-elev-2: var(--ssp-elev-2);");
@@ -92,23 +92,29 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
   it("F1-T1-05: provides complete light mode secondary face overrides in .light", () => {
     expect(css).toContain(":root[data-theme=\"light\"],");
     expect(css).toContain(".light {");
-    expect(css).toContain("--ssp-bg-canvas: #F4F5F8;");
+    expect(css).toContain("--ssp-bg-canvas: #F1F3F6;");
     expect(css).toContain("--ssp-bg-raised: #FFFFFF;");
-    expect(css).toContain("--ssp-surface-solid: #EAECEF;");
-    expect(css).toContain("--ssp-surface-glass: rgba(255, 255, 255, 0.70);");
-    expect(css).toContain("--ssp-surface-glass-strong: rgba(255, 255, 255, 0.88);");
+    expect(css).toContain("--ssp-surface-solid: #E5E8ED;");
+    expect(css).toContain("--ssp-surface-glass: rgba(255, 255, 255, 0.78);");
+    expect(css).toContain("--ssp-surface-glass-strong: rgba(255, 255, 255, 0.96);");
     expect(css).toContain("--ssp-text-primary: #12141A;");
     expect(css).toContain("--ssp-accent: #8B1E3F;");
     expect(css).toContain("--ssp-signal: #D32F2F;");
   });
 
-  it("F1-T1-06: carries the mandatory provenance header comment DESIGN.md v3.0", () => {
-    expect(css).toMatch(/\/\*\s*DESIGN\.md v3\.0\s*\*\//);
-    expect(css).toContain("Provenance: DESIGN.md v3.0");
+  it("F1-T1-06: carries the mandatory provenance header comment DESIGN.md v3.1", () => {
+    expect(css).toMatch(/\/\*\s*DESIGN\.md v3\.1\s*\*\//);
+    expect(css).toContain("Provenance: DESIGN.md v3.1");
   });
 });
 
 describe("Feature 1: Design Tokens & Obsidian Palette (Tier 2 Boundary & Edge)", () => {
+  it("F1-T1-07: keeps interactive labels readable and focus indicators theme-aware", () => {
+    expect(css).toContain("--text-body-sm: 0.875rem;");
+    expect(css).toContain("--color-focus: var(--ssp-border-focus);");
+    expect(css).toContain("0 0 0 4px var(--ssp-border-focus);");
+  });
+
   it("F1-T2-01: enforces WCAG AAA contrast ratio floor (> 7.0:1) for primary copy in both dark and light modes", () => {
     // Dynamically extract color hex values from the loaded css
     const rootBlockMatch = css.match(/(?:^|\n):root\s*\{([\s\S]*?)\}/);

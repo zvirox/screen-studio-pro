@@ -68,7 +68,7 @@ export default function HudBar() {
           type="button"
           aria-label={session.paused ? "Resume recording" : "Pause recording"}
           onClick={() => void (session.paused ? resumeRecording() : pauseRecording())}
-          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent"
+          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[scale,background-color] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-96 hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent"
         >
           {session.paused ? (
             <Play size={16} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
@@ -81,7 +81,7 @@ export default function HudBar() {
           aria-label="Stop & save"
           title="Stop & save"
           onClick={() => void stopRecording()}
-          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-transform duration-fast ease-fast hover:scale-[1.06] focus-visible:outline focus-visible:outline-accent"
+          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[scale] duration-fast ease-fast motion-reduce:scale-none hover:scale-[1.06] focus-visible:outline focus-visible:outline-accent"
         >
           <Square size={14} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
         </button>
@@ -105,7 +105,7 @@ export default function HudBar() {
               // surfaced by the main window via tick/error events.
             }
           }}
-          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[scale,background-color] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-96 hover:bg-accent-muted focus-visible:outline focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Flag
             size={16}

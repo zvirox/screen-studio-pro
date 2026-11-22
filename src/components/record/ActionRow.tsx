@@ -4,8 +4,8 @@ import { useSspStore } from "../../lib/store";
 import { formatElapsed, formatStats } from "../../lib/format";
 import type { PresetId } from "../../types/ipc";
 
-/* §5.1/§6.1 #5 action row — 1.5 slice: the 48px primary Record button only
-   (the preset select and encoder chip join with their features in 3.x).
+/* DESIGN.md v3.1 §5.1/§6.1/§7.4 — recording controls wrap as one responsive
+   row; long preset and encoder labels never force sibling controls to overlap.
    §6.5 flow: Record → loading ("Working…") → while the take runs the row
    shows the elapsed mono timer + Stop & save (the §5.9 HUD window itself
    lands in PLAN 2.4) → idle again. Fault copy surfaces once, at floatover
@@ -19,23 +19,23 @@ function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boo
   const label = backend.toUpperCase();
   const icon =
     backend === "nvenc" ? (
-      <Cpu size={12} strokeWidth={1.5} />
+      <Cpu size={12} strokeWidth={1.5} className="shrink-0" aria-hidden="true" />
     ) : backend === "vaapi" ? (
-      <Cpu size={12} strokeWidth={1.5} />
+      <Cpu size={12} strokeWidth={1.5} className="shrink-0" aria-hidden="true" />
     ) : (
-      <Cpu size={12} strokeWidth={1.5} />
+      <Cpu size={12} strokeWidth={1.5} className="shrink-0" aria-hidden="true" />
     );
   const fallbackNotice = isFallback ? (
-    <span className="flex items-center gap-1 text-label text-warning">
-      <Zap size={10} strokeWidth={1.5} aria-hidden="true" />
-      Falling back to CPU encode
+    <span className="flex min-w-0 items-start gap-1 text-label text-warning">
+      <Zap size={10} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 break-words">Falling back to CPU encode</span>
     </span>
   ) : null;
 
   return (
-    <div className="flex items-center gap-1.5 rounded-sm border border-subtle bg-solid px-2 py-1 text-body-sm font-mono text-ink">
+    <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1.5 rounded-sm border border-subtle bg-solid px-2 py-1 text-body-sm font-mono text-ink">
       {icon}
-      {label}
+      <span className="min-w-0 break-words">{label}</span>
       {fallbackNotice}
     </div>
   );
@@ -67,14 +67,14 @@ export default function ActionRow() {
      Disabled while recording (take-snapshot law: changes apply to
      the next recording). */
   const presetSelect = (
-    <label className="flex items-center gap-2 text-body-sm">
+    <label className="flex min-w-0 max-w-full flex-1 basis-full items-center gap-2 text-body-sm min-[640px]:basis-64">
       <span className="sr-only">Quality preset</span>
       <select
         aria-label="Quality preset"
         value={presets.presetId ?? ""}
         disabled={recording || presets.status !== "ready"}
         onChange={(e) => void setPreset(e.target.value as PresetId)}
-        className="h-10 max-w-[220px] truncate rounded-sm border border-subtle bg-solid px-2 text-body-sm text-ink disabled:opacity-60"
+        className="h-10 w-full min-w-0 max-w-full truncate rounded-sm border border-subtle bg-solid px-2 text-body-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-60"
       >
         {presets.presets.length === 0 && <option value="">Quality…</option>}
         {presets.presets.map((p) => (
@@ -104,8 +104,8 @@ export default function ActionRow() {
   );
 
   return (
-    <section aria-label="Recording controls" className="flex flex-col gap-2">
-      <div className="flex items-center gap-3">
+    <section aria-label="Recording controls" className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         {presetSelect}
         {recording ? (
           <>
@@ -150,12 +150,12 @@ export default function ActionRow() {
           className={
             idle && fault
               ? // retry after a failure is still the primary action
-                "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[scale,background-color] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-96 active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
               : busy
-                ? "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
                 : recording
-                  ? "h-12 flex-1 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[transform,background-color] duration-fast ease-fast enabled:active:scale-96 active:bg-accent-active"
-                  : "h-12 flex-1 rounded-sm border border-subtle bg-subtle text-body-sm font-medium text-ink-disabled"
+                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[scale,background-color] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-96 active:bg-accent-active"
+                  : "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-subtle bg-subtle text-body-sm font-medium text-ink-disabled"
           }
         >
           {label}

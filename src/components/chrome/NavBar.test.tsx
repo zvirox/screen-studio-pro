@@ -18,7 +18,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 /* Feature 3: Integrated Custom CSD Titlebar (NavBar CSD)
-   Provenance: DESIGN.md v3.0 §5.1, ORIGINAL_REQUEST.md §R2, PROJECT.md M2 / Stage v3.2
+   Provenance: DESIGN.md v3.1 §5.1, ORIGINAL_REQUEST.md §R2, PROJECT.md M2 / Stage v3.2
    Verifies:
    - CSD Window control dots (Close, Minimize, Maximize) with accessible names and Tauri API dispatch
    - Centered 3-tab view capsule (Record | Library | Settings) with keyboard roving and state transitions
@@ -128,8 +128,8 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       ];
 
       for (const btn of buttons) {
-        // Ergonomic hit target (≥28px / h-7 w-7 container around 12px visual dot)
-        expect(btn).toHaveClass("h-7", "w-7");
+        // DESIGN v3.1: ≥36px target around the compact 12px visual dot
+        expect(btn).toHaveClass("h-9", "w-9");
         // WCAG 2.4.7 visible keyboard focus indicator
         expect(btn).toHaveClass("focus-visible:ring-2");
         expect(btn).toHaveClass("focus-visible:ring-focus");
@@ -156,6 +156,16 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       expect(screen.getByRole("tab", { name: /Record/i })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: /Library/i })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: /Settings/i })).toBeInTheDocument();
+    });
+
+    it("links every tab to the shared workspace panel", () => {
+      render(<NavBar />);
+      for (const name of ["Record", "Library", "Settings"]) {
+        expect(screen.getByRole("tab", { name })).toHaveAttribute(
+          "aria-controls",
+          "main-workspace",
+        );
+      }
     });
 
     it("marks Record as active by default", () => {
@@ -271,7 +281,7 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       render(<NavBar />);
       const ctaBtn = screen.getByRole("button", { name: "Record" });
       expect(ctaBtn).toBeInTheDocument();
-      expect(ctaBtn).toHaveClass("h-10");
+      expect(ctaBtn).toHaveClass("min-h-10");
       expect(ctaBtn).toHaveClass("rounded-full");
       expect(ctaBtn).toHaveClass("bg-accent");
     });
@@ -307,8 +317,9 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       const stopBtn = screen.getByRole("button", { name: "Stop recording" });
       expect(stopBtn).toBeInTheDocument();
       expect(stopBtn).toHaveClass("bg-signal");
-      expect(stopBtn).toHaveClass("animate-pulse");
-      expect(stopBtn).toHaveClass("motion-reduce:animate-none");
+      const pulse = stopBtn.querySelector(".animate-pulse-rec");
+      expect(pulse).toBeInTheDocument();
+      expect(pulse).toHaveClass("motion-reduce:animate-none");
       expect(stopBtn).toHaveTextContent("1:15");
       expect(stopBtn).toHaveTextContent("Stop");
     });

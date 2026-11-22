@@ -1,5 +1,5 @@
 import { Check, LoaderCircle, Monitor, AppWindow, Crop } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { cn } from "../../lib/cn";
 import { useSspStore } from "../../lib/store";
 import { useSourcePreview } from "../../hooks/useSourcePreview";
@@ -10,6 +10,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDraggable,
   type DragEndEvent,
 } from "@dnd-kit/core";
 
@@ -64,7 +65,7 @@ function SourceChip({
         <LoaderCircle
           size={16}
           strokeWidth={1.5}
-          className="animate-spin-slow"
+          className="shrink-0 animate-spin-slow"
           aria-hidden="true"
         />
       ) : (
@@ -89,17 +90,41 @@ function SourceChip({
   );
 }
 
+/** Percentage geometry of an object-contain source inside the 16:9 canvas. */
+function containedSourceStyle(width: number, height: number): React.CSSProperties {
+  const sourceAspect = width / height;
+  const previewAspect = 16 / 9;
+  if (sourceAspect > previewAspect) {
+    const contentHeight = (previewAspect / sourceAspect) * 100;
+    return {
+      left: "0%",
+      top: `${(100 - contentHeight) / 2}%`,
+      width: "100%",
+      height: `${contentHeight}%`,
+    };
+  }
+  const contentWidth = (sourceAspect / previewAspect) * 100;
+  return {
+    left: `${(100 - contentWidth) / 2}%`,
+    top: "0%",
+    width: `${contentWidth}%`,
+    height: "100%",
+  };
+}
+
 /** Drag handle for the region rect — keyboard + pointer accessible. */
 function RegionDragHandle({
   rect,
   onDragEnd,
   previewWidth,
   previewHeight,
+  previewElement,
 }: {
   rect: { x: number; y: number; w: number; h: number };
   onDragEnd: (rect: { x: number; y: number; w: number; h: number }) => void;
   previewWidth: number;
   previewHeight: number;
+  previewElement: React.RefObject<HTMLDivElement | null>;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -126,33 +151,62 @@ function RegionDragHandle({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { delta } = event;
-    const newX = Math.max(0, Math.min(previewWidth - rect.w, rect.x + delta.x));
-    const newY = Math.max(0, Math.min(previewHeight - rect.h, rect.y + delta.y));
+    // RegionRect uses native-source geometry. Pointer CSS pixels need the
+    // rendered content scale; keyboard steps are already native pixels.
+    const keyboardDrag = event.activatorEvent instanceof KeyboardEvent;
+    const bounds = previewElement.current?.getBoundingClientRect();
+    const scaleX = keyboardDrag ? 1 : previewWidth / (bounds?.width || previewWidth);
+    const scaleY = keyboardDrag ? 1 : previewHeight / (bounds?.height || previewHeight);
+    const newX = Math.max(0, Math.min(previewWidth - rect.w, rect.x + delta.x * scaleX));
+    const newY = Math.max(0, Math.min(previewHeight - rect.h, rect.y + delta.y * scaleY));
     onDragEnd({ ...rect, x: Math.round(newX), y: Math.round(newY) });
   };
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div
-        style={{
-          position: "absolute",
-          left: rect.x,
-          top: rect.y,
-          width: rect.w,
-          height: rect.h,
-          border: "2px solid",
-          borderColor: "var(--ssp-accent)",
-          borderRadius: "var(--radius-sm)",
-          boxShadow: "var(--ssp-elev-1)",
-          cursor: "move",
-          zIndex: "var(--ssp-z-sticky)",
-        }}
-        role="graphics-document"
-        aria-label="Region selection rectangle"
-        aria-roledescription="Draggable crop rectangle"
-        tabIndex={0}
-      />
+      <RegionDragRect rect={rect} previewWidth={previewWidth} previewHeight={previewHeight} />
     </DndContext>
+  );
+}
+
+/** Kept below DndContext so useDraggable registers with the active provider. */
+function RegionDragRect({
+  rect,
+  previewWidth,
+  previewHeight,
+}: {
+  rect: { x: number; y: number; w: number; h: number };
+  previewWidth: number;
+  previewHeight: number;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: "source-region-selection",
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        position: "absolute",
+        left: `${(rect.x / previewWidth) * 100}%`,
+        top: `${(rect.y / previewHeight) * 100}%`,
+        width: `${(rect.w / previewWidth) * 100}%`,
+        height: `${(rect.h / previewHeight) * 100}%`,
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        border: "2px solid",
+        borderColor: "var(--ssp-accent)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "var(--ssp-elev-1)",
+        cursor: "move",
+        zIndex: "var(--ssp-z-sticky)",
+      }}
+      role="graphics-document"
+      aria-label="Region selection rectangle"
+      aria-roledescription="Draggable crop rectangle"
+      tabIndex={0}
+    />
   );
 }
 
@@ -161,6 +215,7 @@ export interface SourceDeckProps {
 }
 
 export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps = {}) {
+  const previewRef = useRef<HTMLDivElement>(null);
   const source = useSspStore((s) => s.source);
   const sessionStatus = useSspStore((s) => s.session.status);
   const camera = useSspStore((s) => s.camera);
@@ -227,9 +282,12 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
   }, [selectable, selectRegion]);
 
   return (
-    <section aria-label="Source" className="studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2">
+    <section
+      aria-label="Source"
+      className="studio-deck min-w-0 rounded-lg border border-line-glass p-4 shadow-elev-2 min-[720px]:p-5"
+    >
       {!hideHeaderChips && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <SourceChip
             label="Monitor"
             icon={<Monitor size={16} strokeWidth={1.5} aria-hidden="true" />}
@@ -281,7 +339,7 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
             <div
               role="status"
               aria-live="polite"
-              className="flex items-center gap-2 text-body-sm text-ink-secondary"
+              className="flex items-center gap-2 text-body-sm text-accent-text/80"
             >
               <LoaderCircle
                 size={16}
@@ -292,30 +350,30 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
               Working…
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2 p-4 text-center w-full h-full">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
               {isWindowActive ? (
                 <AppWindow
                   size={28}
                   strokeWidth={1.5}
-                  className="text-ink-disabled"
+                  className="text-accent-text/70"
                   aria-hidden="true"
                 />
               ) : isRegionActive ? (
                 <Crop
                   size={28}
                   strokeWidth={1.5}
-                  className="text-ink-disabled"
+                  className="text-accent-text/70"
                   aria-hidden="true"
                 />
               ) : (
                 <Monitor
                   size={28}
                   strokeWidth={1.5}
-                  className="text-ink-disabled"
+                  className="text-accent-text/70"
                   aria-hidden="true"
                 />
               )}
-              <p className="text-body-sm text-ink-secondary">
+              <p className="max-w-md text-body-md leading-relaxed text-accent-text/80">
                 {isRegionActive
                   ? "Drag to select region; arrow keys to nudge (Shift = 10px)"
                   : isWindowActive
@@ -326,12 +384,21 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
           )
         ) : null}
         {isRegionActive && regionRect && source.capabilities && (
-          <RegionDragHandle
-            rect={regionRect}
-            onDragEnd={handleRegionDragEnd}
-            previewWidth={source.capabilities.width}
-            previewHeight={source.capabilities.height}
-          />
+          <div
+            ref={previewRef}
+            role="group"
+            aria-label="Region source content"
+            className="absolute"
+            style={containedSourceStyle(source.capabilities.width, source.capabilities.height)}
+          >
+            <RegionDragHandle
+              rect={regionRect}
+              onDragEnd={handleRegionDragEnd}
+              previewWidth={source.capabilities.width}
+              previewHeight={source.capabilities.height}
+              previewElement={previewRef}
+            />
+          </div>
         )}
         {/* §6.6 Camera PiP (4.2) — floats inside the preview frame so its
             corner+margin position maps 1:1 onto the 4.3 composite stage

@@ -1,18 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { Check, ChevronDown, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { useSspStore, type AudioChannelState } from "../../lib/store";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Switch } from "../ui/switch";
 
-/* DESIGN.md v3.0 §5.3 — Sub-Canvas Floating Audio Mixer Deck (Meld Studio Style)
+/* DESIGN.md v3.1 §5.3/§7.4 — Sub-Canvas Floating Audio Mixer Deck (Meld Studio Style)
+   Compact cards wrap headers, badges, and device controls before text collides.
    Horizontally aligned glass deck directly below the 16:9 canvas.
    Contains two dedicated channel cards:
    - Microphone Channel Card:
@@ -120,12 +114,12 @@ export function DevicePopover({
         setQuery("");
       }}
     >
-      <PopoverAnchor>
+      <PopoverAnchor className="min-w-0 flex-1">
         <PopoverTrigger
           type="button"
           disabled={disabled}
           className={cn(
-            "flex max-w-[200px] items-center gap-1.5 rounded-xs px-2 py-1 text-left",
+            "flex min-h-9 w-full min-w-0 items-center gap-1.5 rounded-xs px-2 py-1 text-left",
             "border border-subtle bg-canvas text-body-sm text-ink-secondary hover:border-accent hover:text-ink",
             "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
             "disabled:cursor-not-allowed disabled:opacity-50",
@@ -194,7 +188,9 @@ export function DevicePopover({
                 )}
               >
                 <span className="truncate">{opt.label}</span>
-                {selected && <Check size={16} className="shrink-0 text-accent" aria-hidden="true" />}
+                {selected && (
+                  <Check size={16} className="shrink-0 text-accent" aria-hidden="true" />
+                )}
               </button>
             );
           })
@@ -221,17 +217,19 @@ export default function AudioMixerDeck() {
   return (
     <section
       aria-label="Audio Mixer Deck"
-      className="studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2 flex flex-col gap-4 w-full"
+      className="studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2 flex min-w-0 flex-col gap-4 w-full"
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between border-b border-subtle pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className="text-heading font-semibold text-ink">Audio Mixer</h2>
-          <span className="rounded-xs bg-solid border border-subtle px-1.5 py-0.5 font-mono text-label text-ink-secondary">
+          <span className="whitespace-nowrap rounded-xs bg-solid border border-subtle px-1.5 py-0.5 font-mono text-label text-ink-secondary">
             48 kHz · 24-bit
           </span>
         </div>
-        <span className="text-label uppercase tracking-wider text-ink-secondary">Studio Deck</span>
+        <span className="shrink-0 text-label uppercase tracking-wider text-ink-secondary">
+          Studio Deck
+        </span>
       </div>
 
       {/* Channel Cards Grid */}
@@ -247,13 +245,13 @@ export default function AudioMixerDeck() {
               role="group"
               aria-label="Mic"
               className={cn(
-                "flex flex-col gap-3 rounded-md border border-subtle bg-solid p-3.5 shadow-elev-1 transition-opacity",
+                "flex min-w-0 flex-col gap-3 rounded-md border border-subtle bg-solid p-3.5 shadow-elev-1 transition-opacity",
                 !state.enabled && "opacity-60",
               )}
             >
               {/* Channel Title & Controls */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-start gap-2">
                   <div
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-sm border",
@@ -264,17 +262,17 @@ export default function AudioMixerDeck() {
                   >
                     {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-body-sm font-semibold text-ink">Microphone</h3>
-                    <div className="flex items-center gap-1.5">
-                      <span className="rounded-xs bg-canvas border border-subtle px-1 py-0.2 font-mono text-label text-ink-secondary">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="whitespace-nowrap rounded-xs bg-canvas border border-subtle px-1 py-0.2 font-mono text-label text-ink-secondary">
                         Ch 1/2
                       </span>
                       {/* DSP Badges */}
-                      <span className="rounded-xs bg-accent-muted px-1.5 py-0.2 text-label font-medium text-accent">
+                      <span className="whitespace-nowrap rounded-xs bg-accent-muted px-1.5 py-0.2 text-label font-medium text-accent">
                         RNNoise
                       </span>
-                      <span className="rounded-xs bg-canvas border border-subtle px-1 py-0.2 text-label text-ink-secondary">
+                      <span className="whitespace-nowrap rounded-xs bg-canvas border border-subtle px-1 py-0.2 text-label text-ink-secondary">
                         Gate
                       </span>
                     </div>
@@ -291,7 +289,7 @@ export default function AudioMixerDeck() {
               </div>
 
               {/* Device Selector & Mute */}
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <DevicePopover channel="mic" state={state} disabled={controlsDisabled} />
 
                 {/* Tactile Mute Button */}
@@ -302,7 +300,7 @@ export default function AudioMixerDeck() {
                   disabled={!state.enabled}
                   onClick={() => void setChannelMuted("mic", !isMuted)}
                   className={cn(
-                    "flex h-8 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
+                    "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
                       ? "bg-error text-white hover:bg-error/90"
                       : "border border-subtle bg-canvas text-ink hover:border-accent hover:bg-accent-muted",
@@ -310,7 +308,11 @@ export default function AudioMixerDeck() {
                     "disabled:cursor-not-allowed disabled:opacity-50",
                   )}
                 >
-                  {isMuted ? <MicOff size={13} /> : <Mic size={13} />}
+                  {isMuted ? (
+                    <MicOff size={13} aria-hidden="true" />
+                  ) : (
+                    <Mic size={13} aria-hidden="true" />
+                  )}
                   <span>{isMuted ? "MUTED" : "MUTE"}</span>
                 </button>
               </div>
@@ -330,7 +332,7 @@ export default function AudioMixerDeck() {
                   aria-label="Mic input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("mic", Number(e.target.value))}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 80}%
@@ -357,13 +359,13 @@ export default function AudioMixerDeck() {
               role="group"
               aria-label="Desktop"
               className={cn(
-                "flex flex-col gap-3 rounded-md border border-subtle bg-solid p-3.5 shadow-elev-1 transition-opacity",
+                "flex min-w-0 flex-col gap-3 rounded-md border border-subtle bg-solid p-3.5 shadow-elev-1 transition-opacity",
                 !state.enabled && "opacity-60",
               )}
             >
               {/* Channel Title & Controls */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-start gap-2">
                   <div
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-sm border",
@@ -374,14 +376,14 @@ export default function AudioMixerDeck() {
                   >
                     {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-body-sm font-semibold text-ink">Desktop Audio</h3>
-                    <div className="flex items-center gap-1.5">
-                      <span className="rounded-xs bg-canvas border border-subtle px-1 py-0.2 font-mono text-label text-ink-secondary">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="whitespace-nowrap rounded-xs bg-canvas border border-subtle px-1 py-0.2 font-mono text-label text-ink-secondary">
                         Ch 3/4
                       </span>
                       {/* DSP Badge */}
-                      <span className="rounded-xs bg-canvas border border-subtle px-1.5 py-0.2 text-label font-medium text-ink-secondary">
+                      <span className="whitespace-nowrap rounded-xs bg-canvas border border-subtle px-1.5 py-0.2 text-label font-medium text-ink-secondary">
                         Auto-Ducking
                       </span>
                     </div>
@@ -398,7 +400,7 @@ export default function AudioMixerDeck() {
               </div>
 
               {/* Device Selector & Mute */}
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <DevicePopover channel="desktop" state={state} disabled={controlsDisabled} />
 
                 {/* Tactile Mute Button */}
@@ -409,7 +411,7 @@ export default function AudioMixerDeck() {
                   disabled={!state.enabled}
                   onClick={() => void setChannelMuted("desktop", !isMuted)}
                   className={cn(
-                    "flex h-8 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
+                    "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
                       ? "bg-error text-white hover:bg-error/90"
                       : "border border-subtle bg-canvas text-ink hover:border-accent hover:bg-accent-muted",
@@ -417,7 +419,11 @@ export default function AudioMixerDeck() {
                     "disabled:cursor-not-allowed disabled:opacity-50",
                   )}
                 >
-                  {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                  {isMuted ? (
+                    <VolumeX size={13} aria-hidden="true" />
+                  ) : (
+                    <Volume2 size={13} aria-hidden="true" />
+                  )}
                   <span>{isMuted ? "MUTED" : "MUTE"}</span>
                 </button>
               </div>
@@ -437,7 +443,7 @@ export default function AudioMixerDeck() {
                   aria-label="Desktop input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("desktop", Number(e.target.value))}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 70}%
@@ -450,7 +456,10 @@ export default function AudioMixerDeck() {
 
       {/* Error Banner */}
       {audio.status === "error" && audio.error && (
-        <p className="rounded-sm bg-error-muted border border-error/30 p-2.5 text-body-sm text-error" role="alert">
+        <p
+          className="rounded-sm bg-error-muted border border-error/30 p-2.5 text-body-sm text-error"
+          role="alert"
+        >
           {audio.error.userMessage}
         </p>
       )}

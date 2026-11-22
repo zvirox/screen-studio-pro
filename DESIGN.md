@@ -1,7 +1,10 @@
 # DESIGN.md — ScreenStudio Pro Design System
 
-**Version:** 3.0 · **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**  
+**Version:** 3.1 · **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**
 **Rule:** Every UI built later must follow this file strictly. Do not invent new colors or fonts outside it. To change a token, change it here first.
+
+**v3.1 Changelog (2026-11-22) — "Legible, Responsive Studio":**
+Keeps the v3.0 wide-window floating-island architecture while refining surface separation, text contrast, and control sizing. Text wraps before it collides; compact panels use their available width; titlebar and inspector controls adapt at native-window breakpoints. Buttons, segmented controls, cards, tabs, and audio meters use the existing motion scale and remain understandable without pointer hover or animation. Semantic control colors are separated from accent-filled buttons: neutral dark surfaces are readable and Burgundy-filled controls always carry the specified high-contrast foreground. Secondary text uses `0.78` opacity in dark mode and `0.75` in light mode; normal text adjacent to decoded video is never used as an implicit overlay surface.
 
 **v3.0 Changelog (2026-11-18) — "Wide-Window Floating Studio Overhaul":**  
 Inspired by modern studio workstations (Camo Studio, Meld Studio, PRISM Live Studio), v3.0 replaces the narrow vertical two-column layout and the square (1:1) preview frame with a **wide-window, tri-panel floating island architecture**. The centerpiece is a cinematic **hero 16:9 widescreen canvas** flanked by symmetrical, perfectly aligned floating glass decks (Left: Capture & Device Inspector; Center-Bottom: Audio Mixer Deck; Right: Takes & Presets Gallery). Corner radii evolve to a refined hardware scale (`r.md=12px`, `r.lg=16px`, `r.xl=20px`), neutral grounds deepen to Obsidian Slate, and top chrome unifies into an integrated CSD titlebar with floating pill action clusters (`Record`, `1080p60` telemetry).
@@ -36,23 +39,23 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 |---|---|---|
 | `bg.canvas` | `#0A0B0E` | Deep Obsidian background under all floating islands |
 | `bg.raised` | `#12141A` | Opaque base layer for forms, settings, and tables |
-| `surface.glass` | `rgba(255, 255, 255, 0.045)` | Subtle glass fill (inner cards, secondary containers) |
-| `surface.glass-strong` | `rgba(18, 20, 26, 0.82)` | Primary floating island deck (Left Inspector, Right Gallery, HUD) |
+| `surface.glass` | `rgba(255, 255, 255, 0.06)` | Subtle glass fill (inner cards, secondary containers) |
+| `surface.glass-strong` | `rgba(18, 20, 26, 0.94)` | Primary floating island deck (Left Inspector, Right Gallery, HUD) |
 | `surface.solid` | `#181A22` | Cards, channel strips, and tiles resting inside decks |
-| `surface.hover` | `rgba(255, 255, 255, 0.06)` | Hover state for interactive cards and rows |
-| `border.subtle` | `rgba(255, 255, 255, 0.08)` | Dividers, inactive card strokes |
-| `border.glass` | `rgba(255, 255, 255, 0.14)` | Specular 1px outer stroke on floating islands and canvas |
-| `border.focus` | `#A3284E` | 2px focus ring on active controls |
+| `surface.hover` | `rgba(255, 255, 255, 0.08)` | Hover state for interactive cards and rows |
+| `border.subtle` | `rgba(255, 255, 255, 0.14)` | Dividers, inactive card strokes |
+| `border.glass` | `rgba(255, 255, 255, 0.20)` | Specular 1px outer stroke on floating islands and canvas |
+| `border.focus` | `#C77493` | 2px focus ring on active controls |
 | `text.primary` | `#F4F5F8` | High-contrast headings and active labels (17.5:1 on canvas) |
-| `text.secondary` | `rgba(244, 245, 248, 0.65)` | Subtext, property descriptions, inactive tab labels |
-| `text.disabled` | `rgba(244, 245, 248, 0.32)` | Disabled controls, inactive placeholders |
+| `text.secondary` | `rgba(244, 245, 248, 0.78)` | Subtext, property descriptions, inactive tab labels |
+| `text.disabled` | `rgba(244, 245, 248, 0.46)` | Disabled controls, inactive placeholders |
 | `accent` | `#A3284E` | Studio Burgundy (primary selection, active pills, sliders) |
 | `accent.hover` | `#BA335D` | Hover state on interactive accent elements |
 | `accent.active` | `#8C1E40` | Pressed / active state |
 | `accent.text` | `#FFFFFF` | Text rendered on accent grounds (9.04:1) |
 | `accent.muted` | `rgba(163, 40, 78, 0.15)` | Washes behind active chips and segmented controls |
-| `signal` | `#E53935` | Broadcast Signal Red (Recording live indicator only) |
-| `signal.muted` | `rgba(229, 57, 53, 0.16)` | Background wash behind recording timer and HUD badge |
+| `signal` | `#C92A2A` | Broadcast Signal Red (Recording live indicator only; white CTA text ≥4.5:1) |
+| `signal.muted` | `rgba(201, 42, 42, 0.16)` | Background wash behind recording timer and HUD badge |
 | `success` | `#2ECC71` | Validated states, good signal levels (>-18 dBFS) |
 | `warning` | `#F39C12` | Compression zone (-6 dBFS to 0 dBFS), CPU warning |
 | `error` | `#E74C3C` | Fatal errors, clipping indicator (>0 dBFS) |
@@ -61,16 +64,16 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 | Token | Hex / Value | Role |
 |---|---|---|
-| `bg.canvas` | `#F4F5F8` | Crisp studio grey-white background |
+| `bg.canvas` | `#F1F3F6` | Crisp studio grey-white background |
 | `bg.raised` | `#FFFFFF` | Pure white opaque deck base |
-| `surface.glass` | `rgba(255, 255, 255, 0.70)` | Frosted light glass fill |
-| `surface.glass-strong` | `rgba(255, 255, 255, 0.88)` | Primary floating islands in light mode |
-| `surface.solid` | `#EAECEF` | Cards and channel strips |
-| `border.subtle` | `rgba(18, 20, 26, 0.08)` | Dividers and inactive borders |
-| `border.glass` | `rgba(18, 20, 26, 0.12)` | Specular 1px outer stroke |
+| `surface.glass` | `rgba(255, 255, 255, 0.78)` | Frosted light glass fill |
+| `surface.glass-strong` | `rgba(255, 255, 255, 0.96)` | Primary floating islands in light mode |
+| `surface.solid` | `#E5E8ED` | Cards and channel strips |
+| `border.subtle` | `rgba(18, 20, 26, 0.15)` | Dividers and inactive borders |
+| `border.glass` | `rgba(18, 20, 26, 0.20)` | Specular 1px outer stroke |
 | `text.primary` | `#12141A` | Dark graphite headings (17.2:1 on canvas) |
-| `text.secondary` | `rgba(18, 20, 26, 0.65)` | Secondary labels and metadata |
-| `text.disabled` | `rgba(18, 20, 26, 0.35)` | Disabled text |
+| `text.secondary` | `rgba(18, 20, 26, 0.75)` | Secondary labels and metadata |
+| `text.disabled` | `rgba(18, 20, 26, 0.48)` | Disabled text |
 | `accent` | `#8B1E3F` | Deep studio burgundy (8.16:1 on canvas) |
 | `accent.hover` | `#751834` | Hover state |
 | `accent.text` | `#FFFFFF` | Text on accent buttons (9.12:1) |
@@ -94,7 +97,7 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 | `display.md` | 1.375rem (22px) | 1.2 | 700 | Panel and section titles |
 | `heading` | 1.125rem (18px) | 1.35 | 600 | Inspector section headers, drawer titles |
 | `body-md` | 0.9375rem (15px) | 1.5 | 400 | General descriptions, setting descriptions |
-| `body-sm` | 0.8125rem (13px) | 1.45 | 400 / 500 | Control labels, device names, card titles |
+| `body-sm` | 0.875rem (14px) | 1.45 | 400 / 500 | Control labels, device names, card titles; never shrink to fit |
 | `label` | 0.75rem (12px) | 1.3 | 600 | Overline headers ("SOURCES", "AUDIO MIXER", "TAKES") |
 | `mono-md` | 0.9375rem (15px) | 1.2 | 500 | Tabular recording timer, live duration |
 | `mono-sm` | 0.8125rem (13px) | 1.3 | 400 | File sizes, hotkey badges (`⌘1`, `F1`), fps counters |
@@ -119,9 +122,9 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 | Token | Dark Recipe | Purpose |
 |---|---|---|
-| `elev.1` | `0 2px 6px rgba(0,0,0,0.30), 0 8px 24px rgba(0,0,0,0.22)` | Inner cards, channel strips |
-| `elev.2` | `0 4px 12px rgba(0,0,0,0.40), 0 16px 40px rgba(0,0,0,0.35)` | Floating decks, popovers, drawers |
-| `elev.float` | `0 8px 32px -4px rgba(0,0,0,0.55), 0 24px 64px -8px rgba(0,0,0,0.45)` | Hero Canvas, floating HUD, PiP frame |
+| `elev.1` | `0 1px 3px rgba(0,0,0,0.24), 0 6px 18px rgba(0,0,0,0.16)` | Inner cards, channel strips |
+| `elev.2` | `0 3px 10px rgba(0,0,0,0.28), 0 14px 32px rgba(0,0,0,0.24)` | Floating decks, popovers, drawers |
+| `elev.float` | `0 6px 24px -4px rgba(0,0,0,0.40), 0 20px 56px -8px rgba(0,0,0,0.32)` | Hero Canvas, floating HUD, PiP frame |
 
 ### 4.3 Studio Glass Recipes
 
@@ -145,7 +148,7 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 - **Right Action Cluster:**
   - **Telemetry Pill:** `mono-sm` badge (`1080p60` · `VAAPI` / `x264`).
   - **Stream (V2) Pill:** Disabled ghost pill with "V2" badge.
-  - **Record Pill CTA:** 40px height, `r.full` pill button.
+  - **Record Pill CTA:** Minimum 40px height, `r.full` pill button.  - Compact header law: auxiliary telemetry hides below 1280px; navigation icons are 16px and labels use `body-sm`; no window control, tab icon, or action label may overlap.
     - Idle state: Studio Burgundy fill, video camera icon, "Record" label.
     - Recording live: Broadcast Signal Red pulsing dot, tabular timer, "Stop" on hover.
 
@@ -196,7 +199,7 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 - **Presets View (When toggled):**
   - Scene/Preset cards with hotkey badges (`F1`, `F2`, `F3`).
   - Clicking a preset instantly applies source, resolution, PiP position, and audio profiles.
-- **Responsive Behavior:** On viewports <1120px wide, the right panel collapses into an expandable slide-out drawer or top-bar icon.
+- **Responsive Behavior:** On viewports <1120px wide, the right panel collapses into an expandable gallery. At 720–1119px, the inspector and hero/mixer remain in a 280px + fluid two-column workspace and the expanded gallery spans both columns; below 720px, all panels stack in DOM reading order. No breakpoint creates horizontal page overflow.
 
 ---
 

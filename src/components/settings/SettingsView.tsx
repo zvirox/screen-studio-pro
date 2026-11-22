@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   SlidersHorizontal,
   Mic,
@@ -17,12 +17,12 @@ import ShortcutsPane from "./ShortcutsPane";
 import AboutPane from "./AboutPane";
 import FirstRunPane from "./FirstRunPane";
 
-/* DESIGN.md v2.0 §6.4 / §6.0 Settings shell:
+/* DESIGN.md v3.1 §6.4 / §6.0 Settings shell:
    a real 200px left rail on standard/wide (own vertical scroll), a
    horizontally scrollable pill row on compact, and ONE content scroll owner
    with a single max-w-[560px] wrapper. No nested <main>; panes never
    re-wrap themselves (their v1.0 wrappers are removed in Stage 3).
-   Active tab = accent.muted + accent text; icons are 16px lucide 1.5px. */
+   Active tab = accent.muted + text.primary; icons are 16px lucide 1.5px. */
 
 const RAIL_ITEMS: Array<{
   id: string;
@@ -48,6 +48,14 @@ const PANES: Record<string, React.ComponentType> = {
   firstRun: FirstRunPane,
 };
 
+function tabId(id: string): string {
+  return `settings-tab-${id}`;
+}
+
+function panelId(id: string): string {
+  return `settings-panel-${id}`;
+}
+
 export default function SettingsView() {
   const view = useSspStore((s) => s.view);
   const setView = useSspStore((s) => s.setView);
@@ -56,6 +64,7 @@ export default function SettingsView() {
   const loadShortcutsSettings = useSspStore((s) => s.loadShortcutsSettings);
   const loadFirstRunCompleted = useSspStore((s) => s.loadFirstRunCompleted);
   const [activeTab, setActiveTab] = useState("camera");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   // Load settings sections when their tab first becomes active.
   useEffect(() => {
@@ -81,30 +90,68 @@ export default function SettingsView() {
     loadFirstRunCompleted,
   ]);
 
+  const selectTab = (index: number, moveFocus = false) => {
+    const nextTab = RAIL_ITEMS[index];
+    if (!nextTab) return;
+    setActiveTab(nextTab.id);
+    if (moveFocus) tabRefs.current[index]?.focus();
+  };
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number;
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        nextIndex = (index + 1) % RAIL_ITEMS.length;
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        nextIndex = (index - 1 + RAIL_ITEMS.length) % RAIL_ITEMS.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = RAIL_ITEMS.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    selectTab(nextIndex, true);
+  };
+
   const Pane = PANES[activeTab as keyof typeof PANES];
 
   return (
-    <section className="flex h-full min-h-0 flex-col min-[720px]:flex-row">
+    <section className="flex h-full min-h-0 min-w-0 flex-col min-[720px]:flex-row">
       <nav
         aria-label="Settings sections"
         role="tablist"
-        className="flex shrink-0 gap-1 overflow-x-auto border-b border-subtle px-3 py-2
+        className="flex min-w-0 max-w-full shrink-0 gap-1 overflow-x-auto border-b border-subtle px-3 py-2
           min-[720px]:w-52 min-[720px]:flex-col min-[720px]:overflow-y-auto min-[720px]:border-b-0 min-[720px]:border-r min-[720px]:py-4"
       >
-        {RAIL_ITEMS.map((item) => {
+        {RAIL_ITEMS.map((item, index) => {
           const active = activeTab === item.id;
           const Icon = item.icon;
           return (
             <button
               key={item.id}
+              ref={(element) => {
+                tabRefs.current[index] = element;
+              }}
+              id={tabId(item.id)}
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex h-10 shrink-0 items-center gap-2.5 rounded-sm px-3 py-1.5 text-body-sm transition-colors duration-fast ease-fast
+              aria-controls={panelId(item.id)}
+              tabIndex={active ? 0 : -1}
+              onClick={() => selectTab(index)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
+              className={`flex h-10 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-body-sm transition-colors duration-fast ease-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent
                 ${
                   active
-                    ? "bg-accent-muted font-medium text-accent"
+                    ? "bg-accent-muted font-medium text-ink"
                     : "text-ink-secondary hover:bg-solid hover:text-ink"
                 }`}
             >
@@ -115,22 +162,41 @@ export default function SettingsView() {
         })}
       </nav>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-raised">
-        <div className="mx-auto max-w-[560px] p-6">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-display-md">{itemLabel(activeTab)}</h1>
-            {view !== "record" && (
-              <button
-                type="button"
-                onClick={() => setView("record")}
-                className="text-label font-medium text-accent hover:underline"
-              >
-                Go to Record
-              </button>
-            )}
-          </div>
-          <Pane />
-        </div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-raised">
+        {RAIL_ITEMS.map((item) => {
+          const active = activeTab === item.id;
+          return (
+            <div
+              key={item.id}
+              id={panelId(item.id)}
+              role="tabpanel"
+              aria-labelledby={tabId(item.id)}
+              hidden={!active}
+              tabIndex={0}
+              className="mx-auto min-w-0 max-w-[560px] p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent min-[480px]:p-5 min-[720px]:p-6"
+            >
+              {active ? (
+                <>
+                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                    <h1 className="min-w-0 max-w-full wrap-anywhere text-display-md">
+                      {itemLabel(item.id)}
+                    </h1>
+                    {view !== "record" && (
+                      <button
+                        type="button"
+                        onClick={() => setView("record")}
+                        className="min-h-9 rounded-sm px-2 text-label font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                      >
+                        Go to Record
+                      </button>
+                    )}
+                  </div>
+                  <Pane />
+                </>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

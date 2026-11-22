@@ -1,68 +1,58 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Film } from "lucide-react";
 import CaptureInspector from "./CaptureInspector";
 import SourceDeck from "./SourceDeck";
 import AudioMixerDeck from "./AudioMixerDeck";
 import TakesGallery from "./TakesGallery";
 import ActionRow from "./ActionRow";
+import Button from "../ui/Button";
 import { cn } from "../../lib/cn";
+import { MOTION } from "../../lib/motion";
 
-/* DESIGN.md v3.0 §6 — Wide-Window Tri-Panel Floating Island Studio Architecture
-   Left: Capture & Device Inspector (300px fixed width on >=1120px)
-   Center: Hero 16:9 Canvas (SourceDeck) + Sub-Canvas Audio Mixer Deck (AudioMixerDeck)
-   Right: Recent Takes & Presets Gallery (260px fixed width, collapsible on <1120px)
-   Bottom: Action Row (Recording controls region) for direct action reachability
-*/
-
+/* DESIGN.md v3.1 §5–6 — canonical tri-panel layout at 1120px; compact layouts
+   keep DOM reading order while putting capture and library tools second. */
 export default function RecordView() {
   const [showTakesOnMobile, setShowTakesOnMobile] = useState(false);
 
   return (
-    <div className="flex flex-col gap-5 w-full">
-      {/* Mobile/Tablet Toggle for Takes Gallery (<1120px) */}
-      <div className="flex min-[1120px]:hidden items-center justify-end">
-        <button
-          type="button"
+    <div className="flex w-full min-w-0 flex-col gap-4 min-[720px]:gap-5">
+      <div className="flex items-center justify-end min-[1120px]:hidden">
+        <Button
+          size="sm"
           aria-expanded={showTakesOnMobile}
+          aria-controls="takes-gallery-panel"
           aria-label="Toggle recent takes and presets gallery"
-          onClick={() => setShowTakesOnMobile((prev) => !prev)}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-sm border px-3 text-body-sm font-medium transition-colors",
-            showTakesOnMobile
-              ? "border-accent bg-accent-muted text-accent"
-              : "border-subtle bg-solid text-ink hover:border-accent hover:bg-accent-muted",
-            "focus-visible:outline-2 focus-visible:outline-accent",
-          )}
+          onClick={() => setShowTakesOnMobile((value) => !value)}
         >
-          <Film size={15} strokeWidth={1.5} aria-hidden="true" />
-          <span>{showTakesOnMobile ? "Hide Takes & Presets" : "Show Takes & Presets"}</span>
-        </button>
+          <Film size={16} strokeWidth={1.5} aria-hidden="true" />
+          {showTakesOnMobile ? "Hide Takes & Presets" : "Show Takes & Presets"}
+        </Button>
       </div>
 
-      {/* Tri-Panel Studio Grid */}
-      <div className="flex flex-col min-[1120px]:flex-row gap-5 items-start w-full">
-        {/* Left: Floating Capture Inspector Deck (300px) */}
+      <div className="grid w-full min-w-0 grid-cols-1 items-start gap-4 min-[720px]:grid-cols-[280px_minmax(0,1fr)] min-[720px]:gap-5 min-[1120px]:grid-cols-[300px_minmax(0,1fr)_260px]">
         <CaptureInspector />
 
-        {/* Center: Hero 16:9 Canvas + Sub-Canvas Audio Mixer Deck */}
-        <div className="flex flex-1 min-w-0 flex-col gap-5 w-full">
+        <div className="flex min-w-0 flex-col gap-4 min-[720px]:gap-5">
           <SourceDeck hideHeaderChips />
           <AudioMixerDeck />
+          <ActionRow />
         </div>
 
-        {/* Right: Floating Takes & Presets Gallery (260px) */}
-        <div
+        <motion.div
+          id="takes-gallery-panel"
+          initial={false}
+          animate={{ opacity: 1 }}
+          transition={{ duration: MOTION.fast, ease: MOTION.easeBase }}
           className={cn(
-            "w-full min-[1120px]:w-[260px] shrink-0",
-            !showTakesOnMobile && "hidden min-[1120px]:block",
+            "min-w-0 min-[720px]:col-span-2 min-[1120px]:col-span-1",
+            showTakesOnMobile ? "block" : "hidden",
+            "min-[1120px]:block",
           )}
         >
           <TakesGallery />
-        </div>
+        </motion.div>
       </div>
-
-      {/* Accessible Bottom Action Row */}
-      <ActionRow />
     </div>
   );
 }

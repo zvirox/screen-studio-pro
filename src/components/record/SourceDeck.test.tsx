@@ -1,12 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SourceDeck from "./SourceDeck";
-import {
-  useSspStore,
-  INITIAL_SESSION,
-  INITIAL_SOURCE,
-  type SessionSlice,
-} from "../../lib/store";
+import { useSspStore, INITIAL_SESSION, INITIAL_SOURCE, type SessionSlice } from "../../lib/store";
 import type { SourceCapabilities } from "../../types/ipc";
 import type * as ipcModule from "../../lib/ipc";
 
@@ -49,9 +44,10 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     render(<SourceDeck />);
     const chip = screen.getByRole("button", { name: /Monitor/ });
     expect(chip).toHaveAttribute("aria-pressed", "false");
-    expect(
-      screen.getByText(/Click Monitor to allow capture through your compositor/),
-    ).toBeInTheDocument();
+    const guidance = screen.getByText(/Click Monitor to allow capture through your compositor/);
+    expect(guidance).toBeInTheDocument();
+    // The canvas remains black in both themes; never use theme ink here.
+    expect(guidance).toHaveClass("text-accent-text/80");
   });
 
   it("clicking the chip starts the portal selection (§2.1)", () => {
@@ -86,9 +82,7 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     const chip = screen.getByRole("button", { name: /Monitor/ });
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("2560×1440 · 60fps")).toHaveClass("font-mono");
-    expect(
-      screen.queryByText(/Click Monitor to allow capture/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Click Monitor to allow capture/)).not.toBeInTheDocument();
   });
 
   it("live: selecting again is not offered while a take could be running — chip stays clickable for re-consent when idle only", async () => {
@@ -120,16 +114,100 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     });
     render(<SourceDeck />);
     // §6.3: education, not an error screen — the invitation stays up.
-    expect(
-      screen.getByText(/Click Monitor to allow capture/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Click Monitor to allow capture/)).toBeInTheDocument();
     // No second telling of the denial (§6.5): the toast already carries it.
-    expect(
-      screen.queryByText("Screen capture permission was denied."),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Screen capture permission was denied.")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     // The chip remains available to retry.
     expect(screen.getByRole("button", { name: /Monitor/ })).toBeEnabled();
+  });
+
+  it("scales native region coordinates to the preview canvas without changing capture geometry", () => {
+    setState({
+      ...INITIAL_SOURCE,
+      status: "live",
+      sourceId: "src_1",
+      label: "Region",
+      capabilities: CAPS,
+      regionRect: { x: 640, y: 360, w: 1280, h: 720 },
+    });
+    render(<SourceDeck />);
+    const rect = screen.getByRole("graphics-document", {
+      name: "Region selection rectangle",
+    });
+    expect(rect).toHaveStyle({
+      left: "25%",
+      top: "25%",
+      width: "50%",
+      height: "50%",
+    });
+    expect(useSspStore.getState().source.regionRect).toEqual({
+      x: 640,
+      y: 360,
+      w: 1280,
+      h: 720,
+    });
+  });
+
+  it("aligns the crop overlay with a letterboxed ultrawide source", () => {
+    setState({
+      ...INITIAL_SOURCE,
+      status: "live",
+      sourceId: "src_1",
+      label: "Region",
+      capabilities: { ...CAPS, width: 2560, height: 1080 },
+      regionRect: { x: 640, y: 270, w: 1280, h: 540 },
+    });
+    render(<SourceDeck />);
+
+    expect(screen.getByRole("group", { name: "Region source content" })).toHaveStyle({
+      left: "0%",
+      top: "12.5%",
+      width: "100%",
+      height: "75%",
+    });
+    expect(
+      screen.getByRole("graphics-document", { name: "Region selection rectangle" }),
+    ).toHaveStyle({
+      left: "25%",
+      top: "25%",
+      width: "50%",
+      height: "50%",
+    });
+  });
+
+  it("keeps keyboard region nudges in native pixels", async () => {
+    const setRegionRect = vi.fn().mockResolvedValue(undefined);
+    useSspStore.setState({ setRegionRect });
+    setState({
+      ...INITIAL_SOURCE,
+      status: "live",
+      sourceId: "src_1",
+      label: "Region",
+      capabilities: CAPS,
+      regionRect: { x: 640, y: 360, w: 1280, h: 720 },
+    });
+    render(<SourceDeck />);
+    const rect = screen.getByRole("graphics-document", {
+      name: "Region selection rectangle",
+    });
+
+    await act(async () => {
+      fireEvent.keyDown(rect, { key: "Enter", code: "Enter" });
+      // KeyboardSensor attaches its move/end listener in a deferred task.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(rect).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(rect, { key: "ArrowRight", code: "ArrowRight" });
+    expect(rect.style.transform).toBe("translate3d(1px, 0px, 0)");
+    fireEvent.keyDown(rect, { key: "Enter", code: "Enter" });
+
+    expect(setRegionRect).toHaveBeenCalledWith("src_1", {
+      x: 641,
+      y: 360,
+      w: 1280,
+      h: 720,
+    });
   });
 });
 
@@ -160,9 +238,7 @@ describe("SourceDeck preview stills (3.5, API §2.1)", () => {
     const img = await screen.findByRole("img", { name: "Source preview" });
     expect(img).toHaveAttribute("src", "data:image/jpeg;base64,aaa");
     expect(mockedPreview).toHaveBeenCalledWith("src_1");
-    expect(
-      screen.queryByText(/Click Monitor to allow capture/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Click Monitor to allow capture/)).not.toBeInTheDocument();
   });
 
   it("live but no still yet: the §5.1 loading state, not the education copy", async () => {
@@ -178,9 +254,7 @@ describe("SourceDeck preview stills (3.5, API §2.1)", () => {
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("Working…");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Click Monitor to allow capture/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Click Monitor to allow capture/)).not.toBeInTheDocument();
     // A polling miss never toasts (API §2.1) — no alert anywhere.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -189,8 +263,6 @@ describe("SourceDeck preview stills (3.5, API §2.1)", () => {
     render(<SourceDeck />);
     expect(mockedPreview).not.toHaveBeenCalled();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Click Monitor to allow capture/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Click Monitor to allow capture/)).toBeInTheDocument();
   });
 });

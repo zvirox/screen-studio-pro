@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
+import { motion } from "framer-motion";
 import {
-  Circle,
+  Clapperboard,
   Library,
   Maximize2,
   Minus,
@@ -13,8 +14,10 @@ import {
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useSspStore, type ViewId } from "../../lib/store";
 import { formatElapsed } from "../../lib/format";
+import { MOTION } from "../../lib/motion";
+import Button from "../ui/Button";
 
-/* DESIGN.md v3.0 §5.1 Integrated Studio Titlebar (NavBar CSD)
+/* DESIGN.md v3.1 §5.1 Integrated Studio Titlebar (NavBar CSD)
    Height 52px (h-13), full window width, pane glass recipe, r.lg top corners.
    - Left: Window control dots (Close, Minimize, Maximize)
            + Brand mark + "ScreenStudio Pro" title.
@@ -29,7 +32,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { id: "record", label: "Record", icon: Circle },
+  { id: "record", label: "Record", icon: Clapperboard },
   { id: "library", label: "Library", icon: Library },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -146,7 +149,7 @@ export default function NavBar() {
   return (
     <header
       data-tauri-drag-region
-      className="pane flex h-13 shrink-0 items-center justify-between rounded-t-lg border-b border-subtle px-4 select-none"
+      className="pane flex h-13 min-w-0 shrink-0 items-center justify-between gap-2 rounded-t-lg border-b border-subtle px-2 select-none min-[720px]:gap-3 min-[720px]:px-4"
     >
       {/* Left zone: CSD Window control dots + App Logo + Title */}
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3">
@@ -157,7 +160,7 @@ export default function NavBar() {
             aria-label="Close window"
             title="Close"
             onClick={() => void handleClose()}
-            className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+            className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
           >
             <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-close">
               <X
@@ -173,7 +176,7 @@ export default function NavBar() {
             aria-label="Minimize window"
             title="Minimize"
             onClick={() => void handleMinimize()}
-            className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+            className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
           >
             <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-min">
               <Minus
@@ -189,7 +192,7 @@ export default function NavBar() {
             aria-label="Maximize window"
             title="Maximize"
             onClick={() => void handleMaximize()}
-            className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+            className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
           >
             <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-max">
               <Maximize2
@@ -207,7 +210,7 @@ export default function NavBar() {
           <span className="app-mark" aria-hidden="true" />
           <span
             data-tauri-drag-region
-            className="hidden truncate text-body-sm font-medium text-text-primary min-[720px]:inline"
+            className="hidden truncate text-body-sm font-medium text-text-primary min-[1280px]:inline"
           >
             ScreenStudio Pro
           </span>
@@ -220,7 +223,7 @@ export default function NavBar() {
           role="tablist"
           aria-label="Views"
           onKeyDown={onKeyDown}
-          className="flex h-9 items-center gap-1 rounded-full border border-subtle bg-surface-glass/40 p-1 backdrop-blur-md"
+          className="flex h-10 items-center gap-1 rounded-full border border-subtle bg-solid/60"
         >
           {NAV_ITEMS.map((item, idx) => {
             const active = item.id === view;
@@ -228,6 +231,8 @@ export default function NavBar() {
             return (
               <button
                 key={item.id}
+                id={`view-tab-${item.id}`}
+                aria-controls="main-workspace"
                 ref={(el) => {
                   tabRefs.current[idx] = el;
                 }}
@@ -235,17 +240,27 @@ export default function NavBar() {
                 aria-selected={active}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectTab(item.id)}
-                className={`relative flex h-7 items-center gap-2 rounded-full px-3.5 text-body-sm font-medium transition-all duration-fast ${
+                className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-body-sm font-medium outline-none transition-[color,background-color,scale] duration-fast ease-fast motion-reduce:scale-none active:scale-[0.98] min-[720px]:gap-2 min-[720px]:px-3 ${
                   active
-                    ? "bg-accent-muted text-accent font-semibold shadow-xs"
+                    ? "text-ink"
                     : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
                 }`}
               >
-                <Icon size={14} strokeWidth={active ? 2 : 1.5} aria-hidden="true" />
-                <span>{item.label}</span>
                 {active ? (
-                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  <motion.span
+                    layoutId="active-view-tab"
+                    aria-hidden="true"
+                    className="absolute inset-0 z-base rounded-full bg-accent-muted shadow-xs"
+                    transition={{ duration: MOTION.base, ease: MOTION.easeBase }}
+                  />
                 ) : null}
+                <Icon
+                  size={16}
+                  strokeWidth={active ? 2 : 1.5}
+                  className="relative z-sticky shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="relative z-sticky">{item.label}</span>
               </button>
             );
           })}
@@ -256,7 +271,7 @@ export default function NavBar() {
       <div className="flex flex-1 items-center justify-end gap-3">
         {/* Telemetry badge */}
         <div
-          className="flex items-center gap-1.5 rounded-full border border-subtle bg-surface-glass px-2.5 py-1 font-mono text-xs text-text-secondary shadow-xs select-none"
+          className="hidden min-w-0 items-center gap-1.5 rounded-full border border-subtle bg-solid/60 px-2.5 py-1 font-mono text-mono-sm text-text-secondary shadow-xs select-none min-[1280px]:flex"
           title="Active recording format and hardware encoder"
           aria-label={`Telemetry: ${telemetryText}`}
         >
@@ -265,20 +280,22 @@ export default function NavBar() {
         </div>
 
         {/* 40px Primary Record Pill CTA Button */}
-        <button
-          type="button"
+        <Button
+          variant="primary"
           aria-label={isRecording ? "Stop recording" : "Record"}
           title={isRecording ? "Stop recording" : "Start recording"}
           disabled={isBusy}
           onClick={() => void handleRecordCta()}
-          className={`flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 font-medium transition-all shadow-elev-1 select-none disabled:pointer-events-none disabled:opacity-60 ${
-            isRecording
-              ? "bg-signal text-white animate-pulse motion-reduce:animate-none hover:bg-signal/90"
-              : "bg-accent text-accent-text hover:bg-accent-hover active:bg-accent-active"
+          className={`shrink-0 rounded-full px-3 min-[720px]:px-4 ${
+            isRecording ? "border-signal bg-signal text-white hover:bg-signal/90" : ""
           }`}
         >
           {isRecording ? (
             <>
+              <span
+                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-white motion-reduce:animate-none"
+                aria-hidden="true"
+              />
               <Square size={14} className="fill-current" aria-hidden="true" />
               <span className="font-mono text-mono-sm tabular-nums">
                 {formatElapsed(session.elapsedMs)}
@@ -293,7 +310,7 @@ export default function NavBar() {
               </span>
             </>
           )}
-        </button>
+        </Button>
       </div>
     </header>
   );
