@@ -93,7 +93,7 @@ jobs:
       - name: Install flatpak tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder elfutils
+          sudo apt-get install -y flatpak flatpak-builder elfutils xvfb dbus-x11
           flatpak remote-add --user --if-not-exists flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y --noninteractive \
@@ -162,6 +162,41 @@ jobs:
           flatpak-builder --user --force-clean \
             --repo=.flatpak-repo .flatpak-build \
             packaging/flatpak/com.zvirox.screenstudiopro.json
+
+      - name: Verify Flatpak tray libraries and startup
+        run: |
+          set -euo pipefail
+          # libappindicator is dlopen'd by Tauri, so a successful Rust link
+          # cannot catch a missing tray runtime. Check the built sandbox and
+          # its transitive dependencies before creating a downloadable bundle.
+          flatpak build .flatpak-build sh -eu -c '
+            test -e /app/lib/libappindicator3.so.1
+            test -e /app/lib/libdbusmenu-glib.so.4
+            test -e /app/lib/libdbusmenu-gtk3.so.4
+            test -e /app/lib/libindicator3.so.7
+            if ldd /app/lib/libappindicator3.so.1 | grep "not found"; then
+              echo "Unresolved Flatpak tray dependency" >&2
+              exit 1
+            fi
+          '
+          # A timeout means the app remained alive instead of aborting during
+          # setup. Keep the log to catch a panic even if process cleanup races.
+          set +e
+          timeout --signal=TERM 20s xvfb-run -a dbus-run-session -- \
+            flatpak-builder --run .flatpak-build \
+            packaging/flatpak/com.zvirox.screenstudiopro.json \
+            screen-studio-pro > flatpak-startup.log 2>&1
+          status=$?
+          set -e
+          cat flatpak-startup.log
+          if grep -E "panicked at|Failed to load ayatana|cannot open shared object" flatpak-startup.log; then
+            echo "Flatpak startup emitted a fatal loader/runtime error" >&2
+            exit 1
+          fi
+          if [ "$status" -ne 124 ]; then
+            echo "Flatpak startup exited early with status $status" >&2
+            exit 1
+          fi
 
       - name: Create single-file bundle
         run: |

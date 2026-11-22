@@ -6,6 +6,22 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
+## [0.0.1+alpha.4] - 2026-11-22
+
+Released under tag `v0.0.1-alpha.4` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
+
+Flatpak startup hotfix; application behavior and the DESIGN.md v3.1 interface are otherwise unchanged from alpha.3.
+
+### Fixed
+
+- Bundle the libappindicator tray runtime and its libdbusmenu/libindicator dependencies so the Flatpak no longer panics before opening its main window.
+- Add built-sandbox shared-library checks and an Xvfb + D-Bus startup smoke gate before the release workflow can attach the `.flatpak` asset.
+
+### Validation boundaries
+
+- Packaging-only change: no capture, recording, encoder or production frontend behavior changed.
+- The Flatpak release job must pass the new startup check before bundle publication; clean-VM installation and full recording validation remain open.
+
 ## [0.0.1+alpha.3] - 2026-11-22
 
 Released under tag `v0.0.1-alpha.3` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
