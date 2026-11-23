@@ -1,6 +1,6 @@
 [package]
 name = "screen-studio-pro"
-version = "0.0.1+alpha.7"
+version = "0.0.1+alpha.8"
 description = "A modern open-source screen recording app for Linux"
 authors = ["zvirox"]
 edition = "2024"
@@ -71,3 +71,6 @@ tempfile = "3.27.0"
 default = ["encode"]
 encode = ["dep:ffmpeg-next", "dep:ffmpeg-sys-next"]
 camera = ["dep:v4l2r"]
+# Enables the Tauri custom protocol (`tauri://localhost`) and static asset
+# embedding for release builds. Required when building via raw cargo (e.g. Flatpak).
+custom-protocol = ["tauri/custom-protocol"]

@@ -198,6 +198,12 @@ jobs:
               echo "Unresolved Flatpak tray dependency" >&2
               exit 1
             fi
+            # Verify the release binary embeds the custom protocol and dist assets,
+            # rather than defaulting to devUrl (http://localhost:1420).
+            strings /app/bin/screen-studio-pro | grep -q "tauri://localhost" || {
+              echo "Fatal: screen-studio-pro was built without custom-protocol" >&2
+              exit 1
+            }
           '
           # A timeout means the app remained alive instead of aborting during
           # setup. Keep the log to catch a panic even if process cleanup races.
@@ -209,7 +215,7 @@ jobs:
           status=$?
           set -e
           cat flatpak-startup.log
-          if grep -E "panicked at|Failed to load ayatana|cannot open shared object" flatpak-startup.log; then
+          if grep -E "panicked at|Failed to load ayatana|cannot open shared object|Could not connect to|Connection refused" flatpak-startup.log; then
             echo "Flatpak startup emitted a fatal loader/runtime error" >&2
             exit 1
           fi

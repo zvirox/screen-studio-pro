@@ -6,6 +6,17 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
+## [0.0.1+alpha.8] - 2026-11-23
+
+Released under tag `v0.0.1-alpha.8` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
+
+Flatpak offline asset loading hotfix; application behavior and the DESIGN.md v3.1 interface are otherwise unchanged from alpha.7.
+
+### Fixed
+
+- **Bundle static frontend assets and enable custom protocol for Flatpak.** Raw `cargo build --release --offline` in the Flatpak sandbox built the app in dev mode (`cfg(dev)` active) because `custom-protocol` was not declared or enabled, directing the WebKitGTK webview to `http://localhost:1420` instead of the embedded assets (`tauri://localhost`). Added `custom-protocol = ["tauri/custom-protocol"]` to `src-tauri/Cargo.toml` and enabled `--features custom-protocol` in the Flatpak manifest.
+- **Added CI release verification gates.** The Flatpak release workflow now inspects the binary to ensure `tauri://localhost` is present and verifies `flatpak-startup.log` does not report connection refused or localhost connection failures.
+
 ## [0.0.1+alpha.7] - 2026-11-22
 
 Released under tag `v0.0.1-alpha.7` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).

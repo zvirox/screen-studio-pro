@@ -32,7 +32,7 @@ export default function AboutPane() {
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink-secondary">Version</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
-              {capabilities?.version?.app ?? "0.0.1+alpha.7"}
+              {capabilities?.version?.app ?? "0.0.1+alpha.8"}
             </dd>
           </div>
           <div className="flex justify-between">

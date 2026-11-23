@@ -36,9 +36,9 @@
   <content_rating type="oars-1.1" />
   <releases>
     <!-- STAMPED BY CI: release.yml replaces version/date with the pushed tag. -->
-    <release version="v0.0.1-alpha.7" date="2026-11-22">
+    <release version="v0.0.1-alpha.8" date="2026-11-23">
       <description>
-        <p>Flatpak packaging hotfix: grant network access so the ProxyResolver portal call completes and the in-app GDBus error is gone.</p>
+        <p>Flatpak release fix: enable custom-protocol feature so WebKitGTK loads bundled static assets offline instead of connecting to localhost:1420.</p>
       </description>
     </release>
   </releases>

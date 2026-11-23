@@ -6,7 +6,7 @@
 
 **An open-source screen recording app for Wayland-first Linux — a frosted-glass alternative built for Hyprland, niri, MangoWC and KDE Plasma.**
 
-> **Status: alpha (`0.0.1+alpha.7`, release tag `v0.0.1-alpha.7`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.6.md) and [full progress ledger](PLAN.md).
+> **Status: alpha (`0.0.1+alpha.8`, release tag `v0.0.1-alpha.8`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.8.md) and [full progress ledger](PLAN.md).
 
 ## 📸 Screenshots
 
@@ -57,25 +57,25 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 ## 📦 Installation
 
-The alpha.6 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.7](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.7), change to the download directory, then run the matching commands.
+The alpha.8 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.8](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.8), change to the download directory, then run the matching commands.
 
 ### Debian / Ubuntu (`.deb`)
 
 ```bash
-sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.7_amd64.deb
+sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.8_amd64.deb
 ```
 
 ### Fedora and other dnf-based distros (`.rpm`)
 
 ```bash
-sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.7-1.x86_64.rpm
+sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.8-1.x86_64.rpm
 ```
 
 ### AppImage
 
 ```bash
-chmod +x ScreenStudio.Pro_0.0.1+alpha.7_amd64.AppImage
-./ScreenStudio.Pro_0.0.1+alpha.7_amd64.AppImage
+chmod +x ScreenStudio.Pro_0.0.1+alpha.8_amd64.AppImage
+./ScreenStudio.Pro_0.0.1+alpha.8_amd64.AppImage
 ```
 
 ### Flatpak (single-file bundle)
@@ -85,7 +85,7 @@ The bundle uses the GNOME 49 runtime:
 ```bash
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user flathub org.gnome.Platform//49
-flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.7-x86_64.flatpak
+flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.8-x86_64.flatpak
 flatpak run com.zvirox.screenstudiopro
 ```
 

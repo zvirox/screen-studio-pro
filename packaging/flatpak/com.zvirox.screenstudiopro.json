@@ -91,7 +91,7 @@
       "build-commands": [
         "mkdir -p /app/lib && cp -a vendor /app/lib/vendor",
         "mkdir -p /app/lib/clang && cp -a libclang/. /app/lib/clang/",
-        "cd src-tauri && cargo build --release --offline",
+        "cd src-tauri && cargo build --release --offline --features custom-protocol",
         "install -Dm755 src-tauri/target/release/screen-studio-pro /app/bin/screen-studio-pro",
         "install -Dm644 packaging/flatpak/com.zvirox.screenstudiopro.desktop /app/share/applications/com.zvirox.screenstudiopro.desktop",
         "install -Dm644 packaging/flatpak/com.zvirox.screenstudiopro.metainfo.xml /app/share/metainfo/com.zvirox.screenstudiopro.metainfo.xml",
