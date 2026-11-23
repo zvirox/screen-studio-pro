@@ -42,7 +42,7 @@ function CameraDevicePopover() {
           "flex h-10 items-center gap-2 rounded-sm border pl-2.5 pr-3 text-body-sm font-medium",
           error
             ? "border-error text-error hover:bg-error-muted"
-            : "border-subtle bg-solid text-ink enabled:hover:border-accent enabled:hover:bg-accent-muted",
+            : "border-subtle bg-solid text-ink enabled:hover:bg-surface-hover",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         )}
       >
@@ -104,8 +104,8 @@ function CameraDevicePopover() {
               }}
               className={cn(
                 "flex h-11 w-full items-center justify-between gap-2 rounded-xs px-3",
-                "text-body-sm text-ink hover:bg-accent-muted",
-                "focus-visible:bg-accent-muted focus-visible:outline-none",
+                "text-body-sm text-ink hover:bg-surface-hover",
+                "focus-visible:bg-surface-hover focus-visible:outline-none",
               )}
             >
               <span className="truncate">{d.label}</span>
@@ -155,7 +155,7 @@ export default function CameraSlab() {
             aria-pressed="true"
             title="Remove camera"
             onClick={() => void closeCamera()}
-            className="flex h-10 items-center gap-2 rounded-sm border border-accent bg-accent-muted pl-2.5 pr-3 text-body-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="flex h-10 items-center gap-2 rounded-sm border border-subtle bg-surface-hover pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <VideoOff size={16} strokeWidth={1.5} aria-hidden="true" />
             {camera.label ?? "Camera"}

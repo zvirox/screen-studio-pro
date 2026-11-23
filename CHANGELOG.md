@@ -6,6 +6,18 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
 
+## [0.0.1+alpha.9] - 2026-11-23
+
+Released under tag `v0.0.1-alpha.9` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).
+
+Design system v3.2, "Quiet Studio Instrument". No capture, encoder, IPC, or production behavior changed.
+
+### Changed
+
+- `DESIGN.md` advanced to v3.2: sentence-case labels, quiet neutral surfaces and hairlines, Burgundy reserved for the primary Record action and true selection, fixed-contrast copy on the black preview canvas, and one easing curve.
+- Tokens, glass recipes, component classes, and documentation screenshots updated across the whole app.
+- Duplicated bottom preset selector removed; HUD/library/settings copy tightened; decorative accent hovers, uppercase tracked overlines, and bouncy motion removed.
+
 ## [0.0.1+alpha.8] - 2026-11-23
 
 Released under tag `v0.0.1-alpha.8` (Tauri bundlers reject `-` in version strings, so app metadata uses the semver-equivalent `+` form).

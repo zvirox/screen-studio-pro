@@ -381,4 +381,40 @@ describe("CaptureInspector (Stage v3.4 Left Floating Inspector Deck)", () => {
 
     expect(setPreset).toHaveBeenCalledWith("discord");
   });
+
+  // Preset selection belongs to the inspector only (the detached bottom
+  // selector was removed). These cases keep that coverage with its owner.
+  it("quality preset select: renders presets in plain language", () => {
+    const presets: Preset[] = [
+      { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
+      { id: "discord", label: "For Discord", description: "720p30, ~6 Mbps", fps: 30, height: 720, container: "mp4" },
+      { id: "lossless", label: "Lossless local", description: "native resolution, visually lossless", fps: 60, height: 0, container: "mkv" },
+      { id: "smallest", label: "Smallest file", description: "720p30, ~2 Mbps", fps: 30, height: 720, container: "mp4" },
+    ];
+    useSspStore.setState({
+      loadPresets: vi.fn().mockResolvedValue(undefined),
+      presets: { status: "ready", error: null, presets, presetId: "youtube" },
+    });
+    render(<CaptureInspector />);
+    const select = screen.getByRole("combobox", { name: /Quality preset/ }) as HTMLSelectElement;
+    expect(select).toHaveValue("youtube");
+    expect(select.textContent).toContain("For YouTube — 1080p60, ~12 Mbps");
+    expect(select.textContent).toContain("For Discord — 720p30, ~6 Mbps");
+    expect(select).toBeEnabled();
+  });
+
+  it("quality preset select: disabled while recording (take-snapshot law)", () => {
+    useSspStore.setState({
+      loadPresets: vi.fn().mockResolvedValue(undefined),
+      presets: {
+        status: "ready",
+        error: null,
+        presets: DUMMY_PRESETS,
+        presetId: "youtube",
+      },
+      session: { ...INITIAL_SESSION, status: "recording", recordingId: "rec_1" },
+    });
+    render(<CaptureInspector />);
+    expect(screen.getByRole("combobox", { name: /Quality preset/ })).toBeDisabled();
+  });
 });

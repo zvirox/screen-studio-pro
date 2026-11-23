@@ -6,7 +6,7 @@
 
 **An open-source screen recording app for Wayland-first Linux — a frosted-glass alternative built for Hyprland, niri, MangoWC and KDE Plasma.**
 
-> **Status: alpha (`0.0.1+alpha.8`, release tag `v0.0.1-alpha.8`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.8.md) and [full progress ledger](PLAN.md).
+> **Status: alpha (`0.0.1+alpha.9`, release tag `v0.0.1-alpha.9`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.8.md) and [full progress ledger](PLAN.md).
 
 ## 📸 Screenshots
 
@@ -18,7 +18,7 @@
 | :----------------------------------------------------: | :----------------------------------------------------: |
 | ![Settings view](docs/screenshots/settings-light.jpeg) | ![Library grid](docs/screenshots/library-preview.jpeg) |
 
-> These are **UI previews** rendered from the Vite frontend with the Tauri IPC mocked; the Library preview uses sample rows. They show the current v3.1 layout and visual language, not a captured desktop recording session. Real in-app captures are still to be archived (task 7.6 residual).
+> These are **UI previews** rendered from the Vite frontend with the Tauri IPC mocked; the Library preview uses sample rows. They show the current v3.2 layout and visual language, not a captured desktop recording session. Real in-app captures are still to be archived (task 7.6 residual).
 
 ## ✨ What works in this alpha
 
@@ -29,7 +29,7 @@
 - **Recording library** — thumbnails, search, sort, detail drawer, soft delete and missing-file states, backed by a local SQLite index.
 - **Session lifecycle** — tray quick actions, minimize-to-tray on record, and finalize-on-quit.
 - **Files** — MKV takes with optional MP4 remux, strftime-style naming, plain-language quality presets.
-- **v3 studio interface** — responsive floating-island layout (DESIGN.md v3.1): left capture-inspector, 16:9 hero preview canvas, sub-canvas audio mixer, and takes/presets gallery; integrated studio titlebar; full light mode, reduced-motion-aware motion, keyboard-reachable controls.
+- **v3 studio interface** — responsive floating-island layout (DESIGN.md v3.2): left capture-inspector, 16:9 hero preview canvas, sub-canvas audio mixer, and takes/presets gallery; integrated studio titlebar; full light mode, reduced-motion-aware motion, keyboard-reachable controls.
 
 **Not in this alpha:** RTMP/live streaming, scene compositor, replay buffer, video editor, plugin API, and hardware-encoder acceleration (VAAPI/NVENC detection is currently a stub; x264 is the working fallback). These are PRD V2/Later items — see the roadmap in [PLAN.md](PLAN.md).
 
@@ -57,25 +57,25 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 ## 📦 Installation
 
-The alpha.8 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.8](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.8), change to the download directory, then run the matching commands.
+The alpha.8 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.9](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.9), change to the download directory, then run the matching commands.
 
 ### Debian / Ubuntu (`.deb`)
 
 ```bash
-sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.8_amd64.deb
+sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.9_amd64.deb
 ```
 
 ### Fedora and other dnf-based distros (`.rpm`)
 
 ```bash
-sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.8-1.x86_64.rpm
+sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.9-1.x86_64.rpm
 ```
 
 ### AppImage
 
 ```bash
-chmod +x ScreenStudio.Pro_0.0.1+alpha.8_amd64.AppImage
-./ScreenStudio.Pro_0.0.1+alpha.8_amd64.AppImage
+chmod +x ScreenStudio.Pro_0.0.1+alpha.9_amd64.AppImage
+./ScreenStudio.Pro_0.0.1+alpha.9_amd64.AppImage
 ```
 
 ### Flatpak (single-file bundle)
@@ -85,7 +85,7 @@ The bundle uses the GNOME 49 runtime:
 ```bash
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install --user flathub org.gnome.Platform//49
-flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.8-x86_64.flatpak
+flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.9-x86_64.flatpak
 flatpak run com.zvirox.screenstudiopro
 ```
 

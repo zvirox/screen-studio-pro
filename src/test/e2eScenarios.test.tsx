@@ -262,7 +262,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
     const sourceRegion = screen.getByRole("region", { name: /source/i });
     expect(sourceRegion).toBeInTheDocument();
     expect(
-      screen.getByText(/Click Monitor to allow capture through your compositor/i),
+      screen.getByText(/Choose a source to start portal capture/i),
     ).toBeInTheDocument();
 
     const monitorBtn = screen.getByRole("button", { name: /monitor/i });

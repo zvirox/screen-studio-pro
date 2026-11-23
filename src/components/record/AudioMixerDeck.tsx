@@ -47,8 +47,8 @@ export function MeterBar({
     <div className="flex flex-col gap-1 w-full">
       <div className="flex items-center justify-between font-mono text-label text-ink-secondary">
         <span>-60</span>
-        <span className="text-accent">-18</span>
-        <span className="text-warning">-6</span>
+        <span className="text-ink-secondary">-18</span>
+        <span className="text-ink-secondary">-6</span>
         <span className={cn(hot > 0 ? "font-semibold text-signal" : "text-ink")}>{dbText}</span>
       </div>
       <div
@@ -120,7 +120,7 @@ export function DevicePopover({
           disabled={disabled}
           className={cn(
             "flex min-h-9 w-full min-w-0 items-center gap-1.5 rounded-xs px-2 py-1 text-left",
-            "border border-subtle bg-canvas text-body-sm text-ink-secondary hover:border-accent hover:text-ink",
+            "border border-subtle bg-canvas text-body-sm text-ink-secondary hover:bg-surface-hover hover:text-ink",
             "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
             "disabled:cursor-not-allowed disabled:opacity-50",
           )}
@@ -181,15 +181,15 @@ export function DevicePopover({
                   "flex h-10 w-full items-center justify-between gap-2 rounded-xs px-3",
                   "text-body-sm text-ink",
                   selected
-                    ? "bg-accent-muted font-medium shadow-[inset_2px_0_0_var(--ssp-accent)]"
-                    : "hover:bg-accent-muted",
-                  "focus-visible:bg-accent-muted focus-visible:outline-none",
+                    ? "border-l-2 border-subtle bg-surface-hover font-medium"
+                    : "hover:bg-surface-hover",
+                  "focus-visible:bg-surface-hover focus-visible:outline-none",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                 )}
               >
                 <span className="truncate">{opt.label}</span>
                 {selected && (
-                  <Check size={16} className="shrink-0 text-accent" aria-hidden="true" />
+                  <Check size={16} className="shrink-0 text-ink" aria-hidden="true" />
                 )}
               </button>
             );
@@ -227,8 +227,8 @@ export default function AudioMixerDeck() {
             48 kHz · 24-bit
           </span>
         </div>
-        <span className="shrink-0 text-label uppercase tracking-wider text-ink-secondary">
-          Studio Deck
+        <span className="shrink-0 text-label font-medium text-ink-secondary">
+          Mixer
         </span>
       </div>
 
@@ -257,7 +257,7 @@ export default function AudioMixerDeck() {
                       "flex h-8 w-8 items-center justify-center rounded-sm border",
                       isMuted
                         ? "border-error/40 bg-error-muted text-error"
-                        : "border-subtle bg-canvas text-accent",
+                        : "border-subtle bg-canvas text-ink-secondary",
                     )}
                   >
                     {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -269,7 +269,7 @@ export default function AudioMixerDeck() {
                         Ch 1/2
                       </span>
                       {/* DSP Badges */}
-                      <span className="whitespace-nowrap rounded-xs bg-accent-muted px-1.5 py-0.2 text-label font-medium text-accent">
+                      <span className="whitespace-nowrap rounded-xs border border-subtle bg-canvas px-1.5 py-0.2 text-label font-medium text-ink-secondary">
                         RNNoise
                       </span>
                       <span className="whitespace-nowrap rounded-xs bg-canvas border border-subtle px-1 py-0.2 text-label text-ink-secondary">
@@ -303,7 +303,7 @@ export default function AudioMixerDeck() {
                     "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
                       ? "bg-error text-white hover:bg-error/90"
-                      : "border border-subtle bg-canvas text-ink hover:border-accent hover:bg-accent-muted",
+                      : "border border-subtle bg-canvas text-ink hover:bg-surface-hover",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                   )}
@@ -332,7 +332,7 @@ export default function AudioMixerDeck() {
                   aria-label="Mic input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("mic", Number(e.target.value))}
-                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-ink-secondary focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 80}%
@@ -371,7 +371,7 @@ export default function AudioMixerDeck() {
                       "flex h-8 w-8 items-center justify-center rounded-sm border",
                       isMuted
                         ? "border-error/40 bg-error-muted text-error"
-                        : "border-subtle bg-canvas text-accent",
+                        : "border-subtle bg-canvas text-ink-secondary",
                     )}
                   >
                     {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -414,7 +414,7 @@ export default function AudioMixerDeck() {
                     "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
                       ? "bg-error text-white hover:bg-error/90"
-                      : "border border-subtle bg-canvas text-ink hover:border-accent hover:bg-accent-muted",
+                      : "border border-subtle bg-canvas text-ink hover:bg-surface-hover",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                   )}
@@ -443,7 +443,7 @@ export default function AudioMixerDeck() {
                   aria-label="Desktop input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("desktop", Number(e.target.value))}
-                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-accent focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-ink-secondary focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 70}%

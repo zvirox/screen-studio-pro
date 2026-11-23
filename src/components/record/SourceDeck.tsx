@@ -57,8 +57,8 @@ function SourceChip({
       onClick={() => void selectAction()}
       className={
         isActive
-          ? "flex h-10 items-center gap-2 rounded-sm border border-accent bg-accent-muted pl-2.5 pr-3 text-body-sm font-medium text-ink"
-          : "flex h-10 items-center gap-2 rounded-sm border border-subtle bg-solid pl-2.5 pr-3 text-body-sm font-medium text-ink enabled:hover:border-accent enabled:hover:bg-accent-muted disabled:border-subtle disabled:bg-solid disabled:text-ink-disabled"
+          ? "flex h-10 items-center gap-2 rounded-sm border border-subtle bg-surface-hover pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors"
+          : "flex h-10 items-center gap-2 rounded-sm border border-subtle bg-solid pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors enabled:hover:bg-surface-hover disabled:border-subtle disabled:bg-solid disabled:text-ink-disabled"
       }
     >
       {isSelecting ? (
@@ -84,7 +84,7 @@ function SourceChip({
         </>
       )}
       {isActive ? (
-        <Check size={16} strokeWidth={1.5} className="text-accent" aria-hidden="true" />
+        <Check size={16} strokeWidth={1.5} className="text-ink-secondary" aria-hidden="true" />
       ) : null}
     </button>
   );
@@ -339,7 +339,7 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
             <div
               role="status"
               aria-live="polite"
-              className="flex items-center gap-2 text-body-sm text-accent-text/80"
+              className="flex items-center gap-2 text-body-sm text-on-canvas/80"
             >
               <LoaderCircle
                 size={16}
@@ -355,30 +355,30 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
                 <AppWindow
                   size={28}
                   strokeWidth={1.5}
-                  className="text-accent-text/70"
+                  className="text-on-canvas/80"
                   aria-hidden="true"
                 />
               ) : isRegionActive ? (
                 <Crop
                   size={28}
                   strokeWidth={1.5}
-                  className="text-accent-text/70"
+                  className="text-on-canvas/80"
                   aria-hidden="true"
                 />
               ) : (
                 <Monitor
                   size={28}
                   strokeWidth={1.5}
-                  className="text-accent-text/70"
+                  className="text-on-canvas/80"
                   aria-hidden="true"
                 />
               )}
-              <p className="max-w-md text-body-md leading-relaxed text-accent-text/80">
+              <p className="max-w-md text-body-md leading-relaxed text-on-canvas/80">
                 {isRegionActive
                   ? "Drag to select region; arrow keys to nudge (Shift = 10px)"
                   : isWindowActive
                     ? "Click Window to select a window to capture"
-                    : "Click Monitor to allow capture through your compositor"}
+                    : "Choose a source to start portal capture"}
               </p>
             </div>
           )

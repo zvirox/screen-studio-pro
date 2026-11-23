@@ -1,11 +1,9 @@
 import { Dot, LoaderCircle, Square, Zap, Cpu } from "lucide-react";
-import { useEffect } from "react";
 import { useSspStore } from "../../lib/store";
 import { formatElapsed, formatStats } from "../../lib/format";
-import type { PresetId } from "../../types/ipc";
 
 /* DESIGN.md v3.1 §5.1/§6.1/§7.4 — recording controls wrap as one responsive
-   row; long preset and encoder labels never force sibling controls to overlap.
+   row; long encoder labels never force sibling controls to overlap.
    §6.5 flow: Record → loading ("Working…") → while the take runs the row
    shows the elapsed mono timer + Stop & save (the §5.9 HUD window itself
    lands in PLAN 2.4) → idle again. Fault copy surfaces once, at floatover
@@ -13,7 +11,7 @@ import type { PresetId } from "../../types/ipc";
    the row renders no second telling of it. */
 
 /* Encoder chip — shows the active backend (NVENC/VAAPI/x264) with fallback notice.
-   DESIGN §6.1: x264 shows warning-state inline notice with zap-off icon:
+   DESIGN §6.1: x264 shows a neutral inline notice with zap-off icon:
    "Falling back to CPU encode". */
 function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boolean }) {
   const label = backend.toUpperCase();
@@ -26,14 +24,14 @@ function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boo
       <Cpu size={12} strokeWidth={1.5} className="shrink-0" aria-hidden="true" />
     );
   const fallbackNotice = isFallback ? (
-    <span className="flex min-w-0 items-start gap-1 text-label text-warning">
+    <span className="flex min-w-0 items-start gap-1 text-label text-ink-secondary">
       <Zap size={10} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden="true" />
       <span className="min-w-0 break-words">Falling back to CPU encode</span>
     </span>
   ) : null;
 
   return (
-    <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1.5 rounded-sm border border-subtle bg-solid px-2 py-1 text-body-sm font-mono text-ink">
+    <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-sm border border-subtle bg-solid px-2 py-1 text-body-sm font-mono text-ink">
       {icon}
       <span className="min-w-0 break-words">{label}</span>
       {fallbackNotice}
@@ -44,15 +42,8 @@ function EncoderChip({ backend, isFallback }: { backend: string; isFallback: boo
 export default function ActionRow() {
   const source = useSspStore((s) => s.source);
   const session = useSspStore((s) => s.session);
-  const presets = useSspStore((s) => s.presets);
-  const loadPresets = useSspStore((s) => s.loadPresets);
-  const setPreset = useSspStore((s) => s.setPreset);
   const startRecording = useSspStore((s) => s.startRecording);
   const stopRecording = useSspStore((s) => s.stopRecording);
-
-  useEffect(() => {
-    void loadPresets();
-  }, [loadPresets]);
 
   const busy = session.status === "starting" || session.status === "stopping";
   const recording = session.status === "recording";
@@ -60,31 +51,6 @@ export default function ActionRow() {
   // A fault still tints the retry state (primary action after failure);
   // its copy renders once, in the error toast (§6.5 no-double-telling).
   const fault = session.fault;
-
-  /* M11 preset select — DESIGN §6.1 #5: "quality preset select left
-     (plain language: "For YouTube — 1080p60")". Native select styled
-     with the closed tokens (no new Radix dep would be a §4.2 ask).
-     Disabled while recording (take-snapshot law: changes apply to
-     the next recording). */
-  const presetSelect = (
-    <label className="flex min-w-0 max-w-full flex-1 basis-full items-center gap-2 text-body-sm min-[640px]:basis-64">
-      <span className="sr-only">Quality preset</span>
-      <select
-        aria-label="Quality preset"
-        value={presets.presetId ?? ""}
-        disabled={recording || presets.status !== "ready"}
-        onChange={(e) => void setPreset(e.target.value as PresetId)}
-        className="h-10 w-full min-w-0 max-w-full truncate rounded-sm border border-subtle bg-solid px-2 text-body-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:opacity-60"
-      >
-        {presets.presets.length === 0 && <option value="">Quality…</option>}
-        {presets.presets.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label} — {p.description}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
 
   const label = busy ? (
     <span role="status" aria-live="polite" className="flex items-center justify-center gap-2">
@@ -105,8 +71,7 @@ export default function ActionRow() {
 
   return (
     <section aria-label="Recording controls" className="flex min-w-0 flex-col gap-2">
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        {presetSelect}
+      <div className="flex min-w-0 flex-wrap items-center gap-4">
         {recording ? (
           <>
             <div
@@ -115,7 +80,7 @@ export default function ActionRow() {
             >
               {formatElapsed(session.elapsedMs)}
             </div>
-            {/* §5.9 paused law: the timer freezes and the PAUSED `label`
+            {/* §5.9 paused law: the timer freezes and the "Paused" chip
                 chip sits beside it — text + placement carry the phase
                 (§7.8: never color-only). No pause/resume buttons here —
                 §5.9 reserves them for the 2.4 HUD window. */}
@@ -124,7 +89,7 @@ export default function ActionRow() {
                 role="status"
                 className="rounded-xs bg-signal-muted px-2 py-1.5 text-label font-medium text-signal"
               >
-                PAUSED
+                Paused
               </div>
             ) : null}
             {/* Encoder chip — right side during recording */}
@@ -134,10 +99,8 @@ export default function ActionRow() {
             />
           </>
         ) : (
-          <>
-            {/* Encoder chip — idle state shows configured encoder */}
-            <EncoderChip backend={session.encoderBackend || "auto"} isFallback={false} />
-          </>
+          /* Encoder chip — idle state shows configured encoder */
+          <EncoderChip backend={session.encoderBackend || "auto"} isFallback={false} />
         )}
         <button
           type="button"
@@ -150,11 +113,11 @@ export default function ActionRow() {
           className={
             idle && fault
               ? // retry after a failure is still the primary action
-                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[scale,background-color] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-96 active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
               : busy
                 ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
                 : recording
-                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-[scale,background-color] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-96 active:bg-accent-active"
+                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-accent-active"
                   : "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-subtle bg-subtle text-body-sm font-medium text-ink-disabled"
           }
         >

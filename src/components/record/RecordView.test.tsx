@@ -66,7 +66,7 @@ describe("RecordView (§6.1 slice)", () => {
     expect(screen.getByRole("button", { name: /Add camera/ })).toBeInTheDocument();
     // first-run education slot visible (§6.3)
     expect(
-      screen.getByText(/Click Monitor to allow capture through your compositor/),
+      screen.getByText(/Choose a source to start portal capture/),
     ).toBeInTheDocument();
   });
 

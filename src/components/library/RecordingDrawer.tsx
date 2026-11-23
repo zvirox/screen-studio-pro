@@ -51,7 +51,7 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
             type="button"
             aria-label="Close details"
             onClick={onClose}
-            className="h-9 w-9 rounded-sm border border-subtle bg-raised flex items-center justify-center text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-9 w-9 rounded-sm border border-subtle bg-raised flex items-center justify-center text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             <X size={18} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -143,7 +143,7 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
             onClick={() => {
               if (recording.path) void revealItemInDir(recording.path);
             }}
-            className="flex items-center gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex items-center gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             <ExternalLink size={16} strokeWidth={1.5} aria-hidden="true" />
             Reveal in file manager

@@ -43,7 +43,7 @@ export default function RecordView() {
           id="takes-gallery-panel"
           initial={false}
           animate={{ opacity: 1 }}
-          transition={{ duration: MOTION.fast, ease: MOTION.easeBase }}
+          transition={{ duration: MOTION.fast, ease: "easeOut" }}
           className={cn(
             "min-w-0 min-[720px]:col-span-2 min-[1120px]:col-span-1",
             showTakesOnMobile ? "block" : "hidden",

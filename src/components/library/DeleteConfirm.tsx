@@ -64,7 +64,7 @@ export default function DeleteConfirm({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="h-9 w-9 rounded-sm border border-subtle bg-raised flex items-center justify-center text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-9 w-9 rounded-sm border border-subtle bg-raised flex items-center justify-center text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             <X size={18} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -81,7 +81,7 @@ export default function DeleteConfirm({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-24 items-center justify-center rounded-sm border border-subtle bg-solid px-3 text-body-sm font-medium text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex h-10 w-24 items-center justify-center rounded-sm border border-subtle bg-solid px-3 text-body-sm font-medium text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             Cancel
           </button>

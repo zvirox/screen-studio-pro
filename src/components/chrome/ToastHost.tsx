@@ -82,7 +82,7 @@ function ToastCard({ toast }: { toast: Toast }) {
         <Check
           size={18}
           strokeWidth={2}
-          className="mt-0.5 shrink-0 text-accent"
+          className="mt-0.5 shrink-0 text-ink"
           aria-hidden="true"
         />
       )}
@@ -104,7 +104,7 @@ function ToastCard({ toast }: { toast: Toast }) {
             <button
               type="button"
               onClick={() => toast.path !== undefined && void revealItemInDir(toast.path)}
-              className="h-8 rounded-sm px-2.5 text-body-sm font-medium text-ink hover:bg-accent-muted hover:text-ink focus-visible:outline-accent"
+              className="h-8 rounded-sm px-2.5 text-body-sm font-medium text-ink hover:bg-surface-hover hover:text-ink focus-visible:outline-accent"
             >
               Reveal
             </button>
@@ -117,7 +117,7 @@ function ToastCard({ toast }: { toast: Toast }) {
           type="button"
           aria-label={copied ? "Copied" : "Copy path"}
           onClick={() => void copyPath()}
-          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink hover:bg-accent-muted hover:text-ink focus-visible:outline-accent"
+          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink hover:bg-surface-hover hover:text-ink focus-visible:outline-accent"
         >
           {copied ? (
             <Check size={14} strokeWidth={2} aria-hidden="true" />
@@ -131,7 +131,7 @@ function ToastCard({ toast }: { toast: Toast }) {
         type="button"
         aria-label="Dismiss"
         onClick={() => dismissToast(toast.id)}
-        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink hover:bg-accent-muted hover:text-ink focus-visible:outline-accent"
+        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink hover:bg-surface-hover hover:text-ink focus-visible:outline-accent"
       >
         <X size={14} strokeWidth={2} aria-hidden="true" />
       </button>

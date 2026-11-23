@@ -44,10 +44,11 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     render(<SourceDeck />);
     const chip = screen.getByRole("button", { name: /Monitor/ });
     expect(chip).toHaveAttribute("aria-pressed", "false");
-    const guidance = screen.getByText(/Click Monitor to allow capture through your compositor/);
+    const guidance = screen.getByText(/Choose a source to start portal capture/);
     expect(guidance).toBeInTheDocument();
-    // The canvas remains black in both themes; never use theme ink here.
-    expect(guidance).toHaveClass("text-accent-text/80");
+    // Neutral secondary copy on the dark canvas; accent is reserved for
+    // the primary action, live state, focus rings and meter fill.
+    expect(guidance).toHaveClass("text-on-canvas/80");
   });
 
   it("clicking the chip starts the portal selection (§2.1)", () => {
@@ -82,7 +83,7 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     const chip = screen.getByRole("button", { name: /Monitor/ });
     expect(chip).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("2560×1440 · 60fps")).toHaveClass("font-mono");
-    expect(screen.queryByText(/Click Monitor to allow capture/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Choose a source to start portal capture/)).not.toBeInTheDocument();
   });
 
   it("live: selecting again is not offered while a take could be running — chip stays clickable for re-consent when idle only", async () => {
@@ -114,7 +115,7 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     });
     render(<SourceDeck />);
     // §6.3: education, not an error screen — the invitation stays up.
-    expect(screen.getByText(/Click Monitor to allow capture/)).toBeInTheDocument();
+    expect(screen.getByText(/Choose a source to start portal capture/)).toBeInTheDocument();
     // No second telling of the denial (§6.5): the toast already carries it.
     expect(screen.queryByText("Screen capture permission was denied.")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -238,7 +239,7 @@ describe("SourceDeck preview stills (3.5, API §2.1)", () => {
     const img = await screen.findByRole("img", { name: "Source preview" });
     expect(img).toHaveAttribute("src", "data:image/jpeg;base64,aaa");
     expect(mockedPreview).toHaveBeenCalledWith("src_1");
-    expect(screen.queryByText(/Click Monitor to allow capture/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Choose a source to start portal capture/)).not.toBeInTheDocument();
   });
 
   it("live but no still yet: the §5.1 loading state, not the education copy", async () => {
@@ -254,7 +255,7 @@ describe("SourceDeck preview stills (3.5, API §2.1)", () => {
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("Working…");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Click Monitor to allow capture/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Choose a source to start portal capture/)).not.toBeInTheDocument();
     // A polling miss never toasts (API §2.1) — no alert anywhere.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -263,6 +264,6 @@ describe("SourceDeck preview stills (3.5, API §2.1)", () => {
     render(<SourceDeck />);
     expect(mockedPreview).not.toHaveBeenCalled();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(screen.getByText(/Click Monitor to allow capture/)).toBeInTheDocument();
+    expect(screen.getByText(/Choose a source to start portal capture/)).toBeInTheDocument();
   });
 });

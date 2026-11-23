@@ -58,7 +58,7 @@ export function CameraDevicePopover() {
           "flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-sm border px-3 text-body-sm font-medium",
           error
             ? "border-error text-error hover:bg-error-muted"
-            : "border-subtle bg-solid text-ink enabled:hover:border-accent enabled:hover:bg-accent-muted",
+            : "border-subtle bg-solid text-ink enabled:hover:bg-surface-hover",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         )}
       >
@@ -119,8 +119,8 @@ export function CameraDevicePopover() {
               }}
               className={cn(
                 "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xs px-3 text-left",
-                "text-body-sm text-ink hover:bg-accent-muted",
-                "focus-visible:bg-accent-muted focus-visible:outline-none",
+                "text-body-sm text-ink hover:bg-surface-hover",
+                "focus-visible:bg-surface-hover focus-visible:outline-none",
               )}
             >
               <span className="min-w-0 truncate">{d.label}</span>
@@ -241,13 +241,13 @@ export default function CaptureInspector() {
       {/* Title */}
       <div className="flex items-center justify-between border-b border-subtle pb-3">
         <h2 className="text-heading font-semibold text-ink">Inspector</h2>
-        <span className="text-label uppercase tracking-wider text-ink-secondary">Studio</span>
+        <span className="text-label font-medium text-ink-secondary">Studio</span>
       </div>
 
       {/* 1. SOURCES */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-label font-semibold uppercase tracking-wider text-ink-secondary">
+          <span className="text-label font-medium text-ink-secondary">
             Sources
           </span>
           <span className="font-mono text-mono-sm text-ink-disabled">1 · 2 · 3</span>
@@ -266,10 +266,10 @@ export default function CaptureInspector() {
             disabled={!selectable}
             onClick={() => void selectMonitor()}
             className={cn(
-              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs px-1 text-body-sm font-medium transition-colors",
+              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs border border-transparent px-1 text-body-sm font-medium transition-colors",
               isMonitorActive
-                ? "bg-accent text-accent-text shadow-sm"
-                : "text-ink hover:bg-accent-muted hover:text-ink disabled:text-ink-disabled",
+                ? "border-subtle bg-surface-hover text-ink"
+                : "text-ink-secondary hover:bg-surface-hover hover:text-ink disabled:text-ink-disabled",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
             )}
             title="Capture Full Monitor (Hotkey: 1)"
@@ -289,10 +289,10 @@ export default function CaptureInspector() {
             disabled={!selectable || !windowCaptureSupported}
             onClick={() => void selectWindow()}
             className={cn(
-              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs px-1 text-body-sm font-medium transition-colors",
+              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs border border-transparent px-1 text-body-sm font-medium transition-colors",
               isWindowActive
-                ? "bg-accent text-accent-text shadow-sm"
-                : "text-ink hover:bg-accent-muted hover:text-ink disabled:text-ink-disabled",
+                ? "border-subtle bg-surface-hover text-ink"
+                : "text-ink-secondary hover:bg-surface-hover hover:text-ink disabled:text-ink-disabled",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
             )}
             title={
@@ -316,10 +316,10 @@ export default function CaptureInspector() {
             disabled={!selectable}
             onClick={() => void handleRegionSelect()}
             className={cn(
-              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs px-1 text-body-sm font-medium transition-colors",
+              "flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xs border border-transparent px-1 text-body-sm font-medium transition-colors",
               isRegionActive
-                ? "bg-accent text-accent-text shadow-sm"
-                : "text-ink hover:bg-accent-muted hover:text-ink disabled:text-ink-disabled",
+                ? "border-subtle bg-surface-hover text-ink"
+                : "text-ink-secondary hover:bg-surface-hover hover:text-ink disabled:text-ink-disabled",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
             )}
             title="Capture Selected Region (Hotkey: 3)"
@@ -357,7 +357,7 @@ export default function CaptureInspector() {
 
       {/* 2. CAMERA PiP */}
       <div className="flex flex-col gap-2">
-        <span className="text-label font-semibold uppercase tracking-wider text-ink-secondary">
+        <span className="text-label font-medium text-ink-secondary">
           Camera PiP
         </span>
 
@@ -413,9 +413,9 @@ export default function CaptureInspector() {
                   aria-label="Circle shape"
                   onClick={() => void setPipShape("circle")}
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
+                    "flex h-9 w-9 items-center justify-center rounded-xs border border-transparent transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     activeShape === "circle"
-                      ? "bg-accent text-accent-text"
+                      ? "border-subtle bg-surface-hover text-ink"
                       : "text-ink-secondary hover:text-ink",
                   )}
                 >
@@ -427,9 +427,9 @@ export default function CaptureInspector() {
                   aria-label="Rounded rectangle shape"
                   onClick={() => void setPipShape("rounded")}
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
+                    "flex h-9 w-9 items-center justify-center rounded-xs border border-transparent transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     activeShape === "rounded"
-                      ? "bg-accent text-accent-text"
+                      ? "border-subtle bg-surface-hover text-ink"
                       : "text-ink-secondary hover:text-ink",
                   )}
                 >
@@ -459,10 +459,10 @@ export default function CaptureInspector() {
                       aria-label={`Snap to ${c}`}
                       onClick={() => void setPipPosition(`corner:${c},margin:24`)}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
+                        "flex h-9 w-9 items-center justify-center rounded-xs border border-transparent transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                         active
-                          ? "bg-accent text-accent-text"
-                          : "bg-solid text-ink-secondary hover:bg-accent-muted",
+                          ? "border-subtle bg-surface-hover text-ink"
+                          : "bg-solid text-ink-secondary hover:bg-surface-hover",
                       )}
                     />
                   );
@@ -487,7 +487,7 @@ export default function CaptureInspector() {
                 value={activeSize}
                 aria-label="Camera PiP size"
                 onChange={(e) => void setPipSize(Number(e.target.value))}
-                className="h-9 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-accent [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-raised [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-raised [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
+                className="h-9 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-ink-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-ink-secondary [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-raised [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-raised [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-secondary"
               />
             </div>
 
@@ -510,7 +510,7 @@ export default function CaptureInspector() {
 
       {/* 3. QUALITY PRESET */}
       <div className="flex flex-col gap-2">
-        <span className="text-label font-semibold uppercase tracking-wider text-ink-secondary">
+        <span className="text-label font-medium text-ink-secondary">
           Quality Preset
         </span>
         <label className="flex min-w-0 flex-col gap-1">
@@ -534,7 +534,7 @@ export default function CaptureInspector() {
 
       {/* 4. HARDWARE ENCODER STATUS */}
       <div className="mt-auto flex min-w-0 flex-col gap-2 border-t border-subtle pt-4">
-        <span className="text-label font-semibold uppercase tracking-wider text-ink-secondary">
+        <span className="text-label font-medium text-ink-secondary">
           Encoder
         </span>
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 font-mono text-body-sm">
@@ -543,11 +543,11 @@ export default function CaptureInspector() {
             <span className="min-w-0 break-all">{encoderBackend.toUpperCase()}</span>
           </div>
           {isHardwareEncoder ? (
-            <span className="shrink-0 rounded-xs bg-accent-muted px-1.5 py-0.5 font-sans text-label font-medium text-ink">
+            <span className="shrink-0 rounded-xs border border-subtle bg-surface-hover px-1.5 py-0.5 font-sans text-label font-medium text-ink">
               Hardware
             </span>
           ) : (
-            <span className="flex shrink-0 items-center gap-1 font-sans text-label text-warning">
+            <span className="flex shrink-0 items-center gap-1 font-sans text-label text-ink-secondary">
               <Zap size={12} strokeWidth={1.5} aria-hidden="true" />
               CPU Fallback
             </span>

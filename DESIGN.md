@@ -1,7 +1,10 @@
 # DESIGN.md — ScreenStudio Pro Design System
 
-**Version:** 3.1 · **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**
+**Version:** 3.2 · **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**
 **Rule:** Every UI built later must follow this file strictly. Do not invent new colors or fonts outside it. To change a token, change it here first.
+
+**v3.2 Changelog (2026-11-23) — "Quiet Studio Instrument":**
+Keeps the wide tri-panel architecture, Obsidian/Burgundy identity, and Familjen Grotesk/JetBrains Mono pairing from v3.1, but moves richness out of the chrome and into the product's own moments. Overline labels are sentence case; surfaces are quiet neutral steps with hairlines instead of specular glass glow; Burgundy is reserved for the primary Record action and true selection; signal red remains live-only. The mono timecode readout with one live signal dot is the product's signature and appears only where capture state is real. Motion uses one restrained easing curve.
 
 **v3.1 Changelog (2026-11-22) — "Legible, Responsive Studio":**
 Keeps the v3.0 wide-window floating-island architecture while refining surface separation, text contrast, and control sizing. Text wraps before it collides; compact panels use their available width; titlebar and inspector controls adapt at native-window breakpoints. Buttons, segmented controls, cards, tabs, and audio meters use the existing motion scale and remain understandable without pointer hover or animation. Semantic control colors are separated from accent-filled buttons: neutral dark surfaces are readable and Burgundy-filled controls always carry the specified high-contrast foreground. Secondary text uses `0.78` opacity in dark mode and `0.75` in light mode; normal text adjacent to decoded video is never used as an implicit overlay surface.
@@ -13,20 +16,21 @@ Inspired by modern studio workstations (Camo Studio, Meld Studio, PRISM Live Stu
 
 ## 1. Brand Feel & Design Principles
 
-**Feel:** Precision-engineered, frosted, wide-canvas studio software. Floating glass islands that hover gracefully over dark obsidian grounds. Calm and focused while idle; electrifying and unmistakable the moment **Record** is activated. The interface feels like high-end broadcast hardware redesigned by Apple and crafted for modern Wayland desktops (Hyprland, niri, MangoWC, KDE Plasma).
+**Feel:** A precise, instrument-like studio controller for Wayland desktops. The room is quiet; the picture and the live levels carry the energy. Calm and focused while idle, unmistakably alive when **Record** is armed. Built for Hyprland, niri, MangoWC, and KDE Plasma.
 
-### Principle 1 — Symmetrical Floating Islands
-Surfaces do not cling edge-to-edge like legacy dashboards. Every major section is a **floating glass island** (`surface.glass-strong` with 16px corner radius, 1px specular glass border, and ambient drop shadow). The central 16:9 canvas and its flanking inspector and gallery panels share disciplined vertical heights and breathing margins (`space.4` / 16px).
+### Principle 1 — Quiet Islands
+Surfaces do not cling edge-to-edge like legacy dashboards. Major sections are **floating neutral islands** (`surface.glass-strong` with 16px corner radius, a quiet hairline, and a shallow neutral shadow). The central 16:9 canvas and its flanking inspector and gallery panels share disciplined vertical heights and breathing margins (`space.4` / 16px). Depth comes from surface steps and hairlines, not glows or colored shadows.
 
 ### Principle 2 — The Hero 16:9 Canvas is King
 A screen recorder captures widescreen displays. The canvas is **always 16:9 widescreen native**, floating prominently in the center of the viewport with gentle rounded corners (`r.lg` = 16px) and a subtle 1px border. Letterboxing and square 1:1 frames are prohibited. Overlays (camera PiP, region crop) live directly on this canvas.
 
 ### Principle 3 — Studio-Grade Controls & Honest Telemetry
-Controls are tactile, segmented pills, precision sliders, and studio faders. Audio is treated as a first-class visual element with live dual-channel peak/RMS meter bars and active DSP status badges (`RNNoise`, `Ducking`). Telemetry (resolution, framerate, encoder backend) is permanently visible in a top-bar pill badge.
+Controls are tactile, segmented switches, precision sliders, and studio faders. Audio is treated as a first-class visual element with live dual-channel peak/RMS meter bars; DSP state is quiet mono text, not a colored badge. Telemetry (resolution, framerate, encoder backend) is permanently visible in calm mono type.
 
 ### Principle 4 — One Accent, One Signal
-- **Studio Burgundy (`accent`):** Denotes selection, active tabs, slider fills, and primary interaction.
-- **Broadcast Signal Red (`signal`):** Reserved **strictly and exclusively** for the live recording state (HUD pulsing dot, record pill glow, recording borders). Never used for decoration or static UI elements.
+- **Studio Burgundy (`accent`):** Reserved for the primary Record action, true selected/live state, focus rings, and meaningful meter fill. It does not decorate secondary tabs, sort labels, badges, icons, or hover states.
+- **Broadcast Signal Red (`signal`):** Reserved **strictly and exclusively** for the live recording state (HUD dot, record timer, recording border). Never used for decoration or static UI elements.
+- **Signature — mono timecode:** A `JetBrains Mono`, tabular-nums readout paired with one signal dot wherever capture state is real. It appears in the HUD and the live preview readout, and nowhere as decoration.
 
 ---
 
@@ -44,16 +48,17 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 | `surface.solid` | `#181A22` | Cards, channel strips, and tiles resting inside decks |
 | `surface.hover` | `rgba(255, 255, 255, 0.08)` | Hover state for interactive cards and rows |
 | `border.subtle` | `rgba(255, 255, 255, 0.14)` | Dividers, inactive card strokes |
-| `border.glass` | `rgba(255, 255, 255, 0.20)` | Specular 1px outer stroke on floating islands and canvas |
+| `border.glass` | `rgba(255, 255, 255, 0.10)` | Quiet hairline on floating islands and canvas |
 | `border.focus` | `#C77493` | 2px focus ring on active controls |
 | `text.primary` | `#F4F5F8` | High-contrast headings and active labels (17.5:1 on canvas) |
 | `text.secondary` | `rgba(244, 245, 248, 0.78)` | Subtext, property descriptions, inactive tab labels |
+| `text.on-canvas` | `#F4F5F8` | Fixed light copy on the black preview canvas, both themes |
 | `text.disabled` | `rgba(244, 245, 248, 0.46)` | Disabled controls, inactive placeholders |
-| `accent` | `#A3284E` | Studio Burgundy (primary selection, active pills, sliders) |
+| `accent` | `#A3284E` | Studio Burgundy (primary Record action, true selection, meter fill) |
 | `accent.hover` | `#BA335D` | Hover state on interactive accent elements |
 | `accent.active` | `#8C1E40` | Pressed / active state |
 | `accent.text` | `#FFFFFF` | Text rendered on accent grounds (9.04:1) |
-| `accent.muted` | `rgba(163, 40, 78, 0.15)` | Washes behind active chips and segmented controls |
+| `accent.muted` | `rgba(163, 40, 78, 0.15)` | Reserved for selected-state wash, never general hover |
 | `signal` | `#C92A2A` | Broadcast Signal Red (Recording live indicator only; white CTA text ≥4.5:1) |
 | `signal.muted` | `rgba(201, 42, 42, 0.16)` | Background wash behind recording timer and HUD badge |
 | `success` | `#2ECC71` | Validated states, good signal levels (>-18 dBFS) |
@@ -70,14 +75,15 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 | `surface.glass-strong` | `rgba(255, 255, 255, 0.96)` | Primary floating islands in light mode |
 | `surface.solid` | `#E5E8ED` | Cards and channel strips |
 | `border.subtle` | `rgba(18, 20, 26, 0.15)` | Dividers and inactive borders |
-| `border.glass` | `rgba(18, 20, 26, 0.20)` | Specular 1px outer stroke |
+| `border.glass` | `rgba(18, 20, 26, 0.12)` | Quiet hairline on floating islands and canvas |
 | `text.primary` | `#12141A` | Dark graphite headings (17.2:1 on canvas) |
 | `text.secondary` | `rgba(18, 20, 26, 0.75)` | Secondary labels and metadata |
+| `text.on-canvas` | `#F4F5F8` | Fixed light copy on the black preview canvas (does not swap in light mode) |
 | `text.disabled` | `rgba(18, 20, 26, 0.48)` | Disabled text |
-| `accent` | `#8B1E3F` | Deep studio burgundy (8.16:1 on canvas) |
+| `accent` | `#8B1E3F` | Deep studio burgundy (primary Record action, true selection) |
 | `accent.hover` | `#751834` | Hover state |
 | `accent.text` | `#FFFFFF` | Text on accent buttons (9.12:1) |
-| `accent.muted` | `rgba(139, 30, 63, 0.12)` | Active tab/chip wash |
+| `accent.muted` | `rgba(139, 30, 63, 0.12)` | Selected-state wash only |
 | `signal` | `#D32F2F` | Live recording indicator |
 
 ---
@@ -93,12 +99,12 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 | Token | Size | Line Height | Weight | Application |
 |---|---|---|---|---|
-| `display.lg` | 1.75rem (28px) | 1.15 | 700 | Primary modal and view titles |
-| `display.md` | 1.375rem (22px) | 1.2 | 700 | Panel and section titles |
-| `heading` | 1.125rem (18px) | 1.35 | 600 | Inspector section headers, drawer titles |
+| `display.lg` | 1.75rem (28px) | 1.15 | 600 | Primary modal and view titles |
+| `display.md` | 1.375rem (22px) | 1.2 | 600 | Panel and section titles |
+| `heading` | 1.125rem (18px) | 1.35 | 500 | Inspector section headers, drawer titles |
 | `body-md` | 0.9375rem (15px) | 1.5 | 400 | General descriptions, setting descriptions |
 | `body-sm` | 0.875rem (14px) | 1.45 | 400 / 500 | Control labels, device names, card titles; never shrink to fit |
-| `label` | 0.75rem (12px) | 1.3 | 600 | Overline headers ("SOURCES", "AUDIO MIXER", "TAKES") |
+| `label` | 0.75rem (12px) | 1.3 | 500 | Sentence-case overline labels ("Sources", "Audio mixer", "Takes") — never uppercase or tracked |
 | `mono-md` | 0.9375rem (15px) | 1.2 | 500 | Tabular recording timer, live duration |
 | `mono-sm` | 0.8125rem (13px) | 1.3 | 400 | File sizes, hotkey badges (`⌘1`, `F1`), fps counters |
 
@@ -122,18 +128,18 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 | Token | Dark Recipe | Purpose |
 |---|---|---|
-| `elev.1` | `0 1px 3px rgba(0,0,0,0.24), 0 6px 18px rgba(0,0,0,0.16)` | Inner cards, channel strips |
-| `elev.2` | `0 3px 10px rgba(0,0,0,0.28), 0 14px 32px rgba(0,0,0,0.24)` | Floating decks, popovers, drawers |
-| `elev.float` | `0 6px 24px -4px rgba(0,0,0,0.40), 0 20px 56px -8px rgba(0,0,0,0.32)` | Hero Canvas, floating HUD, PiP frame |
+| `elev.1` | `0 1px 2px rgba(0,0,0,0.20)` | Inner cards, channel strips |
+| `elev.2` | `0 2px 8px rgba(0,0,0,0.24)` | Floating decks, popovers, drawers |
+| `elev.float` | `0 6px 20px -6px rgba(0,0,0,0.32)` | Hero Canvas, floating HUD, PiP frame |
 
 ### 4.3 Studio Glass Recipes
 
 | Recipe | Fill | Blur | Border | Shadow |
 |---|---|---|---|---|
-| **Studio Deck** | `surface.glass-strong` | `blur(24px) saturate(180%)` | `border.glass` 1px | `elev.2` |
-| **Hero Canvas** | `#000000` (video frame) | — | `border.glass` 1px | `elev.float` |
-| **Floating HUD**| `surface.glass-strong` | `blur(28px) saturate(200%)` | `border.glass` 1px | `elev.float` |
-| **Modal Glass** | `surface.glass-strong` | `blur(32px)` | `border.subtle` 1px | `elev.2` |
+| **Studio Deck** | `surface.glass-strong` | `blur(12px) saturate(110%)` | `border.subtle` 1px | `elev.1` |
+| **Hero Canvas** | `#000000` (video frame) | — | `border.subtle` 1px | `elev.1` |
+| **Floating HUD**| `surface.glass-strong` | `blur(16px) saturate(120%)` | `border.subtle` 1px | `elev.2` |
+| **Modal Glass** | `surface.glass-strong` | `blur(20px)` | `border.subtle` 1px | `elev.2` |
 
 ---
 
@@ -144,8 +150,8 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 - **Left Group:** Window controls (traffic lights on macOS / custom dots on Wayland) + App Logo + "ScreenStudio Pro" (`body-sm` 600).
 - **Center Group:** Sleek segmented view capsule:
   - `Record` | `Library` | `Settings`
-  - Active tab: Smooth sliding `accent.muted` wash + `text.primary` font weight 600.
-- **Right Action Cluster:**
+  - Active tab: quiet `surface.hover` step + 1px hairline, `text.primary`; no accent wash.
+  - Live signal dot: one mono-timecode readout beside the Record CTA when recording.- **Right Action Cluster:**
   - **Telemetry Pill:** `mono-sm` badge (`1080p60` · `VAAPI` / `x264`).
   - **Stream (V2) Pill:** Disabled ghost pill with "V2" badge.
   - **Record Pill CTA:** Minimum 40px height, `r.full` pill button.  - Compact header law: auxiliary telemetry hides below 1280px; navigation icons are 16px and labels use `body-sm`; no window control, tab icon, or action label may overlap.
@@ -169,23 +175,23 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 ### 5.3 Center Hero Canvas (The Star of the Studio)
 - **Aspect Ratio:** Strictly **16:9 widescreen**.
-- **Geometry:** Dominates center viewport, responsive scaling with `r.lg` (16px) corners and 1px specular border (`border.glass`).
+- **Geometry:** Dominates center viewport, responsive scaling with `r.lg` (16px) corners and a quiet 1px hairline (`border.subtle`).
 - **Content:** Live PipeWire video frame with GPU zero-copy preview.
 - **Overlays:**
   - Camera PiP frame rendered directly in position with corner docking guides.
   - Region Crop overlay: Smooth drag-rect handles when Region mode is active.
 - **Sub-Canvas Floating Audio Mixer Deck (Meld Studio Style):**
-  - Horizontally aligned glass deck directly below the 16:9 canvas.
+  - Horizontally aligned floating deck directly below the 16:9 canvas.
   - Two dedicated vertical channel cards:
     - **Microphone Channel Card:**
       - Title & device dropdown.
-      - DSP active badges: `[AI Noise Isolation]` (RNNoise), `[Gate]`.
-      - Dual stereo vertical/horizontal peak/RMS meter bars (-60 dB to 0 dB with -6 dB compression zone).
+      - DSP state as quiet mono text: `RNNoise`, `Gate`.
+      - Dual stereo peak/RMS meter bars (-60 dB to 0 dB with -6 dB compression zone); accent fill below -6 dB, signal red above.
       - Volume slider fader.
       - High-contrast Mute button.
     - **Desktop Audio Channel Card:**
       - Title & output sink monitor name.
-      - DSP active badge: `[Auto-Ducking]`.
+      - Desktop audio state as quiet mono text: `Auto-Ducking`.
       - Live system audio peak meter bars.
       - Volume slider fader + Mute button.
 
@@ -213,23 +219,23 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 +-----------------------------------------------------------------------------------------------------------------------+
 |                                                                                                                       |
 |  +--------------------+   +-------------------------------------------------------------+   +----------------------+  |
-|  | CAPTURE INSPECTOR  |   |                     HERO 16:9 CANVAS                        |   | RECENT TAKES         |  |
+|  | Capture inspector  |   |                     Hero 16:9 canvas                        |   | Recent takes         |  |
 |  |                    |   |                                                             |   |                      |  |
 |  | [Mon | Win | Reg]  |   |                                                             |   | +------------------+ |  |
 |  |                    |   |                                                             |   | | [16:9 Thumbnail] | |  |
 |  | Display 1 (1080p)  |   |                                                             |   | | 01:45 · 1080p60  | |  |
 |  | [DP-1          v]  |   |                                            +--------------+ |   | +------------------+ |  |
 |  |                    |   |                                            | Camera PiP   | |   |                      |  |
-|  | CAMERA PiP         |   |                                            | (Draggable)  | |   | +------------------+ |  |
+|  | Camera PiP         |   |                                            | (Draggable)  | |   | +------------------+ |  |
 |  | [Facecam HD    v]  |   |                                            +--------------+ |   | | [16:9 Thumbnail] | |  |
 |  | Shape: (o) [ ]     |   +-------------------------------------------------------------+   | | 08:20 · 1080p60  | |  |
 |  | Corner: [::]       |                                                                     | +------------------+ |  |
 |  | Size: [===|----]   |   +-------------------------------------------------------------+   |                      |  |
-|  |                    |   | AUDIO MIXER DECK                                            |   | +------------------+ |  |
-|  | QUALITY PRESET     |   |                                                             |   | | [16:9 Thumbnail] | |  |
+|  |                    |   | Audio mixer deck                                            |   | +------------------+ |  |
+|  | Quality preset     |   |                                                             |   | | [16:9 Thumbnail] | |  |
 |  | [YouTube 1080p v]  |   |  MIC [USB Mic v]           DESKTOP [System Audio v]         |   | | 00:32 · 1080p60  | |  |
 |  |                    |   |  [AI Noise] [Gate]         [Auto-Ducking]                   |   | +------------------+ |  |
-|  | ENCODER            |   |  [====||||||-------] -12   [======||||||||----] -6          |   |                      |  |
+|  | Encoder            |   |  [====||||||-------] -12   [======||||||||----] -6          |   |                      |  |
 |  | VAAPI (Hardware)   |   |  ( Mute )  [==|------]     ( Mute )  [====|----]            |   | [Open Library ...]   |  |
 |  +--------------------+   +-------------------------------------------------------------+   +----------------------+  |
 |                                                                                                                       |
@@ -250,3 +256,4 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
    - Rec-dot pulse turns to static bold signal red.
    - Glass island slide transitions step down to instant opacity fades (<90ms).
 4. **Hit Target Sizes:** Every interactive button, pill, and switch satisfies $\ge 36\text{px}$ minimum clickable area; primary CTA Record pill is $\ge 40\text{px}$.
+5. **Motion Law:** One easing curve (`cubic-bezier(0.22, 1, 0.36, 1)`) governs all transitions. Only color, background, border, opacity, and transform may animate. No looping motion on non-live elements, no bounce, and no animated layout properties.

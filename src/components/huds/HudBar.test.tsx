@@ -73,7 +73,7 @@ describe("HudBar (§5.9)", () => {
     const timer = screen.getByRole("timer");
     expect(timer).toHaveTextContent("1:05");
     expect(timer).toHaveClass("tabular-nums");
-    expect(screen.queryByText("PAUSED")).toBeNull();
+    expect(screen.queryByText("Paused")).toBeNull();
   });
 
   it("paused: dot becomes the 22px square (shape law), PAUSED chip beside the frozen timer, button reads Resume", () => {
@@ -82,7 +82,7 @@ describe("HudBar (§5.9)", () => {
     const dot = container.querySelector<HTMLElement>('[data-hud="dot"]');
     expect(dot?.className).not.toContain("animate-pulse-rec");
     expect(dot?.className).not.toContain("rounded-full");
-    expect(screen.getByText("PAUSED")).toBeTruthy();
+    expect(screen.getByText("Paused")).toBeTruthy();
     expect(screen.getByRole("timer")).toHaveTextContent("1:05"); // frozen value still shown
     expect(screen.getByRole("button", { name: "Resume recording" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Pause recording" })).toBeNull();

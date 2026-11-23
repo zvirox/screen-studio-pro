@@ -240,7 +240,7 @@ export default function NavBar() {
                 aria-selected={active}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectTab(item.id)}
-                className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-body-sm font-medium outline-none transition-[color,background-color,scale] duration-fast ease-fast motion-reduce:scale-none active:scale-[0.98] min-[720px]:gap-2 min-[720px]:px-3 ${
+                className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-body-sm font-medium outline-none transition-[color,background-color,scale] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-[0.98] min-[720px]:gap-2 min-[720px]:px-3 ${
                   active
                     ? "text-ink"
                     : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
@@ -250,7 +250,7 @@ export default function NavBar() {
                   <motion.span
                     layoutId="active-view-tab"
                     aria-hidden="true"
-                    className="absolute inset-0 z-base rounded-full bg-accent-muted shadow-xs"
+                    className="absolute inset-0 z-base rounded-full border border-subtle bg-surface-solid shadow-xs"
                     transition={{ duration: MOTION.base, ease: MOTION.easeBase }}
                   />
                 ) : null}

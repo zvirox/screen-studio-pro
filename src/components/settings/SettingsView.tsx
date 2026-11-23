@@ -22,7 +22,7 @@ import FirstRunPane from "./FirstRunPane";
    horizontally scrollable pill row on compact, and ONE content scroll owner
    with a single max-w-[560px] wrapper. No nested <main>; panes never
    re-wrap themselves (their v1.0 wrappers are removed in Stage 3).
-   Active tab = accent.muted + text.primary; icons are 16px lucide 1.5px. */
+   Active tab = surface step + hairline + text.primary; icons are 16px lucide 1.5px. */
 
 const RAIL_ITEMS: Array<{
   id: string;
@@ -148,11 +148,11 @@ export default function SettingsView() {
               tabIndex={active ? 0 : -1}
               onClick={() => selectTab(index)}
               onKeyDown={(event) => handleTabKeyDown(event, index)}
-              className={`flex h-10 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-body-sm transition-colors duration-fast ease-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent
+              className={`flex h-10 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-sm border px-3 py-1.5 text-body-sm transition-colors duration-fast ease-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent
                 ${
                   active
-                    ? "bg-accent-muted font-medium text-ink"
-                    : "text-ink-secondary hover:bg-solid hover:text-ink"
+                    ? "border-subtle bg-surface-solid text-ink"
+                    : "border-transparent text-ink-secondary hover:bg-surface-hover hover:text-ink"
                 }`}
             >
               <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -162,7 +162,7 @@ export default function SettingsView() {
         })}
       </nav>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-raised">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-raised">
         {RAIL_ITEMS.map((item) => {
           const active = activeTab === item.id;
           return (
@@ -173,7 +173,7 @@ export default function SettingsView() {
               aria-labelledby={tabId(item.id)}
               hidden={!active}
               tabIndex={0}
-              className="mx-auto min-w-0 max-w-[560px] p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent min-[480px]:p-5 min-[720px]:p-6"
+              className="mx-auto flex min-h-full w-full min-w-0 max-w-[560px] flex-col justify-center p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent min-[480px]:p-5 min-[720px]:p-6"
             >
               {active ? (
                 <>
@@ -185,7 +185,7 @@ export default function SettingsView() {
                       <button
                         type="button"
                         onClick={() => setView("record")}
-                        className="min-h-9 rounded-sm px-2 text-label font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                        className="min-h-9 rounded-sm px-2 text-label font-medium text-ink-secondary hover:text-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                       >
                         Go to Record
                       </button>

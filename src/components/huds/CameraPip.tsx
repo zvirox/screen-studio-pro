@@ -92,7 +92,9 @@ function guideClass(corner: PipCorner, winner: PipCorner | null): string {
         : corner === "bottom-left"
           ? "left-6 bottom-6 border-l-2 border-b-2"
           : "right-6 bottom-6 border-r-2 border-b-2";
-  const strength = winner === corner ? "border-accent" : "border-accent/40";
+  // The winning snap target is a true selected state (accent); the other
+  // guides stay neutral so drag feedback reads as instrument-like, not festive.
+  const strength = winner === corner ? "border-accent" : "border-line-glass/40";
   return `absolute h-6 w-6 ${bars} ${strength} pointer-events-none`;
 }
 
@@ -333,7 +335,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
               aria-pressed={frozen}
               title={frozen ? "Unfreeze preview" : "Freeze preview (recording continues)"}
               onClick={() => setFrozen((f) => !f)}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
             >
               {frozen ? (
                 <VideoOff size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -346,7 +348,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                 type="button"
                 aria-label="Camera frame shape"
                 title="Frame shape"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-accent-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               >
                 {shape === "circle" ? (
                   <Circle size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -366,7 +368,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                     // 4.4: persist shape as pip.shape.
                     void setPipShape("circle");
                   }}
-                  className="flex h-9 items-center gap-2 rounded-xs px-2 text-body-sm text-ink hover:bg-accent-muted aria-checked:bg-accent-muted aria-checked:font-medium"
+                  className="flex h-9 items-center gap-2 rounded-xs border border-transparent px-2 text-body-sm text-ink hover:bg-surface-hover aria-checked:border-subtle aria-checked:bg-surface-solid aria-checked:font-medium"
                 >
                   <Circle size={16} strokeWidth={1.5} aria-hidden="true" />
                   Circle
@@ -380,7 +382,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                     // 4.4: persist shape as pip.shape.
                     void setPipShape("rounded");
                   }}
-                  className="flex h-9 items-center gap-2 rounded-xs px-2 text-body-sm text-ink hover:bg-accent-muted aria-checked:bg-accent-muted aria-checked:font-medium"
+                  className="flex h-9 items-center gap-2 rounded-xs border border-transparent px-2 text-body-sm text-ink hover:bg-surface-hover aria-checked:border-subtle aria-checked:bg-surface-solid aria-checked:font-medium"
                 >
                   <RectangleHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
                   Rounded

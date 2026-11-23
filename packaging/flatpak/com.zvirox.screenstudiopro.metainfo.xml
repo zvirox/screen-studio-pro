@@ -36,9 +36,9 @@
   <content_rating type="oars-1.1" />
   <releases>
     <!-- STAMPED BY CI: release.yml replaces version/date with the pushed tag. -->
-    <release version="v0.0.1-alpha.8" date="2026-11-23">
+    <release version="v0.0.1-alpha.9" date="2026-11-23">
       <description>
-        <p>Flatpak release fix: enable custom-protocol feature so WebKitGTK loads bundled static assets offline instead of connecting to localhost:1420.</p>
+        <p>Design system v3.2: quiet studio instrument — sentence-case labels, restrained neutral surfaces, and refreshed screenshots.</p>
       </description>
     </release>
   </releases>

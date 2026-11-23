@@ -32,7 +32,7 @@ describe("ActionRow paused (§5.9 2.3)", () => {
     setState(INITIAL_SOURCE, INITIAL_SESSION);
   });
 
-  it("paused: PAUSED label chip beside the frozen timer; Stop stays live", () => {
+  it("paused: Paused label chip beside the frozen timer; Stop stays live", () => {
     const stopRecording = vi.fn().mockResolvedValue(undefined);
     useSspStore.setState({ stopRecording });
     setState(LIVE, {
@@ -44,8 +44,8 @@ describe("ActionRow paused (§5.9 2.3)", () => {
     });
     render(<ActionRow />);
     // The chip carries the phase word verbatim (§5.9: timer shows the
-    // frozen value, the PAUSED `label` chip sits beside it).
-    expect(screen.getByText("PAUSED")).toBeTruthy();
+    // frozen value, the "Paused" chip sits beside it).
+    expect(screen.getByText("Paused")).toBeTruthy();
     expect(screen.getByRole("timer")).toHaveTextContent("0:04");
     // A paused take is still a running take — Stop & save stays enabled
     // (stop-while-paused is legal per API §2.3).
@@ -67,7 +67,7 @@ describe("ActionRow paused (§5.9 2.3)", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
-  it("recording (not paused): no PAUSED chip", () => {
+  it("recording (not paused): no Paused chip", () => {
     setState(LIVE, {
       ...INITIAL_SESSION,
       status: "recording",
@@ -75,7 +75,7 @@ describe("ActionRow paused (§5.9 2.3)", () => {
       elapsedMs: 4200,
     });
     render(<ActionRow />);
-    expect(screen.queryByText("PAUSED")).toBeNull();
+    expect(screen.queryByText("Paused")).toBeNull();
   });
 });
 
@@ -121,67 +121,6 @@ describe("ActionRow (§5.1/§6.5)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     setState(INITIAL_SOURCE, INITIAL_SESSION);
-  });
-
-  it("quality preset select: renders the four M11 presets in plain language", () => {
-    useSspStore.setState({
-      loadPresets: vi.fn().mockResolvedValue(undefined),
-      presets: {
-        status: "ready",
-        error: null,
-        presets: [
-          { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
-          { id: "discord", label: "For Discord", description: "720p30, ~6 Mbps", fps: 30, height: 720, container: "mp4" },
-          { id: "lossless", label: "Lossless local", description: "native resolution, visually lossless", fps: 60, height: 0, container: "mkv" },
-          { id: "smallest", label: "Smallest file", description: "720p30, ~2 Mbps", fps: 30, height: 720, container: "mp4" },
-        ],
-        presetId: "youtube",
-      },
-    });
-    render(<ActionRow />);
-    const select = screen.getByRole("combobox", { name: /Quality preset/ }) as HTMLSelectElement;
-    expect(select).toHaveValue("youtube");
-    expect(select.textContent).toContain("For YouTube — 1080p60, ~12 Mbps");
-    expect(select.textContent).toContain("For Discord — 720p30, ~6 Mbps");
-    expect(select).toBeEnabled();
-  });
-
-  it("quality preset select: changing it persists through setPreset", () => {
-    const setPreset = vi.fn().mockResolvedValue(undefined);
-    useSspStore.setState({
-      loadPresets: vi.fn().mockResolvedValue(undefined),
-      setPreset,
-      presets: {
-        status: "ready",
-        error: null,
-        presets: [
-          { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
-          { id: "discord", label: "For Discord", description: "720p30, ~6 Mbps", fps: 30, height: 720, container: "mp4" },
-        ],
-        presetId: "youtube",
-      },
-    });
-    render(<ActionRow />);
-    const select = screen.getByRole("combobox", { name: /Quality preset/ });
-    fireEvent.change(select, { target: { value: "discord" } });
-    expect(setPreset).toHaveBeenCalledWith("discord");
-  });
-
-  it("quality preset select: disabled while recording (take-snapshot law)", () => {
-    useSspStore.setState({
-      loadPresets: vi.fn().mockResolvedValue(undefined),
-      presets: {
-        status: "ready",
-        error: null,
-        presets: [
-          { id: "youtube", label: "For YouTube", description: "1080p60, ~12 Mbps", fps: 60, height: 1080, container: "mp4" },
-        ],
-        presetId: "youtube",
-      },
-    });
-    setState(LIVE, { ...INITIAL_SESSION, status: "recording", recordingId: "rec_1" });
-    render(<ActionRow />);
-    expect(screen.getByRole("combobox", { name: /Quality preset/ })).toBeDisabled();
   });
 
   it("idle: the 48px Record primary is disabled until a source is live", () => {

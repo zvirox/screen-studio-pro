@@ -74,7 +74,7 @@ function TakeCard({ item, onOpen }: TakeCardProps) {
   return (
     <article
       aria-labelledby={titleId}
-      className="group relative flex min-w-0 flex-col gap-2 rounded-md border border-subtle bg-solid p-2.5 shadow-elev-1 transition-all duration-fast hover:border-accent hover:shadow-elev-2"
+      className="group relative flex min-w-0 flex-col gap-2 rounded-md border border-subtle bg-solid p-2.5 shadow-elev-1 transition-colors duration-fast hover:border-line-glass"
     >
       <button
         type="button"
@@ -107,13 +107,13 @@ function TakeCard({ item, onOpen }: TakeCardProps) {
         <div className="flex min-w-0 flex-col">
           <span
             id={titleId}
-            className="truncate text-body-sm font-medium text-ink group-hover:text-accent"
+            className="truncate text-body-sm font-medium text-ink"
           >
             {item.fileName}
           </span>
           <div className="flex items-center justify-between gap-2 font-mono text-label text-ink-secondary">
             <span>{formatSize(item.sizeBytes)}</span>
-            <span className="uppercase">{item.container}</span>
+            <span>{item.container}</span>
           </div>
         </div>
       </button>
@@ -145,7 +145,7 @@ function TakeCard({ item, onOpen }: TakeCardProps) {
           onClick={handleCopyPath}
         >
           {copied ? (
-            <Check size={16} className="text-accent" aria-hidden="true" />
+            <Check size={16} className="text-ink" aria-hidden="true" />
           ) : (
             <Copy size={16} aria-hidden="true" />
           )}
@@ -233,17 +233,17 @@ export default function TakesGallery() {
             onClick={() => setMode("takes")}
             onKeyDown={(event) => handleTabKeyDown(event, "takes")}
             className={cn(
-              "flex min-h-9 items-center gap-1 rounded-xs px-2.5 py-1 text-body-sm font-medium transition-colors",
+              "flex min-h-9 items-center gap-1 rounded-xs border border-transparent px-2.5 py-1 text-body-sm font-medium transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
               mode === "takes"
-                ? "bg-accent text-accent-text shadow-sm"
+                ? "border-subtle bg-surface-hover text-ink"
                 : "text-ink-secondary hover:text-ink",
             )}
           >
             <Film size={14} className="shrink-0" aria-hidden="true" />
             <span>Takes</span>
             {library.items.length > 0 && (
-              <span className="ml-0.5 shrink-0 rounded-full bg-white/20 px-1 font-mono text-label">
+              <span className="ml-0.5 shrink-0 rounded-full border border-subtle bg-solid px-1 font-mono text-label text-ink-secondary">
                 {library.items.length}
               </span>
             )}
@@ -261,10 +261,10 @@ export default function TakesGallery() {
             onClick={() => setMode("presets")}
             onKeyDown={(event) => handleTabKeyDown(event, "presets")}
             className={cn(
-              "flex min-h-9 items-center gap-1 rounded-xs px-2.5 py-1 text-body-sm font-medium transition-colors",
+              "flex min-h-9 items-center gap-1 rounded-xs border border-transparent px-2.5 py-1 text-body-sm font-medium transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
               mode === "presets"
-                ? "bg-accent text-accent-text shadow-sm"
+                ? "border-subtle bg-surface-hover text-ink"
                 : "text-ink-secondary hover:text-ink",
             )}
           >
@@ -272,8 +272,8 @@ export default function TakesGallery() {
             <span>Presets</span>
           </button>
         </div>
-        <span className="shrink-0 text-label uppercase tracking-wider text-ink-secondary">
-          Deck
+        <span className="shrink-0 text-label font-medium text-ink-secondary">
+          Gallery
         </span>
       </div>
 
@@ -297,7 +297,7 @@ export default function TakesGallery() {
             <div>
               <p className="text-body-sm font-medium text-ink">No takes recorded yet</p>
               <p className="mt-0.5 text-label text-ink-secondary max-w-[200px]">
-                Hit Record to capture your first widescreen take.
+                Select a source, then record
               </p>
             </div>
           </div>
@@ -313,10 +313,10 @@ export default function TakesGallery() {
         <button
           type="button"
           onClick={() => setView("library")}
-          className="mt-auto flex h-9 items-center justify-between rounded-sm border border-subtle bg-solid px-3 text-body-sm font-medium text-ink hover:border-accent hover:bg-accent-muted focus-visible:outline-2 focus-visible:outline-accent"
+          className="mt-auto flex h-9 items-center justify-between rounded-sm border border-subtle bg-solid px-3 text-body-sm font-medium text-ink transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent"
         >
           <span className="flex items-center gap-2">
-            <FolderOpen size={14} className="text-accent" aria-hidden="true" />
+            <FolderOpen size={14} className="text-ink-secondary" aria-hidden="true" />
             Open Library
           </span>
           <ArrowRight size={14} className="text-ink-secondary" aria-hidden="true" />
@@ -346,8 +346,8 @@ export default function TakesGallery() {
               className={cn(
                 "flex min-w-0 flex-col gap-1 rounded-md border p-2.5 text-left transition-colors",
                 isSelected
-                  ? "border-accent bg-accent-muted/40 shadow-sm"
-                  : "border-subtle bg-solid hover:border-accent hover:bg-accent-muted",
+                  ? "border-subtle bg-surface-hover"
+                  : "border-subtle bg-solid hover:bg-surface-hover",
                 "focus-visible:outline-2 focus-visible:outline-accent",
               )}
             >

@@ -49,9 +49,10 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
     expect(css).toContain("--ssp-surface-glass: rgba(255, 255, 255, 0.06);");
     expect(css).toContain("--ssp-surface-glass-strong: rgba(18, 20, 26, 0.94);");
     expect(css).toContain("--ssp-border-subtle: rgba(255, 255, 255, 0.14);");
-    expect(css).toContain("--ssp-border-glass: rgba(255, 255, 255, 0.20);");
+    expect(css).toContain("--ssp-border-glass: rgba(255, 255, 255, 0.10);");
     expect(css).toContain("--ssp-text-primary: #F4F5F8;");
     expect(css).toContain("--ssp-text-secondary: rgba(244, 245, 248, 0.78);");
+    expect(css).toContain("--ssp-text-on-canvas: #F4F5F8;");
     expect(css).toContain("--ssp-text-disabled: rgba(244, 245, 248, 0.46);");
   });
 
@@ -78,12 +79,10 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
     expect(css).toContain("--radius-full: 999px;");
   });
 
-  it("F1-T1-04: defines atmospheric elevation shadows for floating surfaces", () => {
-    expect(css).toContain("--ssp-elev-1: 0 1px 3px rgba(0, 0, 0, 0.24), 0 6px 18px rgba(0, 0, 0, 0.16);");
-    expect(css).toContain("--ssp-elev-2: 0 3px 10px rgba(0, 0, 0, 0.28), 0 14px 32px rgba(0, 0, 0, 0.24);");
-    expect(css).toContain(
-      "--ssp-elev-float: 0 6px 24px -4px rgba(0, 0, 0, 0.4), 0 20px 56px -8px rgba(0, 0, 0, 0.32);",
-    );
+  it("F1-T1-04: defines restrained elevation shadows for floating surfaces", () => {
+    expect(css).toContain("--ssp-elev-1: 0 1px 2px rgba(0, 0, 0, 0.20);");
+    expect(css).toContain("--ssp-elev-2: 0 2px 8px rgba(0, 0, 0, 0.24);");
+    expect(css).toContain("--ssp-elev-float: 0 6px 20px -6px rgba(0, 0, 0, 0.32);");
     expect(css).toContain("--shadow-elev-1: var(--ssp-elev-1);");
     expect(css).toContain("--shadow-elev-2: var(--ssp-elev-2);");
     expect(css).toContain("--shadow-elev-float: var(--ssp-elev-float);");
@@ -102,9 +101,9 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 1)", () => {
     expect(css).toContain("--ssp-signal: #D32F2F;");
   });
 
-  it("F1-T1-06: carries the mandatory provenance header comment DESIGN.md v3.1", () => {
-    expect(css).toMatch(/\/\*\s*DESIGN\.md v3\.1\s*\*\//);
-    expect(css).toContain("Provenance: DESIGN.md v3.1");
+  it("F1-T1-06: carries the mandatory provenance header comment DESIGN.md v3.2", () => {
+    expect(css).toMatch(/\/\*\s*DESIGN\.md v3\.2\s*\*\//);
+    expect(css).toContain("Provenance: DESIGN.md v3.2");
   });
 });
 
@@ -166,19 +165,19 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 2 Boundary & Edge)",
     // Studio Deck recipes (Left Inspector, Sub-Canvas Audio Deck, Right Takes Gallery)
     expect(css).toContain("@utility studio-deck {");
     expect(css).toContain("background-color: var(--ssp-surface-glass-strong);");
-    expect(css).toContain("backdrop-filter: blur(24px) saturate(180%);");
-    expect(css).toContain("border: 1px solid var(--ssp-border-glass);");
-    expect(css).toContain("box-shadow: var(--ssp-elev-2);");
+    expect(css).toContain("backdrop-filter: blur(12px) saturate(110%);");
+    expect(css).toContain("border: 1px solid var(--ssp-border-subtle);");
+    expect(css).toContain("box-shadow: var(--ssp-elev-1);");
 
     // Hero Canvas utility
     expect(css).toContain("@utility hero-canvas {");
     expect(css).toContain("background-color: #000000;");
-    expect(css).toContain("box-shadow: var(--ssp-elev-float);");
+    expect(css).toContain("box-shadow: var(--ssp-elev-1);");
 
     // Floating HUD utility
     expect(css).toContain("@utility floating-hud {");
-    expect(css).toContain("backdrop-filter: blur(28px) saturate(200%);");
-    expect(css).toContain("box-shadow: var(--ssp-elev-float);");
+    expect(css).toContain("backdrop-filter: blur(16px) saturate(120%);");
+    expect(css).toContain("box-shadow: var(--ssp-elev-2);");
   });
 
   it("F1-T2-04: strictly adheres to monotonic fixed z-level scale without arbitrary values", () => {

@@ -20,7 +20,7 @@ import Button from "../ui/Button";
 
 /* §6.5 Cards & the recording library grid (task 5.2).
    Card: surface.solid, r.md, border.subtle, elev.1, padding space.4.
-   Interactive hover: border → accent-tinted, y −1px on m.fast.
+   Interactive hover: neutral surface step + glass hairline, no lift.
    Loading: skeleton grid — shimmer on surface.solid shapes, never spinners
    mid-page. Recording item: 16:9 thumbnail (r.sm), duration chip bottom-right
    (mono-sm, rgba(0,0,0,0.5) ground), name body-sm 500, meta row
@@ -58,10 +58,12 @@ function LibraryCard({
   item,
   onOpen,
   onDelete,
+  featured = false,
 }: {
   item: LibraryListItem;
   onOpen: (id: number) => void;
   onDelete: (id: number) => void;
+  featured?: boolean;
 }) {
   const handleDelete = () => {
     onDelete(item.id);
@@ -71,7 +73,8 @@ function LibraryCard({
     <article
       className={cn(
         "group relative rounded-md border border-subtle bg-solid p-4 shadow-[var(--shadow-elev-1)]",
-        "transition-[translate,border-color] duration-fast ease-fast hover:-translate-y-1 hover:border-accent focus-within:border-accent motion-reduce:translate-none",
+        "transition-colors duration-fast ease-fast hover:border-line-glass hover:bg-surface-hover focus-within:border-line-glass",
+        featured && "lg:col-span-2",
       )}
     >
       {/* 16:9 thumbnail (r.sm). The separate open button keeps the article
@@ -219,7 +222,7 @@ export default function LibraryGrid() {
           <input
             id="library-search"
             type="search"
-            placeholder="Search recordings…"
+            placeholder="Search"
             value={search}
             onChange={handleSearch}
             className="h-10 w-full min-w-0 rounded-sm border border-subtle bg-solid pl-9 pr-3 text-body-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
@@ -240,8 +243,8 @@ export default function LibraryGrid() {
               onClick={() => handleSort("created_at")}
               aria-pressed={sortField === "created_at"}
               className={cn(
-                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm px-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                sortField === "created_at" && "text-accent",
+                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm border border-transparent px-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+                sortField === "created_at" && "border-subtle bg-surface-solid text-ink",
               )}
             >
               Date
@@ -257,8 +260,8 @@ export default function LibraryGrid() {
               onClick={() => handleSort("duration")}
               aria-pressed={sortField === "duration"}
               className={cn(
-                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm px-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                sortField === "duration" && "text-accent",
+                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm border border-transparent px-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+                sortField === "duration" && "border-subtle bg-surface-solid text-ink",
               )}
             >
               Duration
@@ -274,8 +277,8 @@ export default function LibraryGrid() {
               onClick={() => handleSort("size")}
               aria-pressed={sortField === "size"}
               className={cn(
-                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm px-2 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                sortField === "size" && "text-accent",
+                "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm border border-transparent px-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+                sortField === "size" && "border-subtle bg-surface-solid text-ink",
               )}
             >
               Size
@@ -361,10 +364,11 @@ export default function LibraryGrid() {
           // Grid of recording cards.
           <Reveal>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {library.items.map((item) => (
+              {library.items.map((item, index) => (
                 <LibraryCard
                   key={item.id}
                   item={item}
+                  featured={index === 0}
                   onOpen={openDrawer}
                   onDelete={(id) => setPendingDelete({ id, name: item.fileName })}
                 />

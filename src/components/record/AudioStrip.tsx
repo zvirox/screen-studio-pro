@@ -91,7 +91,7 @@ function DevicePopover({ channel, state, disabled }: { channel: Channel; state: 
           disabled={disabled}
           className={cn(
             "flex max-w-44 items-center gap-1 rounded-xs px-1 py-0.5 text-left",
-            "text-body-sm text-ink-secondary hover:bg-accent-muted hover:text-ink",
+            "text-body-sm text-ink-secondary hover:bg-surface-hover hover:text-ink",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
             "disabled:cursor-not-allowed disabled:opacity-50",
           )}
@@ -157,14 +157,14 @@ function DevicePopover({ channel, state, disabled }: { channel: Channel; state: 
                   "flex h-11 w-full items-center justify-between gap-2 rounded-xs px-3",
                   "text-body-sm text-ink",
                   selected
-                    ? "bg-accent-muted font-medium shadow-[inset_2px_0_0_var(--ssp-accent)]"
-                    : "hover:bg-accent-muted",
-                  "focus-visible:bg-accent-muted focus-visible:outline-none",
+                    ? "border-l-2 border-subtle bg-surface-hover font-medium"
+                    : "hover:bg-surface-hover",
+                  "focus-visible:bg-surface-hover focus-visible:outline-none",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                 )}
               >
                 <span className="truncate">{opt.label}</span>
-                {selected && <Check size={16} className="shrink-0 text-accent" aria-hidden />}
+                {selected && <Check size={16} className="shrink-0 text-ink" aria-hidden />}
               </button>
             );
           })

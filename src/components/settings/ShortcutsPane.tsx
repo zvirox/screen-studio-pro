@@ -95,7 +95,7 @@ export default function ShortcutsPane() {
           }}
           disabled={toggling}
           className={`flex items-center gap-2 rounded-sm border border-subtle bg-solid px-4 py-2 text-body-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent
-            ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-accent-muted"}`}
+            ${toggling ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-surface-hover"}`}
         >
           {toggling ? "Applying…" : "Apply shortcuts"}
         </button>

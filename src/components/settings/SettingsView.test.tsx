@@ -52,8 +52,8 @@ describe("SettingsView shell (§6.4 / §6.0)", () => {
     }
     const cameraTab = screen.getByRole("tab", { name: "Camera" });
     const panel = screen.getByRole("tabpanel", { name: "Camera" });
-    expect(cameraTab).toHaveClass("bg-accent-muted", "text-ink");
-    expect(cameraTab).not.toHaveClass("text-accent");
+    expect(cameraTab).toHaveClass("border-subtle", "bg-surface-solid", "text-ink");
+    expect(cameraTab).not.toHaveClass("bg-accent-muted", "text-accent");
     expect(panel).toHaveAttribute("id", "settings-panel-camera");
     expect(panel).toHaveAttribute("aria-labelledby", "settings-tab-camera");
   });
