@@ -6,6 +6,7 @@ mod ipc;
 mod library;
 mod pipeline;
 mod settings;
+pub mod starship_bridge;
 mod tray;
 mod util;
 
