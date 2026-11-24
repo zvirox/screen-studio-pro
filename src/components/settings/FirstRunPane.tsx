@@ -27,7 +27,7 @@ export default function FirstRunPane() {
         <h2 className="text-heading text-ink">First run</h2>
       </div>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Welcome to ScreenStudio Pro. These three education moments will help you make your first
+        Welcome to Screen Studio Pro. These three education moments will help you make your first
         recording in under 60 seconds.
       </p>
 

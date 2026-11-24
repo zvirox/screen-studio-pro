@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="src/assets/screen-studio-pro-logo.png" alt="ScreenStudio Pro logo" width="200">
+  <img src="src/assets/screen-studio-pro-logo.png" alt="Screen Studio Pro logo" width="200">
 </p>
 
-# ScreenStudio Pro
+# Screen Studio Pro
 
 **An open-source screen recording app for Wayland-first Linux — a frosted-glass alternative built for Hyprland, niri, MangoWC and KDE Plasma.**
 
-> **Status: alpha (`0.0.1+alpha.9`, release tag `v0.0.1-alpha.9`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches all four package formats. Open validation work includes hardware-path performance targets, package installs on test VMs, and real in-app screenshots. The `+` form is used in app metadata because Tauri's bundler rejects `-` in version strings; the tag keeps the usual prerelease spelling. See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.8.md) and [full progress ledger](PLAN.md).
+> **Status: alpha (`0.1.0`, release tag `v0.1.0`).** Phases 0–6 and all seven v3 studio UI stages are implemented; the recording pipeline and local library are CI-verified. Release CI builds and attaches native package formats (.deb, .rpm, .pkg.tar.zst). See the [capability matrix and known quirks](docs/releases/0.0.1-alpha.8.md) and [full progress ledger](PLAN.md).
 
 ## 📸 Screenshots
 
@@ -57,41 +57,38 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings &
 
 ## 📦 Installation
 
-The alpha.8 release provides **x86_64 Linux** builds. Download the asset for your distro from [v0.0.1-alpha.9](https://github.com/zvirox/screen-studio-pro/releases/tag/v0.0.1-alpha.9), change to the download directory, then run the matching commands.
+Download the appropriate package and `SHA256SUMS` from the [Latest Release](https://github.com/zvirox/screen-studio-pro/releases/latest).
 
 ### Debian / Ubuntu (`.deb`)
 
 ```bash
-sudo apt install ./ScreenStudio.Pro_0.0.1+alpha.9_amd64.deb
+sudo apt install ./screen-studio-pro_<version>_amd64.deb
 ```
 
-### Fedora and other dnf-based distros (`.rpm`)
+### Fedora / RHEL (`.rpm`)
 
 ```bash
-sudo dnf install ./ScreenStudio.Pro-0.0.1+alpha.9-1.x86_64.rpm
+sudo dnf install ./screen-studio-pro-<version>-1.x86_64.rpm
 ```
 
-### AppImage
+### Arch Linux / Manjaro (`.pkg.tar.zst`)
 
 ```bash
-chmod +x ScreenStudio.Pro_0.0.1+alpha.9_amd64.AppImage
-./ScreenStudio.Pro_0.0.1+alpha.9_amd64.AppImage
+sudo pacman -U ./screen-studio-pro-<version>-1-x86_64.pkg.tar.zst
 ```
 
-### Flatpak (single-file bundle)
+### Verify Checksums
 
-The bundle uses the GNOME 49 runtime:
+Verify file integrity against the release manifest:
 
 ```bash
-flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub org.gnome.Platform//49
-flatpak install --user ./ScreenStudio-Pro-v0.0.1-alpha.9-x86_64.flatpak
-flatpak run com.zvirox.screenstudiopro
+sha256sum -c SHA256SUMS --ignore-missing
 ```
 
-For `.deb` and `.rpm`, launch **ScreenStudio Pro** from your application launcher or run `screen-studio-pro`. Select a monitor/window/region, approve the desktop portal's consent dialog, then select **Record**.
+> [!NOTE]
+> **Packaging Update:** AppImage, Flatpak, and AUR builds are retired in favor of native packages (`.deb`, `.rpm`, `.pkg.tar.zst`).
 
-> These prerelease assets are built and attached by CI. They have **not been install-verified on test VMs**. There is no AUR package yet. Check the [release notes](docs/releases/0.0.1-alpha.6.md) and [portal support matrix](docs/portal-support.md) before installing on an untested compositor.
+Launch **Screen Studio Pro** from your application launcher or run `screen-studio-pro`. Select a monitor/window/region, approve the desktop portal's consent dialog, then select **Record**.
 
 ## 🌍 Environment variables
 
@@ -162,17 +159,6 @@ The native build invokes the `ffmpeg` executable on `PATH`. Install your distro'
 ffprobe -v error -show_entries stream=codec_name,codec_type -of default=noprint_wrappers=1 /path/to/take.mkv
 ```
 
-### AppImage does not start
-
-AppImage normally needs a FUSE 2 runtime. On Ubuntu 24.04, install it with:
-
-```bash
-sudo apt install libfuse2t64
-./ScreenStudio.Pro_0.0.1+alpha.7_amd64.AppImage
-```
-
-Using the `.deb`, `.rpm` or Flatpak asset avoids the AppImage FUSE requirement.
-
 ### Recording or settings paths are unwritable
 
 For `disk.path_unwritable`, choose a writable output directory under **Settings → Files** and check free space. If `settings.toml` is invalid or from an incompatible schema, close the app and rename it to keep a backup; the next launch creates defaults:
@@ -204,7 +190,7 @@ When [filing a bug](https://github.com/zvirox/screen-studio-pro/issues/new?templ
 src-tauri/src/     Rust core: capture/, encode/, pipeline/, library/, ipc/, settings/
 src/               React webview: components/{chrome,record,library,settings,huds,ui}/, hooks/, lib/, types/
 src-tauri/sql/     numbered SQLite migrations
-packaging/         Flatpak manifest (AUR PKGBUILD follow-up)
+packaging/         Linux packaging configs (nfpm.yaml, desktop, icons)
 .github/workflows/ CI + tag-triggered release
 docs/              portal-support.md, releases/, screenshots/
 *.md               PRD, PRODUCT, DESIGN, ARCHITECTURE, DATABASE, API, PLAN, AGENTS

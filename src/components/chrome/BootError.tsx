@@ -14,7 +14,7 @@ export default function BootError({
   return (
     <main className="pane flex h-screen flex-col items-center justify-center rounded-lg p-10 text-center">
       <span className="app-mark mb-5" aria-hidden="true" />
-      <h1 className="text-display-md text-ink">ScreenStudio Pro can't start</h1>
+      <h1 className="text-display-md text-ink">Screen Studio Pro can't start</h1>
       <p className="mt-3 max-w-md text-body-sm text-ink-secondary">
         {userMessage}
       </p>

@@ -12,12 +12,12 @@ export default function AboutPane() {
       <div className="flex items-center gap-4">
         <img
           src={logoUrl}
-          alt="ScreenStudio Pro logo"
+          alt="Screen Studio Pro logo"
           className="h-12 w-12 rounded-lg object-contain"
         />
         <div>
           <p className="mt-1 text-body-sm text-ink-secondary">
-            ScreenStudio Pro — screen recording for Wayland-first Linux desktops.
+            Screen Studio Pro — screen recording for Wayland-first Linux desktops.
           </p>
         </div>
       </div>
@@ -27,12 +27,12 @@ export default function AboutPane() {
         <dl className="space-y-2">
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink-secondary">Name</dt>
-            <dd className="text-body-sm text-ink">ScreenStudio Pro</dd>
+            <dd className="text-body-sm text-ink">Screen Studio Pro</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink-secondary">Version</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
-              {capabilities?.version?.app ?? "0.0.1+alpha.9"}
+              {capabilities?.version?.app ?? "0.1.0"}
             </dd>
           </div>
           <div className="flex justify-between">

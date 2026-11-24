@@ -65,8 +65,8 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <div className="flex h-dvh flex-col bg-canvas text-ink">
         <TitleBar
-          title="ScreenStudio Pro"
-          version="v0.0.1+alpha.9"
+          title="Screen Studio Pro"
+          version="v0.1.0"
           icon={<img src="/logo.png" alt="SSP" className="size-4 object-contain" />}
         />
         <NavBar showWindowControls={false} />

@@ -177,7 +177,7 @@ describe("lib/ipc", () => {
     const err = asIpcError("permission denied: not allowed");
     expect(err.kind).toBe("ipc");
     expect(err.code).toBe("ipc.unknown_command");
-    expect(err.userMessage).toBe("ScreenStudio Pro could not reach its recording core.");
+    expect(err.userMessage).toBe("Screen Studio Pro could not reach its recording core.");
     expect(err.details).toEqual({ cause: "permission denied: not allowed" });
   });
 

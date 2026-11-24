@@ -1,0 +1,54 @@
+name: screen-studio-pro
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: "1"
+section: video
+maintainer: Prakash <zvirox@proton.me>
+description: Modern open-source screen recording for Linux (Wayland-first)
+homepage: https://github.com/zvirox/screen-studio-pro
+license: MIT
+
+contents:
+  - src: target/release/screen-studio-pro
+    dst: /usr/bin/screen-studio-pro
+    file_info: { mode: 0755 }
+  - src: packaging/screen-studio-pro.desktop
+    dst: /usr/share/applications/screen-studio-pro.desktop
+  - src: packaging/icons/hicolor/32x32/apps/screen-studio-pro.png
+    dst: /usr/share/icons/hicolor/32x32/apps/screen-studio-pro.png
+  - src: packaging/icons/hicolor/128x128/apps/screen-studio-pro.png
+    dst: /usr/share/icons/hicolor/128x128/apps/screen-studio-pro.png
+  - src: packaging/icons/hicolor/256x256/apps/screen-studio-pro.png
+    dst: /usr/share/icons/hicolor/256x256/apps/screen-studio-pro.png
+  - src: packaging/icons/hicolor/512x512/apps/screen-studio-pro.png
+    dst: /usr/share/icons/hicolor/512x512/apps/screen-studio-pro.png
+  - src: LICENSE
+    dst: /usr/share/doc/screen-studio-pro/LICENSE
+
+scripts:
+  postinstall: packaging/scripts/postinstall.sh
+  preremove: packaging/scripts/preremove.sh
+
+overrides:
+  deb:
+    depends:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - libpipewire-0.3-0
+      - xdg-desktop-portal
+  rpm:
+    depends:
+      - webkit2gtk4.1
+      - gtk3
+      - libayatana-appindicator-gtk3
+      - pipewire-libs
+      - xdg-desktop-portal
+  archlinux:
+    depends:
+      - webkit2gtk-4.1
+      - gtk3
+      - libayatana-appindicator
+      - pipewire
+      - xdg-desktop-portal

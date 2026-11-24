@@ -8,13 +8,13 @@ describe("BootError", () => {
   it("renders the message and both contract versions", () => {
     render(
       <BootError
-        userMessage="This build of ScreenStudio Pro doesn't match its recording core."
+        userMessage="This build of Screen Studio Pro doesn't match its recording core."
         expected="1.0.0"
         actual="2.0.0"
       />,
     );
     expect(
-      screen.getByText("This build of ScreenStudio Pro doesn't match its recording core."),
+      screen.getByText("This build of Screen Studio Pro doesn't match its recording core."),
     ).toBeInTheDocument();
     expect(screen.getByText("1.0.0")).toBeInTheDocument();
     expect(screen.getByText("2.0.0")).toBeInTheDocument();
@@ -23,7 +23,7 @@ describe("BootError", () => {
   it("says 'no answer' when the core never responded", () => {
     render(
       <BootError
-        userMessage="ScreenStudio Pro could not reach its recording core."
+        userMessage="Screen Studio Pro could not reach its recording core."
         expected="1.0.0"
         actual={null}
       />,

@@ -204,7 +204,7 @@ describe("Tier 4: Real-World Studio Application Scenarios", () => {
     // 2. Verify NavBar renders with banner role, brand title, and CSD window controls
     const navBar = screen.getByRole("banner");
     expect(navBar).toBeInTheDocument();
-    expect(screen.getByText("ScreenStudio Pro")).toBeInTheDocument();
+    expect(screen.getByText("Screen Studio Pro")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /close window/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /minimize window/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /maximize window/i })).toBeInTheDocument();

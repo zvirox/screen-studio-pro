@@ -20,15 +20,15 @@ describe("AboutPane (§6.4 / 6.1)", () => {
           compositor: "kwin_wayland",
           windowCapture: true,
         },
-        version: { app: "0.0.1+alpha.9", ipcContract: "1.6.0" },
+        version: { app: "0.1.0", ipcContract: "1.6.0" },
       },
     });
   });
 
   it("renders app name and version", () => {
     render(<AboutPane />);
-    expect(screen.getByText("ScreenStudio Pro")).toBeInTheDocument();
-    expect(screen.getByText("0.0.1+alpha.9")).toBeInTheDocument();
+    expect(screen.getByText("Screen Studio Pro")).toBeInTheDocument();
+    expect(screen.getByText("0.1.0")).toBeInTheDocument();
   });
 
   it("renders IPC contract version", () => {

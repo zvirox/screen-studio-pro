@@ -57,8 +57,8 @@ describe("Feature 2: Window Configuration & Proportions (Tier 1)", () => {
   });
 
   it("F2-T1-04: declares correct application product title", () => {
-    expect(primaryWindow?.title).toBe("ScreenStudio Pro");
-    expect(config.productName).toBe("ScreenStudio Pro");
+    expect(primaryWindow?.title).toBe("Screen Studio Pro");
+    expect(config.productName).toBe("Screen Studio Pro");
   });
 
   it("F2-T1-05: [Milestone 2] enforces UI v3 default dimensions 1360x820 and minimum dimensions 1040x680", () => {

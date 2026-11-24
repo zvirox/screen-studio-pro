@@ -51,7 +51,7 @@ export function asIpcError(err: unknown): IpcError {
     kind: "ipc",
     code: "ipc.unknown_command",
     retryable: false,
-    userMessage: "ScreenStudio Pro could not reach its recording core.",
+    userMessage: "Screen Studio Pro could not reach its recording core.",
     details: { cause: String(err) },
   };
 }

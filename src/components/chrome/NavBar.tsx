@@ -213,7 +213,7 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
               data-tauri-drag-region
               className="hidden truncate text-body-sm font-medium text-text-primary min-[1280px]:inline"
             >
-              ScreenStudio Pro
+              Screen Studio Pro
             </span>
           </div>
         </div>

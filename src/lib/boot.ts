@@ -33,7 +33,7 @@ export async function boot(): Promise<BootResult> {
         code: "ipc.contract_mismatch",
         retryable: false,
         userMessage:
-          "This build of ScreenStudio Pro doesn't match its recording core. Reinstall the app to fix the versions.",
+          "This build of Screen Studio Pro doesn't match its recording core. Reinstall the app to fix the versions.",
         details: { expected: IPC_CONTRACT_VERSION, actual },
       },
       expected: IPC_CONTRACT_VERSION,
