@@ -4791,7 +4791,8 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "starship-plugin"
-version = "0.1.0"
+version = "0.1.0-beta.1"
+source = "git+https://github.com/zvirox/starship-control?branch=main#559b4899f75d944e9db9b3b544f14e9dbb302d8d"
 dependencies = [
  "serde",
  "serde_json",
