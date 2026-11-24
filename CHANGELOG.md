@@ -4,7 +4,11 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 ## [Unreleased]
 
-Planned but not shipped: AUR PKGBUILD and VM install tests for the packaged releases (7.5 residual), archived real in-app screenshots, the G3 ≤60s first-recording timing metric and the AUR announce (7.6 residual), hardware encoder completion (3.3 / 11.2), replay buffer (V3), scene compositor and streaming (V2). See [PLAN.md](PLAN.md) for the phased roadmap.
+## [0.1.0-beta.1] - 2026-11-24
+
+- **Unified Linear-Style Design System**: Migrated to solid elevated surfaces (`#121215`, `#17171c`, `#202026`), hairline precision borders (`#23232a`), and zero blur across all screens and HUD.
+- **Packaging & CI**: Reusable packaging matrix generating .deb, .rpm, .apk, and .tar.gz assets with automated release publishing.
+- **Starship Control Integration**: Ecosystem orchestration bridge via `$XDG_DATA_HOME/starship/plugins/ssp.json` and Unix domain socket `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock`.
 
 ## [0.0.1+alpha.9] - 2026-11-23
 

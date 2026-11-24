@@ -66,7 +66,7 @@ export default function App() {
       <div className="flex h-dvh flex-col bg-canvas text-ink">
         <TitleBar
           title="Screen Studio Pro"
-          version="v0.1.0"
+          version="v0.1.0-beta.1"
           icon={<img src="/logo.png" alt="SSP" className="size-4 object-contain" />}
         />
         <NavBar showWindowControls={false} />
