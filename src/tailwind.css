@@ -57,20 +57,20 @@
 /* ---------- Runtime palette layer (values from DESIGN.md §2, verbatim) ---------- */
 :root {
   color-scheme: dark;
-  /* dark is default (§2.1) — DESIGN.md v3.2, Obsidian palette */
-  --ssp-bg-canvas: #0A0B0E;
-  --ssp-bg-raised: #12141A;
-  --ssp-surface-glass: rgba(255, 255, 255, 0.06);
-  --ssp-surface-glass-strong: rgba(18, 20, 26, 0.94);
-  --ssp-surface-solid: #181A22;
-  --ssp-surface-hover: rgba(255, 255, 255, 0.08);
-  --ssp-border-subtle: rgba(255, 255, 255, 0.14);
-  --ssp-border-glass: rgba(255, 255, 255, 0.10);
+  /* dark is default (§2.1) — DESIGN.md v4.0, Linear Obsidian palette */
+  --ssp-bg-canvas: #08080a;
+  --ssp-bg-raised: #121215;
+  --ssp-surface-glass: #121215;
+  --ssp-surface-glass-strong: #121215;
+  --ssp-surface-solid: #17171c;
+  --ssp-surface-hover: #202026;
+  --ssp-border-subtle: #23232a;
+  --ssp-border-glass: #23232a;
   --ssp-border-focus: #C77493;
   --ssp-text-primary: #F4F5F8;
-  --ssp-text-secondary: rgba(244, 245, 248, 0.78);
+  --ssp-text-secondary: #a1a1aa;
   --ssp-text-on-canvas: #F4F5F8;
-  --ssp-text-disabled: rgba(244, 245, 248, 0.46);
+  --ssp-text-disabled: #71717a;
   /* Studio Burgundy Accent */
   --ssp-accent: #A3284E;
   --ssp-accent-hover: #BA335D;
@@ -85,14 +85,13 @@
   --ssp-warning: #F39C12;
   --ssp-error: #E74C3C;
   --ssp-error-muted: rgba(231, 76, 60, 0.14);
-  /* §4.2 dark shadow recipes */
-  --ssp-elev-1: 0 1px 2px rgba(0, 0, 0, 0.20);
-  --ssp-elev-2: 0 2px 8px rgba(0, 0, 0, 0.24);
-  --ssp-elev-float: 0 6px 20px -6px rgba(0, 0, 0, 0.32);
-  /* §4.3 recipe inputs (fill composed at use, see glass recipes below) */
-  --ssp-scrim-floor: 55%;
-  --ssp-modal-scrim: rgba(10, 11, 14, 0.6);
-  --ssp-input-hover-border: rgba(255, 255, 255, 0.16);
+  /* Linear dual-shadow recipes */
+  --ssp-elev-1: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ssp-elev-2: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --ssp-elev-float: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 12px 30px -10px rgba(0, 0, 0, 0.85);
+  --ssp-scrim-floor: 100%;
+  --ssp-modal-scrim: rgba(8, 8, 10, 0.75);
+  --ssp-input-hover-border: #33333d;
   /* §8 fixed z-level scale — never raw z-* in components */
   --ssp-z-base: 0;
   --ssp-z-sticky: 10;
@@ -107,19 +106,19 @@
 :root.light,
 .light {
   color-scheme: light;
-  --ssp-bg-canvas: #F1F3F6;
-  --ssp-bg-raised: #FFFFFF;
-  --ssp-surface-glass: rgba(255, 255, 255, 0.78);
-  --ssp-surface-glass-strong: rgba(255, 255, 255, 0.96);
-  --ssp-surface-solid: #E5E8ED;
-  --ssp-surface-hover: rgba(18, 20, 26, 0.07);
-  --ssp-border-subtle: rgba(18, 20, 26, 0.15);
-  --ssp-border-glass: rgba(18, 20, 26, 0.12);
+  --ssp-bg-canvas: #f7f7f8;
+  --ssp-bg-raised: #ffffff;
+  --ssp-surface-glass: #ffffff;
+  --ssp-surface-glass-strong: #ffffff;
+  --ssp-surface-solid: #f2f2f4;
+  --ssp-surface-hover: #e8e8ec;
+  --ssp-border-subtle: #e2e2e7;
+  --ssp-border-glass: #e2e2e7;
   --ssp-border-focus: #8B1E3F;
-  --ssp-text-primary: #12141A;
-  --ssp-text-secondary: rgba(18, 20, 26, 0.75);
+  --ssp-text-primary: #09090b;
+  --ssp-text-secondary: #52525b;
   --ssp-text-on-canvas: #F4F5F8;
-  --ssp-text-disabled: rgba(18, 20, 26, 0.48);
+  --ssp-text-disabled: #8e8e93;
   --ssp-accent: #8B1E3F;
   --ssp-accent-hover: #751834;
   --ssp-accent-active: #5C1B30;
@@ -131,12 +130,11 @@
   --ssp-warning: #D35400;
   --ssp-error: #C0392B;
   --ssp-error-muted: rgba(192, 57, 43, 0.12);
-  /* §4.2 light shadow recipes */
-  --ssp-elev-1: 0 1px 2px rgba(18, 20, 26, 0.08);
-  --ssp-elev-2: 0 2px 8px rgba(18, 20, 26, 0.12);
-  --ssp-elev-float: 0 6px 20px -6px rgba(18, 20, 26, 0.18);
+  --ssp-elev-1: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(18, 20, 26, 0.04);
+  --ssp-elev-2: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 2px 8px rgba(18, 20, 26, 0.06);
+  --ssp-elev-float: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 10px 25px -5px rgba(0, 0, 0, 0.06);
   --ssp-modal-scrim: rgba(18, 20, 26, 0.28);
-  --ssp-input-hover-border: rgba(18, 20, 26, 0.16);
+  --ssp-input-hover-border: #c8c8d0;
 }
 
 /* ---------- Tailwind theme bridge ---------- */
@@ -274,28 +272,17 @@
   }
 }
 
-/* ---------- §4.3 Glass recipes (the only sanctioned blur treatments) ---------- */
+/* ---------- §4.3 Linear Solid Recipes (Zero Blur, Hairline Precision) ---------- */
 @utility pane {
-  /* fill = surface.glass over the 55% bg.canvas scrim floor */
-  background-color: color-mix(
-    in srgb,
-    var(--ssp-bg-canvas) var(--ssp-scrim-floor),
-    var(--ssp-surface-glass)
-  );
-  backdrop-filter: blur(12px) saturate(110%);
+  background-color: var(--ssp-surface-glass);
   border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-1);
+  box-shadow: var(--ssp-elev-float);
 }
 
 @utility float {
-  background-color: color-mix(
-    in srgb,
-    var(--ssp-bg-canvas) var(--ssp-scrim-floor),
-    var(--ssp-surface-glass-strong)
-  );
-  backdrop-filter: blur(12px) saturate(110%);
+  background-color: var(--ssp-surface-glass-strong);
   border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-1);
+  box-shadow: var(--ssp-elev-float);
 }
 
 @utility modal {

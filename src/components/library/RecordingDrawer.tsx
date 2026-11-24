@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { ExternalLink, X, Scissors } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { LinearButton } from "../linear/LinearButton";
 import { useSspStore } from "../../lib/store";
 
 /* §5.7 Modal & Drawer: right-slide drawer (420px), Modal recipe
@@ -36,13 +37,13 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
       role="dialog"
       aria-label="Recording details"
     >
-      {/* Scrim — closes on click. */}
+      {/* Scrim — solid opaque overlay, closes on click. */}
       <div
-        className="absolute inset-0 backdrop-blur-sm bg-[var(--ssp-modal-scrim)]"
+        className="absolute inset-0 bg-black/75"
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Drawer panel — right-slide 420px, Modal recipe. */}
+      {/* Drawer panel — right-slide 420px, solid surface. */}
       <div className="absolute bottom-0 right-0 top-0 flex w-105 flex-col border-l border-subtle bg-solid shadow-elev-2">
         {/* Header with close. */}
         <div className="flex items-center justify-between p-4 border-b border-subtle">
@@ -137,27 +138,27 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
 
         {/* Footer — actions. */}
         <div className="p-4 border-t border-subtle bg-raised flex items-center justify-between gap-2">
-          <button
-            type="button"
+          <LinearButton
+            variant="secondary"
+            size="md"
             aria-label="Reveal in file manager"
             onClick={() => {
               if (recording.path) void revealItemInDir(recording.path);
             }}
-            className="flex items-center gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            <ExternalLink size={16} strokeWidth={1.5} aria-hidden="true" />
-            Reveal in file manager
-          </button>
-          <button
-            type="button"
+            <ExternalLink size={16} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />
+            <span>Reveal in file manager</span>
+          </LinearButton>
+          <LinearButton
+            variant="ghost"
+            size="md"
             disabled
             aria-label="Trim later"
             title="Planned for V2"
-            className="flex items-center gap-2 rounded-sm border border-subtle bg-solid px-3 py-2 text-body-sm text-ink-disabled cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            <Scissors size={16} strokeWidth={1.5} aria-hidden="true" />
-            Trim later
-          </button>
+            <Scissors size={16} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />
+            <span>Trim later</span>
+          </LinearButton>
         </div>
       </div>
     </dialog>

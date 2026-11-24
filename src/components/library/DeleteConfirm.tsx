@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Trash2, X } from "lucide-react";
+import { LinearCard } from "../linear/LinearCard";
+import { LinearButton } from "../linear/LinearButton";
 import { useSspStore } from "../../lib/store";
 
 /* §5.1 Buttons: danger (destructive only — delete recording; `error`
@@ -49,14 +51,17 @@ export default function DeleteConfirm({
       role="dialog"
       aria-label="Delete recording"
     >
-      {/* Scrim — closes on click. */}
+      {/* Scrim — solid opaque overlay, closes on click. */}
       <div
-        className="absolute inset-0 backdrop-blur-sm bg-[var(--ssp-modal-scrim)]"
+        className="absolute inset-0 bg-black/75"
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Modal panel — centered, Modal recipe. */}
-      <div className="absolute inset-x-1/2 top-1/2 flex w-120 -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-subtle bg-solid shadow-elev-2">
+      {/* Modal panel — centered, LinearCard modal recipe. */}
+      <LinearCard
+        level="modal"
+        className="absolute inset-x-1/2 top-1/2 flex w-120 -translate-x-1/2 -translate-y-1/2 flex-col p-0 overflow-hidden"
+      >
         {/* Header. */}
         <div className="flex items-center justify-between p-4 border-b border-subtle">
           <h2 className="text-heading font-medium text-ink">Delete recording</h2>
@@ -64,7 +69,7 @@ export default function DeleteConfirm({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="h-9 w-9 rounded-sm border border-subtle bg-raised flex items-center justify-center text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-9 w-9 rounded-lg border border-subtle bg-raised flex items-center justify-center text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent cursor-pointer"
           >
             <X size={18} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -78,23 +83,23 @@ export default function DeleteConfirm({
 
         {/* Footer — actions. */}
         <div className="p-4 border-t border-subtle bg-raised flex items-center justify-end gap-2">
-          <button
-            type="button"
+          <LinearButton
+            variant="secondary"
+            size="md"
             onClick={onClose}
-            className="flex h-10 w-24 items-center justify-center rounded-sm border border-subtle bg-solid px-3 text-body-sm font-medium text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             Cancel
-          </button>
-          <button
-            type="button"
+          </LinearButton>
+          <LinearButton
+            variant="danger"
+            size="md"
             onClick={handleConfirm}
-            className="flex h-10 w-24 items-center justify-center rounded-sm border border-error bg-error/5 px-3 text-body-sm font-medium text-error hover:bg-error-muted hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-error"
           >
-            <Trash2 size={16} strokeWidth={1.5} aria-hidden="true" />
-            Delete
-          </button>
+            <Trash2 size={16} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />
+            <span>Delete</span>
+          </LinearButton>
         </div>
-      </div>
+      </LinearCard>
     </dialog>
   );
 }

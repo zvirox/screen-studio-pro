@@ -1,25 +1,22 @@
 # DESIGN.md — ScreenStudio Pro Design System
 
-**Version:** 3.2 · **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**
+**Version:** 4.0 · **Date:** 2026-11-24 · **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**  
 **Rule:** Every UI built later must follow this file strictly. Do not invent new colors or fonts outside it. To change a token, change it here first.
+
+**v4.0 Changelog (2026-11-24) — "Linear Precision Studio":**
+Migrates from frosted glass islands to the Linear-Style Design System (Dark & Light). Replaces all `backdrop-filter: blur()` and semi-transparent fills with 100% opaque solid matte graphite (`#121215`, `#17171c`) and alabaster (`#ffffff`, `#f2f2f4`) surfaces. Retains the wide tri-panel architecture, hero 16:9 canvas, and Studio Burgundy / Broadcast Signal Red identity while introducing 1px hairline precision borders and Linear dual-shadow bevel illumination. Motion standardizes strictly to `motion/react` with mechanical easing (`cubic-bezier(0.16, 1, 0.3, 1)`).
 
 **v3.2 Changelog (2026-11-23) — "Quiet Studio Instrument":**
 Keeps the wide tri-panel architecture, Obsidian/Burgundy identity, and Familjen Grotesk/JetBrains Mono pairing from v3.1, but moves richness out of the chrome and into the product's own moments. Overline labels are sentence case; surfaces are quiet neutral steps with hairlines instead of specular glass glow; Burgundy is reserved for the primary Record action and true selection; signal red remains live-only. The mono timecode readout with one live signal dot is the product's signature and appears only where capture state is real. Motion uses one restrained easing curve.
-
-**v3.1 Changelog (2026-11-22) — "Legible, Responsive Studio":**
-Keeps the v3.0 wide-window floating-island architecture while refining surface separation, text contrast, and control sizing. Text wraps before it collides; compact panels use their available width; titlebar and inspector controls adapt at native-window breakpoints. Buttons, segmented controls, cards, tabs, and audio meters use the existing motion scale and remain understandable without pointer hover or animation. Semantic control colors are separated from accent-filled buttons: neutral dark surfaces are readable and Burgundy-filled controls always carry the specified high-contrast foreground. Secondary text uses `0.78` opacity in dark mode and `0.75` in light mode; normal text adjacent to decoded video is never used as an implicit overlay surface.
-
-**v3.0 Changelog (2026-11-18) — "Wide-Window Floating Studio Overhaul":**  
-Inspired by modern studio workstations (Camo Studio, Meld Studio, PRISM Live Studio), v3.0 replaces the narrow vertical two-column layout and the square (1:1) preview frame with a **wide-window, tri-panel floating island architecture**. The centerpiece is a cinematic **hero 16:9 widescreen canvas** flanked by symmetrical, perfectly aligned floating glass decks (Left: Capture & Device Inspector; Center-Bottom: Audio Mixer Deck; Right: Takes & Presets Gallery). Corner radii evolve to a refined hardware scale (`r.md=12px`, `r.lg=16px`, `r.xl=20px`), neutral grounds deepen to Obsidian Slate, and top chrome unifies into an integrated CSD titlebar with floating pill action clusters (`Record`, `1080p60` telemetry).
 
 ---
 
 ## 1. Brand Feel & Design Principles
 
-**Feel:** A precise, instrument-like studio controller for Wayland desktops. The room is quiet; the picture and the live levels carry the energy. Calm and focused while idle, unmistakably alive when **Record** is armed. Built for Hyprland, niri, MangoWC, and KDE Plasma.
+**Feel:** A precise, instrument-like studio controller for Wayland desktops. Solid matte surfaces, micro-hairlines, inset edge lighting, zero-glass blur, and high-contrast telemetry. Calm and focused while idle, unmistakably alive when **Record** is armed. Built for Hyprland, niri, MangoWC, and KDE Plasma.
 
-### Principle 1 — Quiet Islands
-Surfaces do not cling edge-to-edge like legacy dashboards. Major sections are **floating neutral islands** (`surface.glass-strong` with 16px corner radius, a quiet hairline, and a shallow neutral shadow). The central 16:9 canvas and its flanking inspector and gallery panels share disciplined vertical heights and breathing margins (`space.4` / 16px). Depth comes from surface steps and hairlines, not glows or colored shadows.
+### Principle 1 — Solid Precision Islands
+Surfaces do not cling edge-to-edge like legacy dashboards. Major sections are **floating solid matte islands** (`#121215` in Dark, `#ffffff` in Light with 16px corner radius, a crisp 1px hairline `#23232a`, and dual-shadow bevel illumination `shadow-linear-dark`). No `backdrop-filter: blur()`. The central 16:9 canvas and its flanking inspector and gallery panels share disciplined vertical heights and breathing margins (`space.4` / 16px). Depth comes from physical elevation and top edge inset lighting, never glass glow.
 
 ### Principle 2 — The Hero 16:9 Canvas is King
 A screen recorder captures widescreen displays. The canvas is **always 16:9 widescreen native**, floating prominently in the center of the viewport with gentle rounded corners (`r.lg` = 16px) and a subtle 1px border. Letterboxing and square 1:1 frames are prohibited. Overlays (camera PiP, region crop) live directly on this canvas.
@@ -41,19 +38,17 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 | Token | Hex / Value | Role |
 |---|---|---|
-| `bg.canvas` | `#0A0B0E` | Deep Obsidian background under all floating islands |
-| `bg.raised` | `#12141A` | Opaque base layer for forms, settings, and tables |
-| `surface.glass` | `rgba(255, 255, 255, 0.06)` | Subtle glass fill (inner cards, secondary containers) |
-| `surface.glass-strong` | `rgba(18, 20, 26, 0.94)` | Primary floating island deck (Left Inspector, Right Gallery, HUD) |
-| `surface.solid` | `#181A22` | Cards, channel strips, and tiles resting inside decks |
-| `surface.hover` | `rgba(255, 255, 255, 0.08)` | Hover state for interactive cards and rows |
-| `border.subtle` | `rgba(255, 255, 255, 0.14)` | Dividers, inactive card strokes |
-| `border.glass` | `rgba(255, 255, 255, 0.10)` | Quiet hairline on floating islands and canvas |
+| `bg.canvas` | `#08080a` | Deep Obsidian background under all floating islands |
+| `surface.1` | `#121215` | Solid elevated primary deck (Left Inspector, Right Gallery, HUD) |
+| `surface.2` | `#17171c` | Solid nested containers, channel strips, inputs |
+| `surface.3` | `#202026` | Hover and active interactive states |
+| `border.subtle` | `#23232a` | 1px hairline boundary on floating islands, cards, and canvas |
+| `border.active` | `#33333d` | Active input or hovered card boundary |
 | `border.focus` | `#C77493` | 2px focus ring on active controls |
 | `text.primary` | `#F4F5F8` | High-contrast headings and active labels (17.5:1 on canvas) |
-| `text.secondary` | `rgba(244, 245, 248, 0.78)` | Subtext, property descriptions, inactive tab labels |
+| `text.secondary` | `#a1a1aa` | Subtext, property descriptions, inactive tab labels |
 | `text.on-canvas` | `#F4F5F8` | Fixed light copy on the black preview canvas, both themes |
-| `text.disabled` | `rgba(244, 245, 248, 0.46)` | Disabled controls, inactive placeholders |
+| `text.disabled` | `#71717a` | Disabled controls, inactive placeholders |
 | `accent` | `#A3284E` | Studio Burgundy (primary Record action, true selection, meter fill) |
 | `accent.hover` | `#BA335D` | Hover state on interactive accent elements |
 | `accent.active` | `#8C1E40` | Pressed / active state |
@@ -69,17 +64,16 @@ Dark mode is the primary studio environment. Neutrals use deep Obsidian Slate to
 
 | Token | Hex / Value | Role |
 |---|---|---|
-| `bg.canvas` | `#F1F3F6` | Crisp studio grey-white background |
-| `bg.raised` | `#FFFFFF` | Pure white opaque deck base |
-| `surface.glass` | `rgba(255, 255, 255, 0.78)` | Frosted light glass fill |
-| `surface.glass-strong` | `rgba(255, 255, 255, 0.96)` | Primary floating islands in light mode |
-| `surface.solid` | `#E5E8ED` | Cards and channel strips |
-| `border.subtle` | `rgba(18, 20, 26, 0.15)` | Dividers and inactive borders |
-| `border.glass` | `rgba(18, 20, 26, 0.12)` | Quiet hairline on floating islands and canvas |
-| `text.primary` | `#12141A` | Dark graphite headings (17.2:1 on canvas) |
-| `text.secondary` | `rgba(18, 20, 26, 0.75)` | Secondary labels and metadata |
+| `bg.canvas` | `#f7f7f8` | Crisp studio paper/grey-white background |
+| `surface.1` | `#ffffff` | Pure white solid elevated deck base |
+| `surface.2` | `#f2f2f4` | Nested containers and channel strips |
+| `surface.3` | `#e8e8ec` | Interactive hover states |
+| `border.subtle` | `#e2e2e7` | 1px precision light card delimiter |
+| `border.active` | `#c8c8d0` | Focused input border, active toggle ring |
+| `text.primary` | `#09090b` | Dark graphite headings (17.2:1 on canvas) |
+| `text.secondary` | `#52525b` | Secondary labels and metadata |
 | `text.on-canvas` | `#F4F5F8` | Fixed light copy on the black preview canvas (does not swap in light mode) |
-| `text.disabled` | `rgba(18, 20, 26, 0.48)` | Disabled text |
+| `text.disabled` | `#8e8e93` | Disabled text |
 | `accent` | `#8B1E3F` | Deep studio burgundy (primary Record action, true selection) |
 | `accent.hover` | `#751834` | Hover state |
 | `accent.text` | `#FFFFFF` | Text on accent buttons (9.12:1) |
