@@ -54,45 +54,51 @@
 
 @import "tailwindcss";
 
-/* ---------- Runtime palette layer (values from DESIGN.md §2, verbatim) ---------- */
+/* ---------- Runtime palette layer (values from DESIGN.md v4.0, verbatim) ---------- */
 :root {
   color-scheme: dark;
-  /* dark is default (§2.1) — DESIGN.md v4.0, Linear Obsidian palette */
-  --ssp-bg-canvas: #08080a;
-  --ssp-bg-raised: #121215;
-  --ssp-surface-glass: #121215;
-  --ssp-surface-glass-strong: #121215;
-  --ssp-surface-solid: #17171c;
+  /* Screenshot Palette Tokens (Section 3) */
+  --bg-app: #050505;
+  --bg-surface: #111213;
+  --bg-surface-2: #1A1B1E;
+  --bg-bar-idle: #202128;
+  --border: #1F2125;
+  --border-strong: #2C2E33;
+  --text: #F5F5F6;
+  --text-muted: #8A8B91;
+  --text-faint: #5A5B62;
+
+  --ssp-bg-canvas: #0A0B0E;
+  --ssp-bg-raised: #12141A;
+  --ssp-surface-solid: #181A22;
+  --ssp-surface-glass: rgba(255, 255, 255, 0.06);
+  --ssp-surface-glass-strong: rgba(18, 20, 26, 0.94);
   --ssp-surface-hover: #202026;
-  --ssp-border-subtle: #23232a;
-  --ssp-border-glass: #23232a;
-  --ssp-border-focus: #C77493;
+  --ssp-border-subtle: rgba(255, 255, 255, 0.14);
+  --ssp-border-glass: rgba(255, 255, 255, 0.10);
+  --ssp-border-focus: #3355FF;
   --ssp-text-primary: #F4F5F8;
-  --ssp-text-secondary: #a1a1aa;
+  --ssp-text-secondary: rgba(244, 245, 248, 0.78);
   --ssp-text-on-canvas: #F4F5F8;
-  --ssp-text-disabled: #71717a;
-  /* Studio Burgundy Accent */
+  --ssp-text-disabled: rgba(244, 245, 248, 0.46);
+  /* Studio Burgundy Accent & Broadcast Signal Red kept (§3 exception) */
   --ssp-accent: #A3284E;
   --ssp-accent-hover: #BA335D;
   --ssp-accent-active: #8C1E40;
   --ssp-accent-text: #FFFFFF;
   --ssp-accent-muted: rgba(163, 40, 78, 0.15);
-  /* Broadcast Signal Red */
   --ssp-signal: #C92A2A;
   --ssp-signal-muted: rgba(201, 42, 42, 0.16);
-  /* Status */
-  --ssp-success: #2ECC71;
-  --ssp-warning: #F39C12;
-  --ssp-error: #E74C3C;
-  --ssp-error-muted: rgba(231, 76, 60, 0.14);
-  /* Linear dual-shadow recipes */
-  --ssp-elev-1: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --ssp-elev-2: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --ssp-elev-float: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 12px 30px -10px rgba(0, 0, 0, 0.85);
+  --ssp-success: #22C55E;
+  --ssp-warning: #EAB308;
+  --ssp-error: #F43F5E;
+  --ssp-error-muted: rgba(244, 63, 94, 0.14);
+  --ssp-elev-1: 0 1px 2px rgba(0, 0, 0, 0.20);
+  --ssp-elev-2: 0 2px 8px rgba(0, 0, 0, 0.24);
+  --ssp-elev-float: 0 6px 20px -6px rgba(0, 0, 0, 0.32);
   --ssp-scrim-floor: 100%;
-  --ssp-modal-scrim: rgba(8, 8, 10, 0.75);
-  --ssp-input-hover-border: #33333d;
-  /* §8 fixed z-level scale — never raw z-* in components */
+  --ssp-modal-scrim: rgba(5, 5, 5, 0.85);
+  --ssp-input-hover-border: var(--border-strong);
   --ssp-z-base: 0;
   --ssp-z-sticky: 10;
   --ssp-z-overlay: 40;
@@ -101,24 +107,33 @@
   --ssp-z-hud: 70;
 }
 
-/* §2.2 Light mode — both faces are law: complete, never afterthought */
+/* §2.2 Light mode — screenshot palette & compatibility */
 :root[data-theme="light"],
-:root.light,
 .light {
   color-scheme: light;
-  --ssp-bg-canvas: #f7f7f8;
-  --ssp-bg-raised: #ffffff;
-  --ssp-surface-glass: #ffffff;
-  --ssp-surface-glass-strong: #ffffff;
-  --ssp-surface-solid: #f2f2f4;
-  --ssp-surface-hover: #e8e8ec;
-  --ssp-border-subtle: #e2e2e7;
-  --ssp-border-glass: #e2e2e7;
-  --ssp-border-focus: #8B1E3F;
-  --ssp-text-primary: #09090b;
-  --ssp-text-secondary: #52525b;
-  --ssp-text-on-canvas: #F4F5F8;
-  --ssp-text-disabled: #8e8e93;
+  --bg-app: #F3F4F6;
+  --bg-surface: #FFFFFF;
+  --bg-surface-2: #F4F5F7;
+  --bg-bar-idle: #EAF0FF;
+  --border: #E5E7EB;
+  --border-strong: #D1D5DB;
+  --text: #0F1115;
+  --text-muted: #6B7280;
+  --text-faint: #9CA3AF;
+
+  --ssp-bg-canvas: #F1F3F6;
+  --ssp-bg-raised: #FFFFFF;
+  --ssp-surface-solid: #E5E8ED;
+  --ssp-surface-glass: rgba(255, 255, 255, 0.78);
+  --ssp-surface-glass-strong: rgba(255, 255, 255, 0.96);
+  --ssp-surface-hover: #E5E7EB;
+  --ssp-border-subtle: var(--border);
+  --ssp-border-glass: var(--border);
+  --ssp-border-focus: #3355FF;
+  --ssp-text-primary: #12141A;
+  --ssp-text-secondary: var(--text-muted);
+  --ssp-text-on-canvas: var(--text);
+  --ssp-text-disabled: var(--text-faint);
   --ssp-accent: #8B1E3F;
   --ssp-accent-hover: #751834;
   --ssp-accent-active: #5C1B30;
@@ -126,15 +141,15 @@
   --ssp-accent-muted: rgba(139, 30, 63, 0.12);
   --ssp-signal: #D32F2F;
   --ssp-signal-muted: rgba(211, 47, 47, 0.12);
-  --ssp-success: #27AE60;
-  --ssp-warning: #D35400;
-  --ssp-error: #C0392B;
-  --ssp-error-muted: rgba(192, 57, 43, 0.12);
-  --ssp-elev-1: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(18, 20, 26, 0.04);
-  --ssp-elev-2: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 2px 8px rgba(18, 20, 26, 0.06);
-  --ssp-elev-float: inset 0 1px 0 0 rgba(255, 255, 255, 0.8), 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 10px 25px -5px rgba(0, 0, 0, 0.06);
+  --ssp-success: #22C55E;
+  --ssp-warning: #EAB308;
+  --ssp-error: #F43F5E;
+  --ssp-error-muted: rgba(244, 63, 94, 0.12);
+  --ssp-elev-1: 0 1px 2px rgba(18, 20, 26, 0.04);
+  --ssp-elev-2: 0 2px 8px rgba(18, 20, 26, 0.06);
+  --ssp-elev-float: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
   --ssp-modal-scrim: rgba(18, 20, 26, 0.28);
-  --ssp-input-hover-border: #c8c8d0;
+  --ssp-input-hover-border: var(--border-strong);
 }
 
 /* ---------- Tailwind theme bridge ---------- */
@@ -286,41 +301,32 @@
 }
 
 @utility modal {
-  background-color: color-mix(
-    in srgb,
-    var(--ssp-bg-canvas) var(--ssp-scrim-floor),
-    var(--ssp-surface-glass-strong)
-  );
-  backdrop-filter: blur(20px);
+  background-color: var(--ssp-bg-raised);
   border: 1px solid var(--ssp-border-subtle);
   box-shadow: var(--ssp-elev-2);
 }
 
-/* DESIGN.md v3.2 §4.3 Studio Glass Recipes */
+/* DESIGN.md v4.0 §4.3 Studio Solid Recipes (Zero Blur) */
 @utility studio-deck {
   background-color: var(--ssp-surface-glass-strong);
-  backdrop-filter: blur(12px) saturate(110%);
   border: 1px solid var(--ssp-border-subtle);
   box-shadow: var(--ssp-elev-1);
 }
 
 @utility glass-studio-deck {
   background-color: var(--ssp-surface-glass-strong);
-  backdrop-filter: blur(12px) saturate(110%);
   border: 1px solid var(--ssp-border-subtle);
   box-shadow: var(--ssp-elev-1);
 }
 
 @utility floating-hud {
   background-color: var(--ssp-surface-glass-strong);
-  backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--ssp-border-subtle);
   box-shadow: var(--ssp-elev-2);
 }
 
 @utility glass-hud {
   background-color: var(--ssp-surface-glass-strong);
-  backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--ssp-border-subtle);
   box-shadow: var(--ssp-elev-2);
 }

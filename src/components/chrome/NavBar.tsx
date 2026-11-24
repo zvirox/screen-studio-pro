@@ -45,7 +45,7 @@ function safeGetWindow() {
   }
 }
 
-export default function NavBar() {
+export default function NavBar({ showWindowControls = true }: { showWindowControls?: boolean }) {
   const view = useSspStore((s) => s.view);
   const setView = useSspStore((s) => s.setView);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -152,70 +152,74 @@ export default function NavBar() {
       className="pane flex h-13 min-w-0 shrink-0 items-center justify-between gap-2 rounded-t-lg border-b border-subtle px-2 select-none min-[720px]:gap-3 min-[720px]:px-4"
     >
       {/* Left zone: CSD Window control dots + App Logo + Title */}
-      <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3">
-        {/* Window control dots */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label="Close window"
-            title="Close"
-            onClick={() => void handleClose()}
-            className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
-          >
-            <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-close">
-              <X
-                size={8}
-                strokeWidth={2.5}
-                className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
-                aria-hidden="true"
-              />
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Minimize window"
-            title="Minimize"
-            onClick={() => void handleMinimize()}
-            className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
-          >
-            <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-min">
-              <Minus
-                size={8}
-                strokeWidth={2.5}
-                className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
-                aria-hidden="true"
-              />
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Maximize window"
-            title="Maximize"
-            onClick={() => void handleMaximize()}
-            className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
-          >
-            <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-max">
-              <Maximize2
-                size={7}
-                strokeWidth={2.5}
-                className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
-                aria-hidden="true"
-              />
-            </span>
-          </button>
-        </div>
+      {showWindowControls ? (
+        <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3">
+          {/* Window control dots */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Close window"
+              title="Close"
+              onClick={() => void handleClose()}
+              className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+            >
+              <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-close">
+                <X
+                  size={8}
+                  strokeWidth={2.5}
+                  className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
+                  aria-hidden="true"
+                />
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-label="Minimize window"
+              title="Minimize"
+              onClick={() => void handleMinimize()}
+              className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+            >
+              <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-min">
+                <Minus
+                  size={8}
+                  strokeWidth={2.5}
+                  className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
+                  aria-hidden="true"
+                />
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-label="Maximize window"
+              title="Maximize"
+              onClick={() => void handleMaximize()}
+              className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+            >
+              <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-max">
+                <Maximize2
+                  size={7}
+                  strokeWidth={2.5}
+                  className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
+                  aria-hidden="true"
+                />
+              </span>
+            </button>
+          </div>
 
-        {/* Brand identity */}
-        <div data-tauri-drag-region className="ml-1 flex items-center gap-2">
-          <span className="app-mark" aria-hidden="true" />
-          <span
-            data-tauri-drag-region
-            className="hidden truncate text-body-sm font-medium text-text-primary min-[1280px]:inline"
-          >
-            ScreenStudio Pro
-          </span>
+          {/* Brand identity */}
+          <div data-tauri-drag-region className="ml-1 flex items-center gap-2">
+            <span className="app-mark" aria-hidden="true" />
+            <span
+              data-tauri-drag-region
+              className="hidden truncate text-body-sm font-medium text-text-primary min-[1280px]:inline"
+            >
+              ScreenStudio Pro
+            </span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3" />
+      )}
 
       {/* Center zone: 3-tab segmented view capsule */}
       <nav className="flex flex-none justify-center" aria-label="Primary">

@@ -161,11 +161,10 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 2 Boundary & Edge)",
     expect(css).toContain("animation-iteration-count: 1 !important;");
   });
 
-  it("F1-T2-03: implements floating island glass utilities matching DESIGN.md §4.3 recipes", () => {
+  it("F1-T2-03: implements solid surface utilities matching DESIGN.md v4.0 recipes (zero blur)", () => {
     // Studio Deck recipes (Left Inspector, Sub-Canvas Audio Deck, Right Takes Gallery)
     expect(css).toContain("@utility studio-deck {");
     expect(css).toContain("background-color: var(--ssp-surface-glass-strong);");
-    expect(css).toContain("backdrop-filter: blur(12px) saturate(110%);");
     expect(css).toContain("border: 1px solid var(--ssp-border-subtle);");
     expect(css).toContain("box-shadow: var(--ssp-elev-1);");
 
@@ -176,7 +175,6 @@ describe("Feature 1: Design Tokens & Obsidian Palette (Tier 2 Boundary & Edge)",
 
     // Floating HUD utility
     expect(css).toContain("@utility floating-hud {");
-    expect(css).toContain("backdrop-filter: blur(16px) saturate(120%);");
     expect(css).toContain("box-shadow: var(--ssp-elev-2);");
   });
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check:linear": "node scripts/check-linear.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",

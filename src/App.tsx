@@ -9,6 +9,7 @@ import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
 import { useSspStore, type ViewId } from "./lib/store";
 import { MOTION } from "./lib/motion";
+import { TitleBar } from "./components/linear/TitleBar";
 
 /* App shell — NavBar + view router (ARCHITECTURE §2; DESIGN.md v3.1).
    The session-event hook mounts once here (§4.1: the event stream is the
@@ -63,7 +64,12 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex h-dvh flex-col bg-canvas text-ink">
-        <NavBar />
+        <TitleBar
+          title="ScreenStudio Pro"
+          version="v0.0.1+alpha.9"
+          icon={<img src="/logo.png" alt="SSP" className="size-4 object-contain" />}
+        />
+        <NavBar showWindowControls={false} />
         <main
           id="main-workspace"
           role="tabpanel"
