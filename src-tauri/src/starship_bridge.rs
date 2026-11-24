@@ -5,9 +5,7 @@
 //! at `$XDG_DATA_HOME/starship/plugins/ssp.json`.
 
 use serde_json::json;
-use starship_plugin::{
-    bridge_dir, AppManifest, PluginBridge, PluginTool,
-};
+use starship_plugin::{AppManifest, PluginBridge, PluginTool, bridge_dir};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -43,8 +41,9 @@ pub fn build_ssp_bridge() -> PluginBridge {
     bridge.register_tool(
         PluginTool {
             name: "ssp.capture.start_recording".to_string(),
-            description: "Begins a high-framerate screen recording session on specified monitor or window."
-                .to_string(),
+            description:
+                "Begins a high-framerate screen recording session on specified monitor or window."
+                    .to_string(),
             risk_tier: 2,
             parameters: json!({
                 "type": "object",
@@ -82,8 +81,7 @@ pub fn build_ssp_bridge() -> PluginBridge {
     bridge.register_tool(
         PluginTool {
             name: "ssp.capture.stop_recording".to_string(),
-            description: "Ends active capture and saves clip into library."
-                .to_string(),
+            description: "Ends active capture and saves clip into library.".to_string(),
             risk_tier: 2,
             parameters: json!({
                 "type": "object",
@@ -208,10 +206,27 @@ mod tests {
         let result = resp.get("result").expect("result field");
         assert_eq!(result.get("appId").and_then(|v| v.as_str()), Some("ssp"));
 
-        let tools = result.get("tools").and_then(|v| v.as_array()).expect("tools array");
-        assert!(tools.iter().any(|t| t.get("name").and_then(|v| v.as_str()) == Some("ssp.capture.start_recording")));
-        assert!(tools.iter().any(|t| t.get("name").and_then(|v| v.as_str()) == Some("ssp.capture.stop_recording")));
-        assert!(tools.iter().any(|t| t.get("name").and_then(|v| v.as_str()) == Some("ssp.zoom.add_keyframe")));
+        let tools = result
+            .get("tools")
+            .and_then(|v| v.as_array())
+            .expect("tools array");
+        assert!(
+            tools
+                .iter()
+                .any(|t| t.get("name").and_then(|v| v.as_str())
+                    == Some("ssp.capture.start_recording"))
+        );
+        assert!(
+            tools
+                .iter()
+                .any(|t| t.get("name").and_then(|v| v.as_str())
+                    == Some("ssp.capture.stop_recording"))
+        );
+        assert!(
+            tools
+                .iter()
+                .any(|t| t.get("name").and_then(|v| v.as_str()) == Some("ssp.zoom.add_keyframe"))
+        );
     }
 
     #[test]
@@ -233,7 +248,10 @@ mod tests {
         let start_resp_str = bridge.handle_request(&start_req).expect("start resp");
         let start_resp: serde_json::Value = serde_json::from_str(&start_resp_str).unwrap();
         let start_res = start_resp.get("result").expect("start result");
-        assert_eq!(start_res.get("status").and_then(|v| v.as_str()), Some("recording_started"));
+        assert_eq!(
+            start_res.get("status").and_then(|v| v.as_str()),
+            Some("recording_started")
+        );
 
         // 2. Add zoom keyframe
         let zoom_req = json!({
@@ -250,8 +268,14 @@ mod tests {
         let zoom_resp_str = bridge.handle_request(&zoom_req).expect("zoom resp");
         let zoom_resp: serde_json::Value = serde_json::from_str(&zoom_resp_str).unwrap();
         let zoom_res = zoom_resp.get("result").expect("zoom result");
-        assert_eq!(zoom_res.get("status").and_then(|v| v.as_str()), Some("keyframe_added"));
-        assert_eq!(zoom_res.get("zoomLevel").and_then(|v| v.as_f64()), Some(1.75));
+        assert_eq!(
+            zoom_res.get("status").and_then(|v| v.as_str()),
+            Some("keyframe_added")
+        );
+        assert_eq!(
+            zoom_res.get("zoomLevel").and_then(|v| v.as_f64()),
+            Some(1.75)
+        );
 
         // 3. Stop recording
         let stop_req = json!({
@@ -268,7 +292,10 @@ mod tests {
         let stop_resp_str = bridge.handle_request(&stop_req).expect("stop resp");
         let stop_resp: serde_json::Value = serde_json::from_str(&stop_resp_str).unwrap();
         let stop_res = stop_resp.get("result").expect("stop result");
-        assert_eq!(stop_res.get("status").and_then(|v| v.as_str()), Some("recording_stopped"));
+        assert_eq!(
+            stop_res.get("status").and_then(|v| v.as_str()),
+            Some("recording_stopped")
+        );
 
         // 4. Checkpoints
         let ckpt_req = json!({
@@ -285,7 +312,10 @@ mod tests {
         let ckpt_resp_str = bridge.handle_request(&ckpt_req).unwrap();
         let ckpt_resp: serde_json::Value = serde_json::from_str(&ckpt_resp_str).unwrap();
         let ckpt_res = ckpt_resp.get("result").unwrap();
-        let ckpt_id = ckpt_res.get("checkpointId").and_then(|v| v.as_str()).unwrap();
+        let ckpt_id = ckpt_res
+            .get("checkpointId")
+            .and_then(|v| v.as_str())
+            .unwrap();
 
         let restore_req = json!({
             "jsonrpc": "2.0",
