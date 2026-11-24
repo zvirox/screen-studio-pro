@@ -48,7 +48,7 @@ You can record an entire monitor, select an application window, or draw a custom
 
 Screen Studio Pro works completely on its own as a standalone recording application. You do not need any companion software to capture and export videos.
 
-If you want hands-free automation, you can connect Screen Studio Pro to **Starship Control**, the unified Linux AI desktop assistant.
+If you want hands-free automation, you can connect Screen Studio Pro to [Starship Control](https://github.com/zvirox/starship-control) ([Releases](https://github.com/zvirox/starship-control/releases)), the unified Linux AI desktop assistant.
 
 ### Why It Exists
 
@@ -67,7 +67,7 @@ Connecting Screen Studio Pro to Starship Control requires zero manual configurat
 1. **Automatic Discovery**: When Screen Studio Pro starts, it creates a small discovery manifest in `$XDG_DATA_HOME/starship/plugins/ssp.json`.
 2. **Private Local Socket**: The app opens a secure local Unix domain socket at `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock`.
 3. **Verified Operating System Security**: The bridge verifies connections using Linux peer credentials (`SO_PEERCRED`). Only programs running under your exact Linux user account can talk to the recorder. No network ports are opened, and no data is sent online.
-4. **Instant Detection**: Open Starship Control or press `Super+Shift+Space`. It recognizes Screen Studio Pro immediately and gives you instant voice and text control.
+4. **Instant Detection**: Open Starship Control or press `Super+Shift+Space`. It recognizes Screen Studio Pro immediately and gives you instant voice and text control. For setup guides and downloads, visit the [Starship Control repository](https://github.com/zvirox/starship-control) and [releases](https://github.com/zvirox/starship-control/releases).
 
 ---
 
