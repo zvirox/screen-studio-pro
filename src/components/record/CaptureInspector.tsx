@@ -236,7 +236,7 @@ export default function CaptureInspector() {
   return (
     <aside
       aria-label="Capture Inspector"
-      className="studio-deck flex w-full min-w-0 shrink-0 flex-col gap-5 rounded-lg border border-line-glass p-4 shadow-elev-2 min-[1120px]:w-[300px]"
+      className="studio-deck flex w-full min-w-0 shrink-0 flex-col gap-5 rounded-md p-4 min-[1120px]:w-[300px]"
     >
       {/* Title */}
       <div className="flex items-center justify-between border-b border-subtle pb-3">
@@ -478,7 +478,6 @@ export default function CaptureInspector() {
                   {activeSize}px · {Math.round((activeSize / 240) * 100)}%
                 </span>
               </div>
-              {/* DESIGN §7.4: the input keeps a 36px pointer target around the 6px track. */}
               <input
                 type="range"
                 min={160}
@@ -487,7 +486,7 @@ export default function CaptureInspector() {
                 value={activeSize}
                 aria-label="Camera PiP size"
                 onChange={(e) => void setPipSize(Number(e.target.value))}
-                className="h-9 w-full cursor-pointer appearance-none rounded-full bg-transparent accent-ink-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-ink-secondary [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-raised [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-raised [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-secondary"
+                className="h-9 w-full cursor-pointer appearance-none rounded-xs bg-transparent accent-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-xs [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-[var(--accent-blue)] [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-xs [&::-moz-range-track]:bg-solid [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-xs [&::-webkit-slider-runnable-track]:bg-solid [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-xs [&::-webkit-slider-thumb]:bg-[var(--accent-blue)]"
               />
             </div>
 

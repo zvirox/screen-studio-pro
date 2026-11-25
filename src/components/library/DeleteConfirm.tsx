@@ -4,13 +4,9 @@ import { LinearCard } from "../linear/LinearCard";
 import { LinearButton } from "../linear/LinearButton";
 import { useSspStore } from "../../lib/store";
 
-/* §5.1 Buttons: danger (destructive only — delete recording; `error`
-   border + text on hover fills `error.muted`). §5.7 Modal & Drawer:
-   centered `<dialog>` portaled to document.body (overlays escape clipping
-   containers), Modal recipe (`surface.glass-strong`, `blur(32px)`,
-   `border.subtle` 1px, `elev.2`, `r.lg`, max-width 480px), scrim
-   `rgba(0,0,0,0.4)` + `blur(4px)`, Esc closes, mandatory focus trap via
-   native `<dialog>` semantics, restore focus on close. */
+/* DESIGN.md v5.0 — centered `<dialog>` confirmation modal on solid `--bg-surface`,
+   1px `--border-strong`, `8px` radius, max-width 480px, opaque dimmed `bg-scrim`,
+   Esc closes, focus trap via native `<dialog>` semantics, restore focus on close. */
 
 interface DeleteConfirmProps {
   open: boolean;
@@ -51,9 +47,9 @@ export default function DeleteConfirm({
       role="dialog"
       aria-label="Delete recording"
     >
-      {/* Scrim — solid opaque overlay, closes on click. */}
+      {/* Scrim — solid dimmed overlay, closes on click. */}
       <div
-        className="absolute inset-0 bg-black/75"
+        className="absolute inset-0 bg-scrim"
         onClick={onClose}
         aria-hidden="true"
       />

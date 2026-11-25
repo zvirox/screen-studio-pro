@@ -128,25 +128,21 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       ];
 
       for (const btn of buttons) {
-        // DESIGN v3.1: ≥36px target around the compact 12px visual dot
         expect(btn).toHaveClass("h-9", "w-9");
-        // WCAG 2.4.7 visible keyboard focus indicator
-        expect(btn).toHaveClass("focus-visible:ring-2");
-        expect(btn).toHaveClass("focus-visible:ring-focus");
-        expect(btn).toHaveClass("focus-visible:ring-offset-1");
-        expect(btn).toHaveClass("focus-visible:outline-hidden");
+        expect(btn).toHaveClass("focus-visible:outline-2");
+        expect(btn).toHaveClass("focus-visible:outline-focus");
       }
     });
 
-    it("uses semantic token utilities for CSD dots without raw hex literals", () => {
+    it("enforces Linear square icons without legacy macOS CSD traffic-light dots", () => {
       render(<NavBar />);
       const closeBtn = screen.getByRole("button", { name: "Close window" });
       const minBtn = screen.getByRole("button", { name: "Minimize window" });
       const maxBtn = screen.getByRole("button", { name: "Maximize window" });
 
-      expect(closeBtn.querySelector(".csd-dot-close")).toBeInTheDocument();
-      expect(minBtn.querySelector(".csd-dot-min")).toBeInTheDocument();
-      expect(maxBtn.querySelector(".csd-dot-max")).toBeInTheDocument();
+      expect(closeBtn.querySelector(".csd-dot-close")).toBeNull();
+      expect(minBtn.querySelector(".csd-dot-min")).toBeNull();
+      expect(maxBtn.querySelector(".csd-dot-max")).toBeNull();
     });
   });
 
@@ -276,13 +272,14 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
     });
   });
 
-  describe("40px Primary Record Pill CTA Button", () => {
-    it("renders in idle state with 40px height styling and Record label", () => {
+  describe("40px Primary Record CTA Button", () => {
+    it("renders in idle state with 40px height styling, 6px Linear radius, and Record label", () => {
       render(<NavBar />);
       const ctaBtn = screen.getByRole("button", { name: "Record" });
       expect(ctaBtn).toBeInTheDocument();
       expect(ctaBtn).toHaveClass("min-h-10");
-      expect(ctaBtn).toHaveClass("rounded-full");
+      expect(ctaBtn).toHaveClass("rounded-sm");
+      expect(ctaBtn).not.toHaveClass("rounded-full");
       expect(ctaBtn).toHaveClass("bg-accent");
     });
 

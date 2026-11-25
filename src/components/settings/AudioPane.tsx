@@ -27,7 +27,7 @@ export default function AudioPane() {
       </p>
 
       {audio.status === "error" && audio.error && (
-        <div className="mt-4 p-3 rounded-sm bg-error/10 border border-error text-error">
+        <div className="mt-4 p-3 rounded-sm bg-tint-red border border-error text-error">
           {audio.error.userMessage}
         </div>
       )}
@@ -91,7 +91,7 @@ export default function AudioPane() {
                 onChange={(e) => {
                   void setChannelLevel("mic", Number(e.target.value));
                 }}
-                className="w-full h-2 bg-solid rounded-full appearance-none cursor-pointer
+                className="w-full h-1.5 bg-[var(--bg-bar-idle)] accent-[var(--accent-blue)] rounded-xs appearance-none cursor-pointer
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !mic.enabled}
               />
@@ -160,7 +160,7 @@ export default function AudioPane() {
                 onChange={(e) => {
                   void setChannelLevel("desktop", Number(e.target.value));
                 }}
-                className="w-full h-2 bg-solid rounded-full appearance-none cursor-pointer
+                className="w-full h-1.5 bg-[var(--bg-bar-idle)] accent-[var(--accent-blue)] rounded-xs appearance-none cursor-pointer
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !desktop.enabled}
               />

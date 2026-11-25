@@ -17,13 +17,9 @@ import { formatElapsed } from "../../lib/format";
 import { MOTION } from "../../lib/motion";
 import Button from "../ui/Button";
 
-/* DESIGN.md v3.1 §5.1 Integrated Studio Titlebar (NavBar CSD)
-   Height 52px (h-13), full window width, pane glass recipe, r.lg top corners.
-   - Left: Window control dots (Close, Minimize, Maximize)
-           + Brand mark + "ScreenStudio Pro" title.
-   - Center: Sleek 3-tab view capsule (Record | Library | Settings) with keyboard roving.
-   - Right: Telemetry pill badge (1080p60 VAAPI) + 40px Primary Record pill CTA.
-   data-tauri-drag-region enabled on non-interactive titlebar areas. */
+/* DESIGN.md v5.0 — Linear Navigation Strip (flat opaque surface, 1px hairline border).
+   - Center: 3-tab view switcher (Record | Library | Settings) with keyboard roving, 6px radius.
+   - Right: crisp status chip (resolution/fps/encoder) + primary Record CTA button. */
 
 type NavItem = {
   id: ViewId;
@@ -62,7 +58,6 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
   const isStopping = session.status === "stopping";
   const isBusy = isStarting || isStopping;
 
-  // Telemetry computation: active preset / capabilities + hardware encoder
   const activePreset = presetsList.find((p) => p.id === presetId);
   const resolutionText = activePreset
     ? activePreset.height > 0
@@ -74,7 +69,6 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
   const encoderText = (session.encoderBackend ?? "VAAPI").toUpperCase();
   const telemetryText = `${resolutionText} ${encoderText}`;
 
-  // Window control actions with safe Tauri API invocation and fallback
   async function handleClose() {
     try {
       const win = safeGetWindow();
@@ -113,7 +107,6 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
     el?.focus();
   }
 
-  // Arrow-key roving across the 3-tab capsule
   function onKeyDown(e: KeyboardEvent) {
     const current = NAV_ITEMS.findIndex((i) => i.id === view);
     let next: number;
@@ -149,85 +142,61 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
   return (
     <header
       data-tauri-drag-region
-      className="pane flex h-13 min-w-0 shrink-0 items-center justify-between gap-2 rounded-t-lg border-b border-subtle px-2 select-none min-[720px]:gap-3 min-[720px]:px-4"
+      className="flex h-12 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-surface)] px-3 select-none min-[720px]:gap-3 min-[720px]:px-4"
     >
-      {/* Left zone: CSD Window control dots + App Logo + Title */}
+      {/* Left zone: optional fallback window controls for standalone preview + brand identity */}
       {showWindowControls ? (
-        <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3">
-          {/* Window control dots */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label="Close window"
-              title="Close"
-              onClick={() => void handleClose()}
-              className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+        <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-2">
+          <div data-tauri-drag-region className="flex items-center gap-2">
+            <span className="app-mark" aria-hidden="true" />
+            <span
+              data-tauri-drag-region
+              className="hidden truncate text-body-sm font-medium text-[var(--text)] min-[1024px]:inline"
             >
-              <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-close">
-                <X
-                  size={8}
-                  strokeWidth={2.5}
-                  className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
-                  aria-hidden="true"
-                />
-              </span>
-            </button>
+              Screen Studio Pro
+            </span>
+          </div>
+          <div className="flex items-center gap-1 ml-1">
             <button
               type="button"
               aria-label="Minimize window"
               title="Minimize"
               onClick={() => void handleMinimize()}
-              className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
             >
-              <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-min">
-                <Minus
-                  size={8}
-                  strokeWidth={2.5}
-                  className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
-                  aria-hidden="true"
-                />
-              </span>
+              <Minus size={14} aria-hidden="true" />
             </button>
             <button
               type="button"
               aria-label="Maximize window"
               title="Maximize"
               onClick={() => void handleMaximize()}
-              className="group relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:outline-hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
             >
-              <span className="flex h-3 w-3 items-center justify-center rounded-full csd-dot-max">
-                <Maximize2
-                  size={7}
-                  strokeWidth={2.5}
-                  className="text-black/70 opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-visible:opacity-100"
-                  aria-hidden="true"
-                />
-              </span>
+              <Maximize2 size={12} aria-hidden="true" />
             </button>
-          </div>
-
-          {/* Brand identity */}
-          <div data-tauri-drag-region className="ml-1 flex items-center gap-2">
-            <span className="app-mark" aria-hidden="true" />
-            <span
-              data-tauri-drag-region
-              className="hidden truncate text-body-sm font-medium text-text-primary min-[1280px]:inline"
+            <button
+              type="button"
+              aria-label="Close window"
+              title="Close"
+              onClick={() => void handleClose()}
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-white transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
             >
-              Screen Studio Pro
-            </span>
+              <X size={14} aria-hidden="true" />
+            </button>
           </div>
         </div>
       ) : (
         <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-3" />
       )}
 
-      {/* Center zone: 3-tab segmented view capsule */}
+      {/* Center zone: 3-tab flat segmented view bar */}
       <nav className="flex flex-none justify-center" aria-label="Primary">
         <div
           role="tablist"
           aria-label="Views"
           onKeyDown={onKeyDown}
-          className="flex h-10 items-center gap-1 rounded-full border border-subtle bg-solid/60"
+          className="flex h-9 items-center gap-1 rounded-sm border border-[var(--border)] bg-[var(--bg-surface-2)] p-0.5"
         >
           {NAV_ITEMS.map((item, idx) => {
             const active = item.id === view;
@@ -244,22 +213,22 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
                 aria-selected={active}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectTab(item.id)}
-                className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-body-sm font-medium outline-none transition-[color,background-color,scale] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-[0.98] min-[720px]:gap-2 min-[720px]:px-3 ${
+                className={`relative flex h-8 items-center gap-1.5 rounded-xs px-2.5 text-body-sm font-medium outline-none transition-colors duration-150 ease-out min-[720px]:gap-2 min-[720px]:px-3 ${
                   active
-                    ? "text-ink"
-                    : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                    ? "text-[var(--text)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--bg-bar-idle)] hover:text-[var(--text)]"
                 }`}
               >
                 {active ? (
                   <motion.span
                     layoutId="active-view-tab"
                     aria-hidden="true"
-                    className="absolute inset-0 z-base rounded-full border border-subtle bg-surface-solid shadow-xs"
+                    className="absolute inset-0 z-base rounded-xs border border-[var(--border)] bg-[var(--bg-surface)] shadow-card"
                     transition={{ duration: MOTION.base, ease: MOTION.easeBase }}
                   />
                 ) : null}
                 <Icon
-                  size={16}
+                  size={15}
                   strokeWidth={active ? 2 : 1.5}
                   className="relative z-sticky shrink-0"
                   aria-hidden="true"
@@ -271,36 +240,39 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
         </div>
       </nav>
 
-      {/* Right zone: Telemetry pill badge + 40px Primary Record pill CTA */}
-      <div className="flex flex-1 items-center justify-end gap-3">
-        {/* Telemetry badge */}
+      {/* Right zone: Status chip + Record CTA button */}
+      <div className="flex flex-1 items-center justify-end gap-2.5">
         <div
-          className="hidden min-w-0 items-center gap-1.5 rounded-full border border-subtle bg-solid/60 px-2.5 py-1 font-mono text-mono-sm text-text-secondary shadow-xs select-none min-[1280px]:flex"
-          title="Active recording format and hardware encoder"
+          className="hidden min-w-0 items-center gap-1.5 rounded-xs border border-[var(--border)] bg-[var(--bg-surface-2)] px-2.5 py-1 font-mono text-mono-sm text-[var(--text-muted)] select-none min-[1024px]:flex"
+          title="Active recording format and encoder"
           aria-label={`Telemetry: ${telemetryText}`}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-success" /* linear-exception: dot */
+            aria-hidden="true"
+          />
           <span>{telemetryText}</span>
         </div>
 
-        {/* 40px Primary Record Pill CTA Button */}
+        {/* Record / Stop CTA (Studio Burgundy / Broadcast Signal Red recording-only exception) */}
         <Button
           variant="primary"
+          size="md"
           aria-label={isRecording ? "Stop recording" : "Record"}
           title={isRecording ? "Stop recording" : "Start recording"}
           disabled={isBusy}
           onClick={() => void handleRecordCta()}
-          className={`shrink-0 rounded-full px-3 min-[720px]:px-4 ${
-            isRecording ? "border-signal bg-signal text-white hover:bg-signal/90" : ""
+          className={`shrink-0 rounded-sm px-3 min-[720px]:px-3.5 ${
+            isRecording ? "border-signal bg-signal text-white hover:bg-[var(--accent-red)]" : ""
           }`}
         >
           {isRecording ? (
             <>
               <span
-                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-white motion-reduce:animate-none"
+                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-white motion-reduce:animate-none" /* linear-exception: dot */
                 aria-hidden="true"
               />
-              <Square size={14} className="fill-current" aria-hidden="true" />
+              <Square size={13} className="fill-current" aria-hidden="true" />
               <span className="font-mono text-mono-sm tabular-nums">
                 {formatElapsed(session.elapsedMs)}
               </span>
@@ -308,7 +280,7 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
             </>
           ) : (
             <>
-              <Video size={16} strokeWidth={2} aria-hidden="true" />
+              <Video size={15} strokeWidth={1.75} aria-hidden="true" />
               <span className="text-body-sm font-medium">
                 {isStarting ? "Starting..." : isStopping ? "Stopping..." : "Record"}
               </span>

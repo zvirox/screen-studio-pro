@@ -9,7 +9,7 @@ This file is the first thing any AI assistant reads. It binds every session, eve
 1. ScreenStudio Pro is an open-source screen recording app for Linux (Wayland-first), built to give riced-desktop users (Hyprland, niri, MangoWC, KDE) a modern-looking alternative to OBS.
 2. Current MVP scope: recording only — monitor/window/region capture, mic + desktop audio, webcam PiP, floating HUD, hardware encoders (VAAPI/NVENC/x264), MKV→MP4 output, library of recent recordings. Streaming and scenes are V2, not now.
 3. Architecture: Tauri 2 desktop app — Rust core does all capture/encode (PipeWire, portals), React webview renders UI only and never touches video frames.
-4. The visible UI follows a strict frosted-glass design system with a closed token set (dark default, light secondary).
+4. The visible UI follows the **finalized, locked Unified Linear-Style Design System** (`DESIGN.md` v5.0): flat solid opaque surfaces, 1px hairline borders, dark default with light parity, Inter + JetBrains Mono typography, zero blur/translucency/dark-mode shadows, enforced by `npm run check:linear`. Studio Burgundy / Broadcast Signal Red is reserved exclusively for the Record button and live recording indicators.
 5. No servers, no cloud, no HTTP APIs, no telemetry — distro packages + GitHub Releases are the entire distribution.
 6. Ecosystem Orchestration: ScreenStudio Pro integrates with **Starship Control** (`Mother Ship / Starship Control`) via the shared `starship-plugin` SDK, auto-registering `$XDG_DATA_HOME/starship/plugins/ssp.json` and exposing its live GUI bridge at `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` for automated recording control and CET telemetry export.
 
@@ -34,13 +34,13 @@ Also binding: `PRAGMA` note — behavior changes that alter any contract file mu
 ## 3. DO — Required in every change
 
 1. **Follow the folder structure** in ARCHITECTURE.md §2 exactly. Logic goes where the tree says (`capture/`, `encode/`, `pipeline/`, `library/` on the Rust side; `components/<view>/` on the React side). A "tiny" business-logic file placed outside the tree is a wrong file.
-2. **Reuse existing components and systems first.** Before writing any UI control, check `components/ui/` and DESIGN.md §5 — a second button style is a defect. Before writing Rust logic, check whether a sibling module already has the trait or helper (e.g., `Encoder`, error variants).
+2. **Reuse existing components and systems first.** Before writing any UI control, check `components/ui/`, `components/linear/`, and DESIGN.md — a second button style or visual language is a defect. Before writing Rust logic, check whether a sibling module already has the trait or helper (e.g., `Encoder`, error variants).
 3. **Write small focused functions.** One purpose per function; Tauri command handlers stay thin (validate → delegate) per ARCHITECTURE §2 tree rules. No 300-line handlers, no god components.
 4. **Comment complex logic** — the *why*, never the *what*. Any non-obvious choice (event throttling rates, backpressure policy, remux ordering) cites its governing section (e.g., `// ARCHITECTURE §6: drop preview frames before encode frames`). Leave the codebase more readable than you found it.
 5. **Handle errors and loading states in every path you touch.** Every Rust failure returns a typed `CoreError`; every IPC error is the standard shape from API.md §1; every UI view renders empty/loading/error states (DESIGN §6.3, §5.5). Shipping a screen that can't fail gracefully is shipping it broken.
 6. **Keep the contracts type-complete:** when you change a payload, update `types/ipc.ts` and `lib/ipc.ts` together with `src-tauri/ipc/`; new error codes get added to API.md §1's list; SQL changes carry a numbered migration file (DATABASE §8).
-7. **Verify before you claim it works.** Run `cargo fmt && cargo clippy -D warnings` in `src-tauri/`, `tsc --noEmit` (strict) and lint in `src/`, run the tests you added, and report real command output. Never announce success without evidence.
-8. **Design-law provenance:** Tailwind `@theme` carries the `/* DESIGN.md vX.Y */` comment; tokens referenced by name only — computed hex/px literals in components are review failures (DESIGN §8).
+7. **Verify before you claim it works.** Run `cargo fmt --check && cargo clippy -D warnings && cargo test` in `src-tauri/`, run `npm run check:linear && npm run typecheck && npm run lint && npm test && npm run build` in repo root, and report real command output. Never announce success without evidence.
+8. **Design-law provenance:** Tailwind `@theme` carries the `/* DESIGN.md v5.0 */` comment; tokens live exclusively in `src/tailwind.css` and are referenced by name only — computed hex/px literals, blur, translucency, dark shadows, and pills in components fail `npm run check:linear` (DESIGN §2/§5). No further UI style changes are permitted while Linear UI is locked.
 
 ## 4. DO NOT — Hard limits
 

@@ -4,13 +4,9 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { LinearButton } from "../linear/LinearButton";
 import { useSspStore } from "../../lib/store";
 
-/* §5.7 Modal & Drawer: right-slide drawer (420px), Modal recipe
-   (`surface.glass-strong`, `blur(32px)`, `border.subtle` 1px, `elev.2`),
-   scrim `rgba(0,0,0,0.4)` + `blur(4px)`, Esc closes, focus trap + restore.
-   Implemented with `<dialog>` portaled to document.body so it escapes
-   clipping containers. Click = detail drawer with large thumb, full meta
-   table (mono values), `Reveal in file manager` secondary action,
-   `Trim later` disabled with tooltip "Planned for V2". */
+/* DESIGN.md v5.0 — right-slide drawer (420px) on solid `--bg-surface`,
+   1px `--border` left divider, opaque dimmed `bg-scrim`, Esc closes,
+   focus trap + restore. Implemented with `<dialog>` portaled cleanly. */
 
 interface RecordingDrawerProps {
   open: boolean;
@@ -37,14 +33,14 @@ export default function RecordingDrawer({ open, onClose }: RecordingDrawerProps)
       role="dialog"
       aria-label="Recording details"
     >
-      {/* Scrim — solid opaque overlay, closes on click. */}
+      {/* Scrim — solid dimmed overlay, closes on click. */}
       <div
-        className="absolute inset-0 bg-black/75"
+        className="absolute inset-0 bg-scrim"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Drawer panel — right-slide 420px, solid surface. */}
-      <div className="absolute bottom-0 right-0 top-0 flex w-105 flex-col border-l border-subtle bg-solid shadow-elev-2">
+      <div className="absolute bottom-0 right-0 top-0 flex w-105 flex-col border-l border-subtle bg-[var(--bg-surface)]">
         {/* Header with close. */}
         <div className="flex items-center justify-between p-4 border-b border-subtle">
           <h2 className="text-heading font-medium text-ink">Recording details</h2>

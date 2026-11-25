@@ -155,7 +155,7 @@ describe("LibraryGrid (§5.5 / §6.3)", () => {
     expect(screen.getByRole("button", { name: "Open recording" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy path" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete recording" })).toBeInTheDocument();
-    expect(screen.getByText("1:42")).toHaveClass("bg-black/50", "text-white");
+    expect(screen.getByText("1:42")).toHaveClass("bg-[var(--hero-canvas-bg)]", "text-white");
     expect(screen.getByText(/140\.4 MB/)).toHaveClass("text-ink-secondary");
   });
 });

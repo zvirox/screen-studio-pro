@@ -1,16 +1,16 @@
 # PRD — ScreenStudio Pro
 
-**Status:** Draft v0.1 · **Owner:** zvirox · **Date:** 2026-11-01
+**Status:** Beta v0.1 (`0.1.0-beta.1` codebase active) · **Owner:** zvirox · **Updated:** 2026-11-25
 
 ---
 
 ## 1. Overview & Vision
 
-ScreenStudio Pro is an open-source screen recording application for Linux, written largely in Rust, with a modern, expressive, glassmorphic UI that feels at home on today's riced desktop environments (Hyprland, niri, MangoWC, KDE Plasma Wayland).
+ScreenStudio Pro is an open-source screen recording application for Linux, written largely in Rust, with a **finalized, locked Linear-Style flat matte UI** (`DESIGN.md v5.0`) designed for today's Wayland desktop environments (Hyprland, niri, MangoWC, KDE Plasma Wayland, GNOME) and X11 portals.
 
-**Vision:** OBS without the 2009 dashboard. Capture software that looks like it was made for the desktops people actually use in 2026 — translucent, animated, minimal — while the recording core beneath it is fast, native, and hardware-accelerated.
+**Vision:** OBS without the 2009 dashboard. Capture software that feels crisp, structured, and instrument-grade — solid matte surfaces, 1px hairline borders, high-contrast Inter + tabular monospace typography, and fast dark/light parity — while the recording core beneath it is native Rust and PipeWire-first.
 
-**One-line pitch:** *Record beautifully. The UI should be as good-looking as the desktop it's capturing.*
+**One-line pitch:** *Record cleanly. Fast native Linux screen capture without scene-tree bloat.*
 
 ---
 
@@ -43,17 +43,17 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 ## 4. Goals & Non-Goals
 
 ### Goals
-- **G1.** Shippable recording MVP: monitor / window / region capture, mic + desktop audio, hardware-encoded file output — on Wayland, through portals.
-- **G2.** A UI users screenshot on its own: glass panels, springs, expressive motion — built on Tauri 2 + React as decided in stack selection.
+- **G1.** Shippable recording MVP: monitor / window / region capture, mic + desktop audio, software x264 baseline and hardware-accelerated VAAPI/NVENC path — on Wayland, through portals.
+- **G2.** A crisp, readable **Linear-Style flat matte UI** (`DESIGN.md v5.0`, locked): opaque solid panels, 1px hairline borders, 150ms ease-out motion, full dark/light parity — built on Tauri 2 + React 19.
 - **G3.** Time-to-first-recording under 60 seconds from install, with zero manual portal/permission ceremony beyond the OS prompt.
-- **G4.** Recording core is pure Rust: PipeWire capture, VAAPI/NVENC when available, x264 fallback.
+- **G4.** Recording core is pure Rust: PipeWire capture, VAAPI/NVENC when implemented/available, x264 active fallback.
 - **G5.** Ship exclusively uniform native Linux packages built via `nfpm`: `.deb`, `.rpm`, and `.pkg.tar.zst` plus `SHA256SUMS` (+ `.sig`) via GitHub Releases. AppImage, Flatpak, tarballs, and AUR are permanently retired.
 - **G6.** Architecture leaves clean seams for V2 streaming (RTMP), scene compositor (dnd-kit canvas), and replay buffer.
 
 ### Non-Goals (MVP)
 - **N1.** No OBS-style scene/source compositor. (V2+)
 - **N2.** No RTMP/live streaming. (V2)
-- **N3.** No Windows/macOS support. Linux only, Wayland-first.
+- **N3.** No Windows/macOS support. Linux only, Wayland-first (with X11 portal support).
 - **N4.** No built-in video editor beyond a trim-crop at export.
 - **N5.** No plugin/extension ecosystem, no scripting (Lua/JS).
 - **N6.** No cloud accounts, telemetry-vendoring, or SaaS of any kind.
@@ -61,7 +61,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 
 ### Anti-Goals (would be failure even if implemented)
 - A UI that imports an OBS profile or asks users to configure scenes to record a simple clip.
-- A glass overload that renders text unreadable on bright backgrounds — frosted ≠ illegible.
+- Visual chrome clutter (blur, dark-mode shadows, glow, translucent overlays) that degrades contrast or UI responsiveness.
 - Dropping frames at high resolutions on machines where hardware encoders exist.
 
 ---
@@ -76,8 +76,8 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 | M2 | Window capture | Portal user-picker or native compositor protocol where available; gracefully hidden on compositors lacking it |
 | M3 | Region capture | Cropped output from monitor capture; visual selection overlay where compositor permits |
 | M4 | Audio sources | Microphone + system/desktop audio via PipeWire; per-source mute and level |
-| M5 | Webcam overlay (PiP) | Circular/rounded-corner frame, draggable overlay position, shutter animation — the "Screen Studio" signature |
-| M6 | Floating recording toolbar/HUD | Glass toolbar: record / pause / resume / timer / flag / stop; draggable; translucent over whatever is being recorded |
+| M5 | Webcam overlay (PiP) | Circular/rounded-corner frame, draggable overlay position, corner snap, optional self-insert |
+| M6 | Floating recording HUD | Opaque matte Linear toolbar: record / pause / resume / timer / flag / stop; draggable above captured content |
 | M7 | Recording controls | Pause/resume with clean segment stitching; elapsed timer |
 | M8 | Hardware encoders | Auto-detect and prefer VAAPI (Intel/AMD) / NVENC (NVIDIA); x264 fallback; sane defaults (1080p, 60fps, CRB/CQP defaults) |
 | M9 | File output | MKV (record-safe) + MP4/WebM export options; auto-remux MKV→MP4 on stop |
@@ -92,7 +92,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 | # | Feature | Notes |
 |---|---------|-------|
 | V1 | RTMP streaming | Twitch/YouTube/custom URL, stream-key flow, network-status resilience |
-| V2 | Scene compositor | OBS-style but modern: scenes list, source stacking, dnd-kit canvas on glass panels, transforms |
+| V2 | Scene compositor | OBS-style but modern: scenes list, source stacking, dnd-kit canvas on Linear matte panels, transforms |
 | V3 | Replay buffer | Rolling last-N-seconds buffer with a single-key save |
 | V4 | Screenshot mode | Full/window/region screenshot pipeline reusing capture stack |
 | V5 | Better audio metering | Waveform visualizer with reactive UI animation |
@@ -119,7 +119,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 
 ### Capture & recording (MVP focus)
 - As a riced-Hyprland user, I want to pick my monitor or window through a modern-looking picker, so that recording feels native to my setup instead of like a foreign dashboard.
-- As a creator, I want my webcam in a rounded, floating glass PiP frame, so that my recording looks like Screen Studio without buying a Mac.
+- As a creator, I want my webcam in a crisp, draggable PiP frame, so that my recording looks like Screen Studio on Linux.
 - As a user, I want pause/resume in a single quiet toolbar, so that a tutorial with mistakes comes out as one clean file instead of three.
 - As a commuter, I want one preset ("For Discord") and one button, so that I don't have to learn what CBR and CRF mean.
 - As a user on a mixed GPU laptop, I want the app to just use my iGPU via VAAPI, so that my dGPU isn't woken up and I record at full fps silently.
@@ -132,7 +132,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 - As a user who talks on stream while playing, I want per-source mute and level control, so that I don't capture my Discord call by accident.
 
 ### Library & export (MVP)
-- As a user, I want a glassy media library of my recordings with thumbnails and durations, so that finding last Tuesday's clip doesn't mean opening my file manager.
+- As a user, I want a clean media library of my recordings with thumbnails and durations, so that finding last Tuesday's clip doesn't mean opening my file manager.
 - As a user, I want the exact save path shown in the "saved" toast, so that I can click through to the file immediately.
 
 ### Distribution (MVP)
@@ -145,23 +145,23 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 
 ### 7.1 First launch → first recording (must be < 60s)
 1. User installs via their distro's package and launches the app.
-2. Main window appears: floating glass panel, three visible sections — **Source** (monitor/window/region chips), **Audio** (mic + desktop toggles with levels), **Record** (big action button), nothing else.
-3. User clicks the monitor chip; the Wayland portal fires its consent dialog once; the preview thumbnail appears in the panel.
-4. Mic defaults to "system default" and shows a live level bar (audio is not even requested until it's toggled if the user enabled "ask me nothing" mode — see Open Questions).
+2. Main window appears: Linear studio layout with Left Inspector (**Monitor/Window/Region**, **Camera PiP**, **Presets**), Hero 16:9 Canvas, **Audio Mixer**, and **Takes Gallery**.
+3. User clicks **Monitor**; the Wayland portal fires its consent dialog once; the preview still appears in the canvas.
+4. Mic defaults to "system default" and shows a live level bar (`-60 dB` to `0 dB`).
 5. User presses **Record** — toolbar HUD appears with a running timer; window minimizes to tray.
-6. First "toast with effect" plays (spring-scale fade). Timer ticks.
-7. User presses stop → glass "Saved" screen with thumbnail, duration, file path, and quick actions (Reveal, Open with player, Trim later).
+6. Timer ticks at 1 Hz; HUD pause/resume/flag controls stay reachable.
+7. User presses **Stop** → Library updates cleanly and Saved toast shows duration, file path, Reveal, and Copy actions.
 
 ### 7.2 Session mid-recording (HUD)
-- Toolbar floats above whatever is being captured with pause/stop/flag buttons; center chip shows running timer and subtle pulsing rec dot.
-- **Flag** keypress drops a chapter marker into the recording metadata (Later feature reads these; MVP just stores them in the sidecar file).
-- Drag on the toolbar repositions it; double-click pins it through pause.
+- Toolbar floats above whatever is being captured with pause/stop/flag buttons; indicator shows running timer and pulsing signal red rec dot.
+- **Flag** keypress drops a chapter marker into `recordings.chapter_json`.
+- Drag on the toolbar repositions it; double-click pins opacity (`opacity-85`).
 
 ### 7.3 Webcam PiP add
-1. Source panel shows "Add camera".
-2. Camera devices present in-line (portal Camera API, or direct V4L2 where the portal path isn't reliable on a given compositor).
-3. Glass PiP frame appears at default bottom-right, draggable with visual docking guides near corners.
-4. Resize via pinch handles; circle vs rounded-square toggle from a popover.
+1. Capture Inspector shows "Add camera".
+2. Direct V4L2 camera list appears inline.
+3. Crisp opaque PiP frame appears inside the 16:9 canvas at bottom-right, draggable with corner snapping guides.
+4. Resize via 44px grip (160–320px); circle vs rounded-square toggle via popover or inspector.
 
 ### 7.4 Stop → export
 1. Stop pressed → automatic MKV remux → file written with sensible filename (`screen-2026-11-01-14-05.mkv/.mp4`).
@@ -231,8 +231,8 @@ Development and release progression follow three strict lifecycle tiers:
 ├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
 │ STRICT ALPHA        │ Phases 0 – 9                        │ v0.0.1-alpha.1 →           │
 │                     │ Foundation, Core Capture, Audio,    │ v0.1.0-alpha.x             │
-│                     │ Camera PiP, Library, UI v2,         │                            │
-│                     │ Ecosystem Bridge, Container Safety  │                            │
+│                     │ Camera PiP, Library, Linear UI,     │ (Current tag baseline:     │
+│                     │ Ecosystem Bridge, Container Safety  │  v0.1.0-beta.1)            │
 ├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
 │ STRICT BETA         │ Phases 10 – 14                      │ v0.9.0-beta.1 →            │
 │                     │ Zero-Copy GPU, Hardware Encoders,   │ v0.9.x-beta.*              │
@@ -245,10 +245,10 @@ Development and release progression follow three strict lifecycle tiers:
 └─────────────────────┴─────────────────────────────────────┴────────────────────────────┤
 ```
 
-### 10.1 Strict Alpha Releases (Phases 0 – 9)
-- **Focus:** Vertical recording foundation, Wayland portal capture (`ashpd`), lock-free SPSC frame ring, x264 software encoder, floating HUD window, Camera PiP, Library with thumbnails, UI v2 glassmorphism, Starship Control UDS bridge (Phase 8), and complete container crash-resilience with native hybrid MP4 (`hybrid_mp4`) and isolated subprocess muxing (`ssp-mux`) (Phase 9).
-- **Target Versions:** `v0.0.1-alpha.1` through `v0.1.0-alpha.x`.
-- **Exit Criteria for Alpha:** Zero corrupted recordings under force-kill stress testing; automated release artifacts (exclusively `.deb`, `.rpm`, `.pkg.tar.zst` via `nfpm`, plus `SHA256SUMS`) pass clean-container CI smoke tests.
+### 10.1 Alpha Foundation (Phases 0 – 9)
+- **Focus:** Vertical recording foundation, Wayland portal capture (`ashpd`), lock-free SPSC frame ring, x264 software encoder, floating HUD window, Camera PiP, Library with thumbnails, **final locked Linear UI (`DESIGN.md v5.0`)**, Starship Control UDS bridge runtime wiring (Phase 8), and container crash-resilience with native hybrid MP4 (`hybrid_mp4`) and isolated subprocess muxing (`ssp-mux`) (Phase 9).
+- **Current App Version:** `0.1.0-beta.1` (Phases 0–7 core recording & Linear UI finalized; Phase 8 runtime UDS daemon + CET export and Phase 9 hybrid MP4/subprocess muxer remain pending before Beta hardening exits).
+- **Exit Criteria:** Zero corrupted recordings under force-kill stress testing; automated release artifacts (exclusively `.deb`, `.rpm`, `.pkg.tar.zst` via `nfpm`, plus `SHA256SUMS`) pass clean-container CI smoke tests.
 
 ### 10.2 Strict Beta Releases (Phases 10 – 14)
 - **Focus:** Zero-copy PipeWire DMA-BUF GPU texture ingestion (`SPA_DATA_DmaBuf`), active VAAPI (`hw_vaapi`) and NVENC (`hw_nvenc`) hardware encoders, studio-grade DSP (RNNoise voice isolation, sidechain ducking, anti-feedback protection), multitrack audio isolation (Tracks 1–3), granular diagnostics (Rendering Lag vs Encoding Lag), canvas scaling & replay buffer, and dynamic module loading with remote control RPC bridge.

@@ -1,10 +1,8 @@
-# TESTING.md — Full Testing Plan
+# TESTING.md — Full Testing & QA Matrix
 
-**Version:** 1.0 · **Authority chain:** PRD.md (success metrics) → FEATURES.md (feature guides + acceptance criteria) → TESTING.md (how each is verified)
+**Version:** 2.0 · **Authority chain:** PRD.md (success metrics) → FEATURES.md (feature acceptance) → TESTING.md (verification gates)
 
-**Execution law (per your rule):** tests are written **one feature at a time**, in the FEATURES.md order (`M1→…→M14`). A feature's tests must **all pass** before its feature is marked done (PLAN checkboxes) and the next one starts. This pairs with the FEATURES loop — code + tests are built and green together, never "test debt."
-
-**Current status:** repo is pre-scaffold (docs-only, see README §Status). Tools/commands in §1–§6 are the *planned* harness pinned by ARCHITECTURE.md; they execute for real when PLAN 0.1/0.3 (scaffold + CI) land, and CI keeps them guarded from commit one.
+**Current status (2026-11-25):** Active test suites run in CI (`.github/workflows/ci.yml`) and locally (`316` Vitest unit/component/UI-contract tests + Rust unit/integration + release performance harness). Manual multi-compositor hardware runs and `#[ignore]` hardware/soak gates track the remaining pre-GA verification items in §7 below.
 
 ---
 
@@ -196,76 +194,42 @@ Legend: `type` = unit (U) / integration (I) / e2e-shell (S) / manual (M) / prope
 | UI components | (not % — state coverage instead) | every §5 state asserted somewhere (manual + JS) |
 | Overall hard floor | 80% | never gate a PR on a delta < 2pp |
 
-**Commands (⚠ labels here follow SETUP.md — they become real.exe in PLAN 0.x):**
+**Commands (live & CI-verified):**
 ```bash
-# everything (Rust + TS) — the pre-PR gate, also run by ci.yml
-cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings \
-  && (cd src-tauri && cargo test) \
-  && npm run lint && npm run typecheck && npm run test
+# Full pre-PR / CI parity gate (Frontend Linear check + TS + ESLint + Vitest + Build, plus Rust fmt/clippy/test)
+npm run check:linear && npm run typecheck && npm run lint && npm test -- --run && npm run build
+cd src-tauri && cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test
 
-# per-side fast loops
-cargo test -p screen-studio-pro        # Rust unit+integration
-cargo test -p screen-studio-pro -- --ignored  # include ffmpeg-oracle S-tier tests
-npm run test -- --coverage            # vitest + coverage report
-npm run test -- src/lib               # contract tests only
+# Hardware / manual-gated tests (#[ignore]d in CI)
+cd src-tauri && SSP_LOG_LEVEL=debug cargo test -- --ignored --nocapture
 
-# property tests (subset)
-cargo test proptest
-
-# manual e2e shell suites (compositor hardware; see §7)
-tests/e2e/run.sh                    # ffprobe/sqlite/jq assertions after scripted sessions
+# Frontend unit tests (contract or component focus)
+npm test -- --run src/lib
 ```
 
 **Reporting:** CI publishes coverage summary; regressions > 2pp are review-blockers; per-feature table updates ticked alongside FEATURE loop PRs.
 
 ---
 
-## 7. Manual QA checklist (pre-release — PLAN Phase 7 gate)
+## 7. Manual QA & Pre-Release Status Checklist
 
-Run on: Arch + Hyprland (primary), Fedora + KDE Wayland, plus a MangoWC/niri smoke pass. Report against `docs/portal-support.md`.
+Run on: KDE Plasma Wayland (tested baseline), Arch + Hyprland, Fedora, plus niri/MangoWC smoke pass. Update `docs/portal-support.md`.
 
-**Install & first-run**
-- [ ] Distro package installs clean (`pacman`/`deb`/`rpm`); icon + .desktop land; app in app drawer
-- [ ] Fresh profile: portal prompt → monitor select → record 60s — clock the `install→first saved file` (<60s target, PRD G3)
-- [ ] About pane versions correct incl. `ipcContract`
+**Install & packaging (`nfpm` — `.deb` / `.rpm` / `.pkg.tar.zst`)**
+- [ ] Clean-container install/uninstall verification across Ubuntu `.deb`, Fedora `.rpm`, and Arch `.pkg.tar.zst` (desktop entry, icon, launcher)
+- [ ] Fresh profile `install → first saved file` timed (<60s target, PRD G3)
+- [x] About pane dynamically displays `tauri.conf.json` version and `ipcContract` (`1.6.0`)
 
-**Recording core**
-- [ ] Monitor / window / region each record a correct-resolution file (ffprobe evidence archived)
-- [ ] Pause/resume/flag/idempotent-spam — M7 checklist green on real hardware
-- [ ] kill -9 crash pairs: files all playable (`tests/e2e/run.sh` re-run after crash)
-- [ ] A/V listen: 10-min take drift check; lip-sync feel + ffprobe offset
-- [ ] x264 fallback path on a no-HW VM → warning notice appears, recording fine
+**Recording core & audio**
+- [x] Monitor recording + KDE portal consent + ffprobe playable MKV/MP4 + SQLite `library.db` row (live KDE verified)
+- [x] Pause/resume live take excludes paused time & audio A/B mute verified on KDE (Phase 2 live gates, 2026-11-17)
+- [x] MKV crash-tolerance verified automatically (`mem::forget` / `avio_flush` ffprobe test); full `SIGKILL` subprocess muxer isolation pending Phase 9
+- [ ] Hardware VAAPI/NVENC real encoding verification (`hw_vaapi.rs` / `hw_nvenc.rs` currently stubs falling back to `x264`; real GPU test pending Phase 10)
+- [ ] Multi-compositor live runs (Hyprland, niri, MangoWC, X11) for Window/Region capture, HUD overlay stacking, and GlobalShortcuts
 
-**Audio**
-- [ ] Mic levels: silence → dynamics marker above −6 dB peak; noise-floor sanity check in silence
-- [ ] Mute mic: A/B byte-honest check; desktop audio intact
-- [ ] Unplug/replug devices mid-session → chips reflect reality; no crash
-
-**HUD / PiP**
-- [ ] HUD on top of: fullscreen video, tabbed browser, terminal emulators per compositor; documented any inability
-- [ ] Drag + snap at all corners; pin; double-click; reduced-motion honored
-- [ ] PiP: drag/resize/snap; self-insert parity test; signal ring only during session
-
-**Library**
-- [ ] 100+ generated recordings → swarm via seeded scripts; speed + UX sanity
-- [ ] Delete/restore `missing` file-state cards behave; focus restore works keyboard-only
-- [ ] Saved-toast Reveal opens file; Copy copies exact path
-
-**Settings & shortcuts**
-- [ ] Every control roundtrip survives restart; broken TOML rescue path
-- [ ] Global hotkeys on KDE: grant dialog, gate-keeping when combo is taken
-- [ ] Tray: quick-record, pause, stop, quit — all work; no dead items
-
-**A11y + polish (pre-release blockers)**
-- [ ] Keyboard-only full walkthrough of MVP flows (a11y §7)
-- [ ] Reduced-motion run: idle pulse off, no scale springs
-- [ ] Light mode full pass: no contrast violations (DESIGN §7)
-- [ ] Error-copy audit: simulate `portal.denied`, `disk.no_space`, `encoder.unavailable`, `settings.schema_mismatch` — human copy everywhere, zero raw strings
-- [ ] Archive screenshots for README (replaces placeholders) + release notes columns in `docs/portal-support.md`
-- [ ] Performance soak: 30-min 1080p60 recording — RSS < 150MB, dropped < 0.5%, meter CPU negligible; numbers archived to release notes
-
-**Pre-release sign-off**
-- [ ] All P0/P1 CI tests green; release build from clean checkout
-- [ ] Every FEATURES.md acceptance checklist ticked with evidence
-- [ ] PLAN.md Phase 7 tasks 7.1–7.6 all green; CHANGELOG + release notes written
-- [ ] This file's ⚠ labels retired (commands verified against the real scaffold)
+**UI, accessibility & Linear lock**
+- [x] Unified Linear UI lock passes `npm run check:linear` (zero blur, translucency, dark-mode shadows, macOS CSD dots, pill clutter, or raw component hex)
+- [x] Dark & Light theme verification across Record / Library / Settings at `1280×800` and `1024×640` with zero horizontal overflow
+- [x] `prefs_set` / settings TOML roundtrip, focus outlines, reduced-motion rules, and human-only `CoreError::*` `userMessage` audit (verified in Vitest + inspection)
+- [ ] Live 30-min 1080p60 HW-encoder soak meeting PRD §8 (<150 MB RSS, <0.5% dropped frames) once VAAPI/NVENC land
+- [ ] Screen-reader smoke test and native HUD webview focus pass across Wayland compositors

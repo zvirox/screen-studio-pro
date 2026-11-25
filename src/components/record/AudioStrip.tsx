@@ -29,24 +29,22 @@ function MeterBar({ channel, reading }: { channel: Channel; reading: { rms: numb
   const calm = peak - hot;
   return (
     <div
-      className="h-1 w-full overflow-hidden rounded-full border border-subtle bg-raised"
+      className="h-1 w-full overflow-hidden rounded-xs border border-subtle bg-[var(--bg-bar-idle)]"
       role="meter"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(peak * 100)}
       aria-label={`${channel} input level`}
     >
-      {/* Per §4.1 the 4px closed step — h-1. Both spans come from the
-          payload's peak split at −6 dB: accent below, signal above. */}
       <div
         data-testid={`${channel}-meter-fill`}
         className="flex h-full"
         style={{ width: `${peak * 100}%` }}
       >
-        <div className="h-full bg-accent" style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }} />
+        <div className="h-full bg-[var(--accent-green)]" style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }} />
         <div
           data-testid={`${channel}-meter-hot`}
-          className="h-full bg-signal"
+          className="h-full bg-[var(--accent-red)]"
           style={{ width: `${((hot / (peak || 1)) * 100).toFixed(3)}%` }}
         />
       </div>
@@ -206,7 +204,7 @@ export default function AudioStrip() {
               key={channel}
               role="group"
               aria-label={channel === "mic" ? "Mic" : "Desktop"}
-              className="flex w-64 shrink-0 flex-col gap-2 rounded-sm border border-subtle bg-solid p-3 shadow-elev-1 min-[720px]:w-full"
+              className="flex w-64 shrink-0 flex-col gap-2 rounded-sm border border-subtle bg-solid p-3 shadow-card min-[720px]:w-full"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-body-sm font-medium text-ink">

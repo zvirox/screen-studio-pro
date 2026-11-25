@@ -94,7 +94,7 @@ function guideClass(corner: PipCorner, winner: PipCorner | null): string {
           : "right-6 bottom-6 border-r-2 border-b-2";
   // The winning snap target is a true selected state (accent); the other
   // guides stay neutral so drag feedback reads as instrument-like, not festive.
-  const strength = winner === corner ? "border-accent" : "border-line-glass/40";
+  const strength = winner === corner ? "border-[var(--accent-blue)]" : "border-[var(--border-strong)]";
   return `absolute h-6 w-6 ${bars} ${strength} pointer-events-none`;
 }
 
@@ -284,14 +284,12 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
           {...attributes}
           role="group"
           aria-label="Camera picture-in-picture frame"
-          className="float group pointer-events-auto absolute flex items-center justify-center overflow-hidden outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="float group pointer-events-auto absolute flex items-center justify-center overflow-hidden outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           style={{
             ...cornerStyle(corner, size),
             transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
             borderRadius: shape === "circle" ? "var(--radius-full)" : "var(--radius-md)",
-            ...(recording
-              ? { boxShadow: "var(--ssp-elev-float), 0 0 0 2px var(--ssp-signal)" }
-              : {}),
+            ...(recording ? { border: "2px solid var(--ssp-signal)" } : {}),
           }}
           tabIndex={0}
           {...listeners}
@@ -325,9 +323,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
           <div
             onPointerDown={stopForDnd}
             onKeyDown={stopForDnd}
-            className={`absolute top-0 right-0 flex gap-1 p-1 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-within:opacity-100 ${
-              shape === "circle" ? "rounded-full" : "rounded-t-lg"
-            }`}
+            className="absolute top-0 right-0 flex gap-1 rounded-sm p-1 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <button
               type="button"
@@ -335,7 +331,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
               aria-pressed={frozen}
               title={frozen ? "Unfreeze preview" : "Freeze preview (recording continues)"}
               onClick={() => setFrozen((f) => !f)}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              className="flex h-11 w-11 items-center justify-center rounded-sm text-ink hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus"
             >
               {frozen ? (
                 <VideoOff size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -348,7 +344,7 @@ export default function CameraPip({ cameraId, recording }: CameraPipProps) {
                 type="button"
                 aria-label="Camera frame shape"
                 title="Frame shape"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                className="flex h-11 w-11 items-center justify-center rounded-sm text-ink hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus"
               >
                 {shape === "circle" ? (
                   <Circle size={16} strokeWidth={1.5} aria-hidden="true" />

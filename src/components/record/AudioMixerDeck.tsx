@@ -23,6 +23,7 @@ import { Switch } from "../ui/switch";
      * Volume slider fader + Mute button
 */
 
+const WARN_THRESHOLD = 0.35;
 const MINUS_SIX_DB = 0.5;
 
 function toDbfs(peak: number): string {
@@ -40,7 +41,8 @@ export function MeterBar({
 }) {
   const peak = Math.max(0, Math.min(1, reading?.peak ?? 0));
   const hot = Math.max(0, peak - MINUS_SIX_DB);
-  const calm = peak - hot;
+  const warm = Math.max(0, Math.min(peak, MINUS_SIX_DB) - WARN_THRESHOLD);
+  const safe = Math.max(0, Math.min(peak, WARN_THRESHOLD));
   const dbText = toDbfs(peak);
 
   return (
@@ -49,10 +51,10 @@ export function MeterBar({
         <span>-60</span>
         <span className="text-ink-secondary">-18</span>
         <span className="text-ink-secondary">-6</span>
-        <span className={cn(hot > 0 ? "font-semibold text-signal" : "text-ink")}>{dbText}</span>
+        <span className={cn(hot > 0 ? "font-semibold text-[var(--accent-red)]" : "text-ink")}>{dbText}</span>
       </div>
       <div
-        className="h-2 w-full overflow-hidden rounded-full border border-subtle bg-raised"
+        className="h-2 w-full overflow-hidden rounded-xs border border-subtle bg-[var(--bg-bar-idle)]"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -65,12 +67,16 @@ export function MeterBar({
           style={{ width: `${peak * 100}%` }}
         >
           <div
-            className="h-full bg-accent"
-            style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }}
+            className="h-full bg-[var(--accent-green)]"
+            style={{ width: `${((safe / (peak || 1)) * 100).toFixed(3)}%` }}
+          />
+          <div
+            className="h-full bg-[var(--accent-amber)]"
+            style={{ width: `${((warm / (peak || 1)) * 100).toFixed(3)}%` }}
           />
           <div
             data-testid={`${channel}-meter-hot`}
-            className="h-full bg-signal"
+            className="h-full bg-[var(--accent-red)]"
             style={{ width: `${((hot / (peak || 1)) * 100).toFixed(3)}%` }}
           />
         </div>
@@ -217,10 +223,10 @@ export default function AudioMixerDeck() {
   return (
     <section
       aria-label="Audio Mixer Deck"
-      className="studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2 flex min-w-0 flex-col gap-4 w-full"
+      className="studio-deck rounded-md p-3.5 flex min-w-0 flex-col gap-3 w-full"
     >
       {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className="text-heading font-semibold text-ink">Audio Mixer</h2>
           <span className="whitespace-nowrap rounded-xs bg-solid border border-subtle px-1.5 py-0.5 font-mono text-label text-ink-secondary">
@@ -245,7 +251,7 @@ export default function AudioMixerDeck() {
               role="group"
               aria-label="Mic"
               className={cn(
-                "flex min-w-0 flex-col gap-3 rounded-md border border-subtle bg-solid p-3.5 shadow-elev-1 transition-opacity",
+                "flex min-w-0 flex-col gap-2.5 rounded-md border border-subtle bg-solid p-3 transition-opacity",
                 !state.enabled && "opacity-60",
               )}
             >
@@ -256,7 +262,7 @@ export default function AudioMixerDeck() {
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-sm border",
                       isMuted
-                        ? "border-error/40 bg-error-muted text-error"
+                        ? "border-error bg-error-muted text-error"
                         : "border-subtle bg-canvas text-ink-secondary",
                     )}
                   >
@@ -302,7 +308,7 @@ export default function AudioMixerDeck() {
                   className={cn(
                     "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
-                      ? "bg-error text-white hover:bg-error/90"
+                      ? "bg-error text-white hover:bg-[var(--accent-red)]"
                       : "border border-subtle bg-canvas text-ink hover:bg-surface-hover",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     "disabled:cursor-not-allowed disabled:opacity-50",
@@ -332,7 +338,7 @@ export default function AudioMixerDeck() {
                   aria-label="Mic input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("mic", Number(e.target.value))}
-                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-ink-secondary focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-xs bg-[var(--bg-bar-idle)] accent-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 80}%
@@ -341,7 +347,7 @@ export default function AudioMixerDeck() {
 
               {/* Silent education hint */}
               {state.enabled && isSilent && !controlsDisabled && (
-                <p className="rounded-xs bg-canvas/60 px-2 py-1 text-label text-ink-secondary">
+                <p className="rounded-xs bg-canvas px-2 py-1 text-label text-ink-secondary border border-subtle">
                   Speak to test your mic level
                 </p>
               )}
@@ -359,7 +365,7 @@ export default function AudioMixerDeck() {
               role="group"
               aria-label="Desktop"
               className={cn(
-                "flex min-w-0 flex-col gap-3 rounded-md border border-subtle bg-solid p-3.5 shadow-elev-1 transition-opacity",
+                "flex min-w-0 flex-col gap-2.5 rounded-md border border-subtle bg-solid p-3 transition-opacity",
                 !state.enabled && "opacity-60",
               )}
             >
@@ -370,7 +376,7 @@ export default function AudioMixerDeck() {
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-sm border",
                       isMuted
-                        ? "border-error/40 bg-error-muted text-error"
+                        ? "border-error bg-error-muted text-error"
                         : "border-subtle bg-canvas text-ink-secondary",
                     )}
                   >
@@ -413,7 +419,7 @@ export default function AudioMixerDeck() {
                   className={cn(
                     "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
-                      ? "bg-error text-white hover:bg-error/90"
+                      ? "bg-error text-white hover:bg-[var(--accent-red)]"
                       : "border border-subtle bg-canvas text-ink hover:bg-surface-hover",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     "disabled:cursor-not-allowed disabled:opacity-50",
@@ -443,7 +449,7 @@ export default function AudioMixerDeck() {
                   aria-label="Desktop input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("desktop", Number(e.target.value))}
-                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-raised accent-ink-secondary focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-xs bg-[var(--bg-bar-idle)] accent-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 70}%
@@ -457,7 +463,7 @@ export default function AudioMixerDeck() {
       {/* Error Banner */}
       {audio.status === "error" && audio.error && (
         <p
-          className="rounded-sm bg-error-muted border border-error/30 p-2.5 text-body-sm text-error"
+          className="rounded-sm bg-error-muted border border-error p-2.5 text-body-sm text-error"
           role="alert"
         >
           {audio.error.userMessage}

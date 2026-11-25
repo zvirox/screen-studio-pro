@@ -1,6 +1,6 @@
-import React from 'react';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { LinearCard } from './LinearCard';
+import React from "react";
+import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { LinearCard } from "./LinearCard";
 
 export interface StatCardProps {
   title: string;
@@ -23,20 +23,20 @@ export const StatCard: React.FC<StatCardProps> = ({
   unit,
   delta,
   icon,
-  iconBgColor = 'bg-[#3355FF]/10',
-  iconColor = 'text-[#3355FF]',
-  className = '',
+  iconBgColor = "bg-[var(--tint-blue)]",
+  iconColor = "text-[var(--accent-blue)]",
+  className = "",
 }) => {
   return (
     <LinearCard level={1} className={`p-5 flex flex-col justify-between ${className}`}>
-      {/* Top row: Title and Icon Chip */}
+      {/* Top row: Title and solid precomputed Icon Chip */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)] select-none">
           {title}
         </span>
         {icon && (
           <div
-            className={`size-8 rounded-full flex items-center justify-center shrink-0 ${iconBgColor} ${iconColor}`}
+            className={`size-8 rounded-sm flex items-center justify-center shrink-0 ${iconBgColor} ${iconColor}`}
           >
             {icon}
           </div>
@@ -55,14 +55,14 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
 
-      {/* Bottom row: Delta Pill + Comparison */}
+      {/* Bottom row: Opaque Delta Badge + Comparison */}
       {delta && (
         <div className="mt-4 flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums ${
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-xs text-[11px] font-medium tabular-nums ${
               delta.positive
-                ? 'bg-[#22C55E]/10 text-[#22C55E]'
-                : 'bg-[#F43F5E]/10 text-[#F43F5E]'
+                ? "bg-[var(--tint-green)] text-[var(--accent-green)]"
+                : "bg-[var(--tint-red)] text-[var(--accent-red)]"
             }`}
           >
             {delta.positive ? (

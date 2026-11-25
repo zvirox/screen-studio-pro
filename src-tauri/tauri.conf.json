@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "Screen Studio Pro",
-        "width": 1360,
-        "height": 820,
-        "minWidth": 1040,
-        "minHeight": 680,
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 640,
         "center": true,
         "resizable": true,
         "decorations": false,

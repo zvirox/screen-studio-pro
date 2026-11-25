@@ -279,131 +279,78 @@ optional — measured band levels are the agreed accept signal.
       - Run 3 (final gate, **PASSED**): trimmed trend 93 → 92 MiB head→tail, raw peak 180 MiB, threads 2 — leak detector validated on a full clean 30-take run (mid-run contention again visible in the drop column; memory indifferent to it).
     - Event throttling conformance: already covered as contract evidence (`meters_flow_at_the_contract_ceiling` ≤ 30 Hz, `tick_and_stats_keep_the_contract_cadence` 0.5 Hz) — no new test needed.
   - **Remaining for a full ✓:** PRD §8 target confirmation on VAAPI/NVENC when the hardware encoders land (the x264 numbers above are fallback bounds; the harness and gates already run and pass, hardware-path asserts activate automatically via `info.encoder.is_hardware`).
-- [x] **7.5 Packaging** — `packaging/aur/PKGBUILD` (with real git-tag source), deb + rpm spec + icons; CI `release.yml` artifacts; README install steps finalized (replacing the kept-honest placeholder). *Verify:* builds + installs clean on Arch/deb/rpm test VMs; `pacman -Qi`/`dpkg -i`/`rpm -i` success. *Depends on:* 7.4
-  - 📌 **Ledger note (2026-11-19):** release pipeline DONE and exercised twice end-to-end. `v0.0.1-alpha.1` (2026-11-18) and `v0.0.1-alpha.2` (2026-11-19) were both tag-pushed and released with **all four asset types** attached: `.deb`, `.rpm`, `.AppImage`, and a single-file `.flatpak` (Tier-2: assets published without install verification). Release runs `44287969913` (alpha.1) and `44458745229` (alpha.2) completed **success**; CI green on both tags. The Flatpak sandbox build was made fully offline (vendored crates + Rust toolchain tarball, GNOME 48 runtime by default, no SDK extensions) after a long failure chain — see commit history `97dd73a`→`947f513`. README §Installing now documents the live channels. **Residual (gracefully open):** AUR `PKGBUILD` (`packaging/aur/`, still unwritten) and the VM install tests (`pacman -Qi`/`dpkg -i`/`rpm -i` on Arch/deb/rpm guests) — no guest images available on this box; these stay open as launch items, tracked with 7.6 / the v1.0.0 distro row in PLAN's release timeline.
-- [x] **7.6 Launch docs** — README screenshots replaced with real captures, CHANGELOG v0.1.0, release notes incl. capability matrix table + known quirks, AUR announce. *Verify:* link check, screenshot freshness audit. *Depends on:* 7.5
-  - 📌 **Ledger note (2026-11-19):** release notes DONE for both shipped tags (`docs/releases/0.0.1-alpha.1.md` and `0.0.1-alpha.2.md`), each with a capability matrix + known quirks, and both bodies live on their GitHub release pages. `CHANGELOG.md` carries `alpha.1` and `alpha.2` entries (the task text's "v0.1.0" was stale — actual versions are `0.0.1+alpha.{1,2}`). README corrected status/features/install/env/folder sections; four v2 and v3 UI previews archived in `docs/screenshots/`; local markdown links resolve. **Residual (not closed by this tick):** the screenshots are frontend renders, not real in-app captures; the PRD G3 ≤60s fresh-profile metric remains unmeasured (with 6.4 / 13.1); the screenshot-freshness audit and the AUR announce depend on the 7.5 AUR residual. These launch gates stay open alongside 7.5's.
+- [x] **7.5 Packaging** — `packaging/nfpm.yaml` + desktop entry + icons; `release.yml` produces `.deb`, `.rpm`, `.pkg.tar.zst` + `SHA256SUMS`. *Verify:* CI package generation + format validation. *Depends on:* 7.4
+  - 📌 **Ledger note (2026-11-25):** Release pipeline locked exclusively to `nfpm` (`.deb`, `.rpm`, `.pkg.tar.zst` + `SHA256SUMS` via `zvirox/release-workflows`). Legacy Flatpak, AppImage, tarball, AUR `PKGBUILD`, and VM packaging requirements were permanently retired in commit `4839cb3`. Clean-container install smoke tests (`ubuntu`, `fedora`, `archlinux`) remain tracked under Phase 15.1.
+- [x] **7.6 Launch docs** — CHANGELOG, release notes (`docs/releases/*`), README + portal matrix (`docs/portal-support.md`), and refreshed dark/light Linear UI previews (`docs/screenshots/*`). *Depends on:* 7.5
+  - 📌 **Ledger note (2026-11-25):** `CHANGELOG.md`, `SETUP.md`, `TESTING.md`, `FEATURES.md`, `DESIGN.md` (v5.0), `ARCHITECTURE.md`, `PRD.md`, and `PLAN.md` audited and synced to `0.1.0-beta.1` and the locked Linear UI. Residual launch items: PRD G3 `<= 60s` fresh-profile timed measure and live non-KDE compositor runs.
 
-**Definition of Done — Phase 7 (MVP shippable):** tagged release with distro packages, real screenshots, honest capability matrix, a11y/perf evidence, and PRD success metrics instrumented (time-to-first-recording, crash rate via tracing aggregation). Streaming tab remains the DESIGN-mandated "V2" pill — nothing shipped early.
+**Definition of Done — Phase 7:** core MVP functionality implemented and cleanly packaged via `nfpm`; docs, CHANGELOG, and Linear UI v5.0 finalized. Only `7.4` PRD §8 hardware-encoder perf confirmation remains open pending real VAAPI/NVENC implementation.
 
 ---
 
 ## Phase 8 — Starship Control & `starship-plugin` SDK Integration
 
-> **Goal:** Embed the shared `starship-plugin` SDK crate so Starship Control can auto-discover, wake up, and command ScreenStudio Pro over Unix domain sockets or stdio.
+> **Goal:** Embed the shared `starship-plugin` SDK crate so Starship Control can auto-discover, wake up, and command ScreenStudio Pro over Unix domain sockets or stdio.  
+> **Codebase status (2026-11-25):** `src-tauri/src/starship_bridge.rs` compiles with `starship-plugin` and passes unit tests for the manifest/tool definitions (`build_ssp_bridge()`), **but** is not yet spawned in `lib.rs::setup()`, tool handlers currently return scaffold stub JSON rather than calling real `AppState` recording actions, and CET telemetry sidecar export (`8.3`) is not yet implemented. Therefore all Phase 8 tasks remain `[ ]` pending.
 
 - [ ] **8.1 Embed `starship-plugin` SDK & Manifest Registration**
-  - Add `starship-plugin` dependency to `src-tauri/Cargo.toml`.
-  - Auto-generate `$XDG_DATA_HOME/starship/plugins/ssp.json` on boot with capabilities (`monitorCapture`, `windowCapture`, `regionCapture`, `audioMic`, `audioDesktop`, `cetExport`).
-  - *Verify:* Launching SSP drops valid JSON manifest in XDG plugins directory.
+  - Wire `build_ssp_bridge()` startup in `lib.rs::setup()` so launching SSP writes `$XDG_DATA_HOME/starship/plugins/ssp.json` with verified live capabilities.
+  - *Verify:* Launching SSP drops valid JSON manifest in XDG plugins directory matching real build version (`tauri.conf.json`).
 - [ ] **8.2 Unix Domain Socket Bridge Server**
-  - Initialize Unix socket server at `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` with Linux `SO_PEERCRED` validation.
-  - Implement JSON-RPC 2.0 handshake (`starship/hello`) and tool invocation handling (`recording_start`, `recording_stop`, `source_select`).
-  - *Verify:* External client can trigger and stop a recording take over the Unix socket.
+  - Bind the runtime Unix socket server at `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` with Linux `SO_PEERCRED` validation.
+  - Replace mock tool responses in `starship_bridge.rs` with real `AppState` capture/recording/source handlers (`recording_start`, `recording_stop`, `source_select`).
+  - *Verify:* External client triggers and stops a real recording take over the Unix socket.
 - [ ] **8.3 CET Telemetry Stream Export**
-  - Expose CET v0.1 event sidecar exporter (`<recording>.cet.jsonl`) to Starship Control for automated downstream cuts in Easy Edits Pro.
-  - *Verify:* Starship Control can retrieve finalized CET telemetry alongside recorded MKV/MP4.
+  - Expose CET v0.1 event sidecar exporter (`<recording>.cet.jsonl`) alongside finalized MKV/MP4 recordings.
+  - *Verify:* Starship Control retrieves finalized CET telemetry alongside recorded MKV/MP4.
 
-**Definition of Done — Phase 8:** SSP is fully controllable by Starship Control via both live GUI socket and headless CLI stdio, with automated CET sidecar export.
-
----
-
-## UI v2 redesign — 2026-11-18 (contract-first, five stages)
-
-- **Conflict rule (AGENTS §6):** the user explicitly approved overruling DESIGN.md; PRD §Vision/G2 and PRODUCT.md's pinned brand feel were reviewed per DESIGN §8 (they require glassmorphic, translucent, animated, quiet-software — they pin no hue). DESIGN.md was bumped 1.0 → 2.0 in the **same task** as the regenerated token layer, before any component code. Stages 1–4 landed in `e7e5aa1`, `473c627`, `9da2063`, `1ef4a63`.
-- **v2.0 law now in force:** burgundy accent on warm near-black neutrals (dark `accent.text`/`accent` 9.04:1, light 9.12:1), 6-radius minimal-round rectangle scale, square 1:1 preview with letterboxed frames, one scroll owner per surface (§6.0), flat icon nav row, rectangular HUD, `m.press`/`m.reveal`/`m.spinner` compositions with JS reduced-motion support, and a fixed 6-level z-scale.
-- **Verification:** contrast re-measured from the CSS in both modes; DESIGN↔token audit (12 colors/mode, 6 radii, 4 durations, 6 z-levels) PASS; dark and light Record/Settings/Library rendered passes with no console errors; nav arrow-key roving verified in the browser; typecheck, lint, 222 frontend tests and production build green after every stage.
-- **Residual / not verified:** the browser tool has no viewport emulation, so 390px/1440px widths were checked through code + narrow/wide native viewports, not exact emulation; reduced-motion could not be emulated (CSS media rule + `MotionConfig` verified in code only); the HUD's separate webview was not rendered in the browser harness; light-mode off-switch boundary contrast inherits the existing §5.4 tokens and was not re-measured at 3:1. No new dependencies; no IPC, API or database changes.
+**Definition of Done — Phase 8:** SSP is dynamically controllable by Starship Control over the live Unix socket at startup, with real `AppState` capture wiring and automated CET sidecar export.
 
 ---
 
-## UI v3 Studio Redesign — Camo-Inspired Wide-Window Floating Studio (Contract-First)
+## UI Design — Finalized & Locked (`DESIGN.md v5.0` — Unified Linear-Style System)
 
-- **Authority & Conflict Rule (AGENTS §6):** The user explicitly rejected the square (1:1) letterboxed frame and narrow layout in favor of modern, wide-canvas desktop studios (referencing **Camo Studio**, **Meld Studio**, and **PRISM Live Studio**).
-- **v3.0 Architectural Law (`DESIGN.md v3.0`):**
-  1. **Hero 16:9 Canvas:** Complete abolition of the square 1:1 preview box; replaced with a widescreen 16:9 hero preview canvas with 16px corner radius, 1px specular glass border, and ambient drop shadow.
-  2. **Tri-Panel Floating Island Architecture:** The window expands to wide desktop proportions (default 1360×820, min 1040×680). Content floats in three disciplined, symmetrically aligned glass islands:
-     - **Left Inspector Deck (300px):** Source switcher (Monitor/Window/Region), Display picker, Camera PiP controls (shape/size/corner snap/self-insert), and Quality Presets.
-     - **Center Hero Canvas + Sub-Canvas Audio Mixer Deck:** 16:9 canvas with interactive overlays + horizontal bottom card containing dedicated Mic and Desktop audio channel strips with dual peak/RMS meters, dB faders, mute switches, and DSP status badges (`[AI Noise Filter]`, `[Auto-Ducking]`).
-     - **Right Takes & Presets Gallery (260px):** Floating glass dock showing recent recordings with 16:9 thumbnails and quick actions, or Quick Presets with hotkey tags (`F1`, `F2`).
-  3. **Studio Titlebar (CSD):** 52px integrated glass chrome with window controls, centered view capsule (`Record` | `Library` | `Settings`), right-aligned telemetry badge (`1080p60 VAAPI`), and primary **Record Pill CTA** (with pulsing broadcast signal red dot).
-  4. **Hardware Radius Scale:** `r.sm=8px`, `r.md=12px`, `r.lg=16px`, `r.xl=20px`, `r.full=999px`.
+> **Status:** **COMPLETE, FINAL, AND LOCKED (2026-11-25).** All prior UI planning phases (`UI v2` frosted glass, `UI v3` studio island draft) are retired and archived. No further UI style changes will be planned or executed.
 
-### UI v3 Execution Stages:
-
-- [x] **v3.1 Design Tokens & Tailwind Theme Bridge**
-  - Update `src/tailwind.css` with v3.0 tokens: Obsidian palette (`bg.canvas` `#0A0B0E`, `bg.raised` `#12141A`, `surface.solid` `#181A22`), hardware radii (`r.sm=8px`, `r.md=12px`, `r.lg=16px`, `r.xl=20px`), and floating island shadows (`elev.1`, `elev.2`, `elev.float`).
-  - *Verify:* `npm run typecheck && npm run lint && npm test` pass; token values match `DESIGN.md v3.0`.
-- [x] **v3.2 Integrated Studio Titlebar & Window Dimensions**
-  - Update `src-tauri/tauri.conf.json` window defaults: `width: 1360, height: 820, minWidth: 1040, minHeight: 680`.
-  - Rebuild `src/components/chrome/NavBar.tsx`: custom CSD with window controls, centered segmented capsule, right telemetry badge (`1080p60 VAAPI`) and 40px primary `Record` pill CTA button.
-  - *Verify:* Window renders with correct proportions; top bar aligns cleanly across compact and wide widths.
-- [x] **v3.3 Hero 16:9 Floating Preview Canvas**
-  - Refactor `src/components/record/SourceDeck.tsx` and preview rendering into a widescreen 16:9 canvas with `rounded-2xl` (16px), 1px glass border, and ambient shadow.
-  - Integrate interactive Camera PiP and region drag-rect directly onto the 16:9 canvas surface without letterboxing.
-  - *Verify:* 16:9 test pattern fills canvas edge-to-edge; PiP snaps to all 4 corners.
-- [x] **v3.4 Left Floating Inspector Deck**
-  - Create `src/components/record/CaptureInspector.tsx`: 300px floating glass island.
-  - Houses segmented source chips (`Monitor` | `Window` | `Region`), active display card with resolution tag, Camera PiP control group (device, circle/rounded toggle, size slider, self-insert switch), and Quality Preset dropdown.
-  - *Verify:* All settings persist; switching sources and presets updates state cleanly.
-- [x] **v3.5 Floating Audio Mixer Deck (Meld Studio Style)**
-  - Rebuild `src/components/record/AudioStrip.tsx` into a studio mixer deck positioned symmetrically below the 16:9 canvas.
-  - Features two vertical channel cards (Mic & Desktop) with high-res peak/RMS meter bars, dB level faders, mute toggles, device popovers, and DSP badges (`RNNoise`, `Ducking`).
-  - *Verify:* Meters animate in sync; mute and volume faders control audio stream properly.
-- [x] **v3.6 Right Takes & Presets Gallery (Camo Studio Style)**
-  - Create `src/components/record/TakesGallery.tsx`: 260px floating glass island.
-  - Lists recent recordings with 16:9 card thumbnails, duration chips, and hover quick-actions (Play, Reveal, Copy Path); toggleable to Quick Presets.
-  - *Verify:* Clicking recent take opens RecordingDrawer; gallery renders empty state when no recordings exist.
-- [x] **v3.7 Tri-Panel Studio Integration & Responsive Polish**
-  - Integrate all three floating decks and hero canvas in `src/components/record/RecordView.tsx`.
-  - Responsive behavior: On viewports <1120px, right gallery collapses into an accessible slide-out drawer or top-bar toggle.
-  - Full test pass: vitest, typecheck, lint, build, and visual inspection.
-  - 📌 **Ledger note (2026-11-19):** all seven stages implemented, CI-verified, and shipped in `v0.0.1-alpha.2` (2026-11-19, four asset types; release run `44458745229` success). Evidence: DESIGN.md v3.0; tokens in `src/tailwind.css` (`#0A0B0E`/`#12141A`/`#181A22`, radii, `--ssp-elev-float`); window 1360×820 min 1040×680 in `tauri.conf.json`; `NavBar` studio titlebar (telemetry pill + Record CTA + roving capsule); `SourceDeck` 16:9 canvas with region drag-rect; `CaptureInspector` (segmented switcher, PiP group, preset dropdown); `AudioMixerDeck` (peak/RMS + faders + DSP badges); `TakesGallery` (thumbnails + quick actions + presets toggle); `RecordView` integrates all three decks. Verification: `npm run typecheck`/`lint` clean, **309 vitest tests across 35 files** (incl. 6 end-to-end studio scenarios), cargo fmt/clippy `-D warnings` clean + 137 Rust tests, production build; change note live on the GitHub release page. **Not exercised in native browser/webview:** exact 390px/1440px emulation and reduced-motion emulation (checked in code + native viewport, not exact emulation) — matches the UI v2 residual pattern.
-
-  - 📌 **Hotfix ledger (2026-11-22):** `v0.0.1-alpha.5` moved the Flatpak from GNOME 48 to GNOME 49 to address the external `SIGKILL` during WebKit startup; the same alpha.4 binary and real app data survived 5/5 eight-second and 3/3 full 20-second GNOME 49 launches, while 3/3 GNOME 48 controls died within five seconds. GNOME 48 supplied WebKitGTK 2.50.6/Mesa 25.3.3 and GNOME 49 supplied WebKitGTK 2.54.1/Mesa 26.2.2; the evidence does not isolate either component individually. The manifest and release workflow use GNOME 49 without sandbox/compositing/software-rendering overrides; tray libraries and the shared-library plus 20-second startup gates remain intact. No production capture, encoder or UI behavior changed. Final package and repeated installed-system launch evidence was recorded after publication in the alpha.5 ledger below.
-  - 📌 **Hotfix ledger (2026-11-22):** `v0.0.1-alpha.6` reran alpha.5’s GNOME 49 packaging and added `--talk-name=org.freedesktop.portal.ProxyResolver` to the Flatpak manifest because the installed app showed `GDBus.Error:org.freedesktop.portal.Error.NotAllowed: This call is not available inside the sandbox` from `org.freedesktop.portal.ProxyResolver.Lookup`. Release CI passed again; the published bundle’s SHA-256 matched GitHub before installation; the existing system installation was upgraded to alpha.6; and controlled installed-system launches survived **3/3** full 20-second windows with explicit `flatpak kill` cleanup after each run.
-  - 📌 **Hotfix ledger (2026-11-23):** `v0.0.1-alpha.9` applies DESIGN.md v3.2, "Quiet Studio Instrument", across the whole UI after alpha.8 restored offline frontend assets with Tauri's custom protocol. Sentence-case labels, neutral surface steps and hairlines, Burgundy reserved for the primary Record action and true selection, a fixed `text.on-canvas` token, and one easing curve replace the previous decorative glass/glow treatment. Typecheck, lint, 320 frontend tests, production build, refreshed mocked-IPC screenshots, and the release-time Flatpak library/startup gates must be verified before beta.
-
-  - 📌 **Hotfix ledger (2026-11-22):** `v0.0.1-alpha.4` prepared after the installed alpha.3 Flatpak reproducibly aborted with status `134` because Tauri could not dynamically load either appindicator library. The Flatpak manifest now vendors the pinned Flathub libappindicator/libdbusmenu/libindicator build recipes, and release CI checks the built sandbox libraries plus a 20-second Xvfb/D-Bus startup before attaching the bundle. No production capture, encoder or UI behavior changed. Release run `45004143614` passed both package jobs and the new gates. The published bundle's SHA-256 matched GitHub (`6dcb41df35e36f9a92d8fe91bb9cfe4988e04e6f5f36b47d63e088866c8b01d9`); an isolated temporary user install resolved every tray dependency and stayed alive for a 30-second real host launch without the alpha.3 panic. Existing system installation was not changed; clean-VM and recording-session validation remain open.
-
-  - 📌 **Ledger note (2026-11-22):** v3.1 responsive/accessibility polish completed and shipped as `v0.0.1-alpha.3`. Desktop retains the canonical tri-panel layout; 720–1119px uses a 280px inspector + fluid preview/mixer two-column layout, and narrower widths stack in DOM order. Crop dragging, native-pixel keyboard nudges, letterboxed geometry, Settings roving tabs, tab/panel links, navigation targets and reduced-motion transforms were corrected. DESIGN.md advanced to v3.1; README gained validated usage/troubleshooting documentation and four regenerated 1440×960 mocked-IPC previews. Browser checks covered 1440×960, 1040×680 and 640×800 in both themes, keyboard navigation, reduced motion, overflow and console errors. Frontend verification: typecheck/lint/build clean, **321 tests across 35 files**. Commit `2fd2b80` passed CI run `44995837385` (frontend + Rust); a local Rust rerun was blocked by the host FFmpeg 8/CUDA bindgen environment, not a production Rust behavior change. Final release commit `73e682c` passed CI run `44997416391`; tag `v0.0.1-alpha.3` points to that exact commit and release run `44998002711` completed successfully with all four uploaded assets (`.deb`, `.rpm`, `.AppImage`, `.flatpak`). Hardware encoding, VM package installation and real in-app captures remain unverified/open.
+- **Locked Visual Architecture:**
+  1. **Solid Flat Matte Surfaces (`src/tailwind.css`):** Opaque dark defaults (`#050505` app, `#111213` surface, `#1A1B1E` surface-2, `#1F2125` border, `#F5F5F6` text) and clean light parity (`#F3F4F6`, `#FFFFFF`, `#F4F5F7`, `#E5E7EB`, `#0F1115`). Zero blur, zero `rgba()`/`hsla()`, zero glow, zero dark-mode shadows, zero macOS traffic lights (`csd-dot-*`), zero disallowed pills.
+  2. **Recording-Only Exception:** Studio Burgundy (`#A3284E` / `#8B1E3F`) and Broadcast Signal Red (`#C92A2A` / `#D32F2F`) reserved strictly for the Record CTA button and live recording indicators (`TitleBar` `REC` timer badge, `HudBar` pulse dot, `CameraPip` recording border).
+  3. **Window & Chrome:** `1280×800` default / `1024×640` minimum (`decorations: false`, `transparent: false`), 40px `TitleBar` (dynamic `tauri.conf.json` version pill, live recording indicator slot, `ui-theme` toggle, `#E5484D` close hover), `48px` `NavBar`, `TelemetryDeck` (Apache ECharts FPS/dropped + CPU/GPU encode donut), and green→amber→red `AudioMixerDeck` meters.
+  4. **Automated Gate & Visual Verification:** `npm run check:linear` (`scripts/check-linear.mjs`), `npm run typecheck`, `npm run lint`, **316 Vitest tests across 35 files**, Vite build, and headless Chromium renders across dark & light (`1280×800` & `1024×640`) all pass with zero overflow.
 
 ---
 
 ## Release Timeline & Lifecycle Strategy (Alpha → Beta → Stable)
 
-Governed by repository governance rules, releases are strictly segmented into three disciplined stages:
-
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                        SCREENSTUDIO PRO RELEASE TIMELINE                               │
 ├─────────────────────┬─────────────────────────────────────┬────────────────────────────┤
-│ Lifecycle Tier      │ Covered Phases                      │ Target Version Scheme      │
+│ Lifecycle Tier      │ Covered Phases                      │ Version / Current State    │
 ├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
-│ STRICT ALPHA        │ Phases 0 – 9                        │ v0.0.1-alpha.1 →           │
-│                     │ Foundation, Core Capture, Audio,    │ v0.1.0-alpha.x             │
-│                     │ Camera PiP, Library, UI v2,         │                            │
-│                     │ Ecosystem Bridge, Container Safety  │                            │
+│ CORE & UI LOCKED    │ Phases 0 – 7 core + Linear UI v5.0  │ Current baseline:          │
+│                     │ Foundation, Portal/PW Capture,      │ v0.1.0-beta.1              │
+│                     │ Audio, PiP, Library, Locked UI      │ (7.4 HW perf & Phase 8/9   │
+│                     │ Packaging (nfpm deb/rpm/pkg.tar.zst)│  remain open)              │
 ├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
-│ STRICT BETA         │ Phases 10 – 14                      │ v0.9.0-beta.1 →            │
-│                     │ Zero-Copy GPU, Hardware Encoders,   │ v0.9.x-beta.*              │
-│                     │ Pro Audio DSP, Multitrack,          │                            │
-│                     │ Telemetry, Replay Buffer, Plugins   │                            │
+│ PRE-BETA CLOSER     │ Phases 8 – 9                        │ Wire Starship UDS bridge,  │
+│                     │ Live Starship UDS + CET,            │ hybrid MP4 & subprocess    │
+│                     │ Hybrid MP4 & Muxer Subprocess       │ muxer isolation            │
 ├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
-│ 1ST STABLE RELEASE  │ Post-Phase 14                       │ v1.0.0                     │
-│                     │ Production GA, Flathub Verified,    │                            │
-│                     │ Complete Distro Packaging, Zero Reg │                            │
+│ HARDWARE & PRO BETA │ Phases 10 – 14                      │ v0.9.0-beta.1 →            │
+│                     │ Zero-Copy GPU, VAAPI/NVENC,         │ v0.9.x-beta.*              │
+│                     │ RNNoise/Multitrack, Telemetry       │                            │
+├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+│ 1ST STABLE RELEASE  │ Phase 15                            │ v1.0.0                     │
+│                     │ Production GA, Locked nfpm Matrix   │                            │
 └─────────────────────┴─────────────────────────────────────┴────────────────────────────┤
 ```
 
-### Stage 1: Strict Alpha Releases (Phases 0 through 9)
-- **Scope:** Vertical recording pipeline, Wayland portal negotiation (`ashpd`), lock-free SPSC bus, software x264/AAC, floating HUD window, Camera PiP compositing, Library grid & drawer, Settings panes, UI v2 redesign, Starship Control UDS bridge (Phase 8), and complete container crash-resilience with hybrid MP4 and muxer subprocess isolation (Phase 9).
-- **Versioning Scheme:** `v0.0.1-alpha.1` through `v0.1.0-alpha.x`.
-- **Target Audience:** Early adopters, ricers, and developers running Hyprland, KDE Plasma, niri, and MangoWC.
-- **Alpha Exit Gate (Transition to Beta):**
-  1. Phase 9 completed and verified: Subprocess muxer isolation (`ssp-mux`) and hybrid MP4 writer (`hybrid_mp4`) guarantee zero corrupted recordings upon application crash or `SIGKILL`.
-  2. Locked `nfpm` packaging matrix (exclusively `.deb`, `.rpm`, `.pkg.tar.zst` + `SHA256SUMS`) runs clean with container smoke tests in CI. AppImage, Flatpak, AUR, and VM test requirements are retired.
-  3. Starship Control bridge auto-registration verified.
+### Stage 1: Core Recording + Locked Linear UI + Alpha Closers (Phases 0 – 9)
+- **Completed:** Vertical recording core, Wayland/X11 portal capture (`ashpd`), lock-free SPSC bus, `sw_x264`/AAC, floating HUD window, Camera PiP compositing, SQLite Library + thumbnails, Settings panes, **Final Locked Linear UI (`DESIGN.md v5.0`)**, and `nfpm` packaging matrix (`.deb`, `.rpm`, `.pkg.tar.zst` + `SHA256SUMS`).
+- **Open Exit Gates:**
+  1. Phase 8 completed & wired: live UDS socket server spawned at boot, real `AppState` recording control, and `.cet.jsonl` sidecar export.
+  2. Phase 9 completed & verified: subprocess muxer isolation (`ssp-mux`) and `hybrid_mp4` guarantee zero corrupted recordings under `SIGKILL`.
 
 ---
 
@@ -437,7 +384,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 |---|---|---|
 | Subprocess Muxer Isolation (`media-mux-subprocess`) (§2.1, §12.1) | Direct in-process worker thread muxing | Phase 9.2 (Alpha closer) |
 | Fragmented & Hybrid MP4 (`hybrid_mp4`) (§4.3, §12.2) | MKV + post-take MP4 stream-copy remux (6.2) | Phase 9.1 (Alpha closer) |
-| In-take Chapter Markers & Lossless File Splitting (§4.4) | Flag button stub on HUD; manual stop only | Phase 9.3 (Alpha closer) |
+| In-take Chapter Markers & Lossless File Splitting (§4.4) | Live `recording_flag` chapters on HUD (2.5); manual stop only | Phase 9.3 (Alpha closer) |
 | Zero-Copy DMA-BUF Ingestion (`SPA_DATA_DmaBuf`) (§4.2, §12.4) | PipeWire MemFd system memory mapping | Phase 10.1 (Beta Track) |
 | Hardware Encoder Zero-Copy (`PASS_TEXTURE`) (§7.1, §7.3) | VAAPI/NVENC stubs (3.3), x264 software fallback | Phase 10.2 (Beta Track) |
 | Multitrack Audio Isolation (Tracks 1–6) (§6, §12.5) | Combined 2-channel master mix only | Phase 11.1 (Beta Track) |
@@ -559,7 +506,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 
 - [ ] **14.1 Dynamic Module Loading ABI (`ssp-module`)**
   - C-compatible dynamic library (`.so`) plugin loader for custom video filters and audio processors.
-  - Dynamic properties UI engine automatically maps C module parameters to glassmorphic React settings dialogs.
+  - Dynamic properties UI engine automatically maps C module parameters to Linear React settings dialogs.
   - *Verify:* Sample third-party filter plugin loads, registers source node, and renders interactive sliders in UI.
 - [ ] **14.2 Remote Control WebSocket RPC & Companion Protocol**
   - Complete Starship Control UDS bridge and expose optional local WebSocket server for Stream Deck and mobile controllers.
@@ -587,13 +534,13 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ [STRICT ALPHA TRACK]                                                                   │
-│ Phases 0-7 (Done) ──▶ Phase 8 (Starship SDK) ──▶ Phase 9 (Hybrid MP4 & Muxer Subproc) │
+│ [CORE RECORDING & LOCKED LINEAR UI (DONE: Phases 0–7 core + v5.0 Linear UI)]           │
+│ ──▶ 7.4 HW Perf Gate ─▶ Phase 8 (Starship UDS Runtime & CET) ─▶ Phase 9 (Hybrid MP4)   │
 └──────────────────────────────────────────────────┬─────────────────────────────────────┘
-                                                   │  Alpha Exit Gate (v0.1.0-alpha.x)
+                                                   │
                                                    ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ [STRICT BETA TRACK]                                                                    │
+│ [HARDWARE & PRO BETA TRACK (v0.9.x)]                                                   │
 │ Phase 10 (Zero-Copy GPU & HW Encoders) ──▶ Phase 11 (Pro Audio DSP & Multitrack)       │
 │                                        ──▶ Phase 12 (Diagnostics & Latency Tracing)    │
 │                                        ──▶ Phase 13 (Canvas Scaling & Replay Buffer)   │

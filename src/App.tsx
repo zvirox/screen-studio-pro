@@ -1,53 +1,52 @@
 import { motion, MotionConfig } from "framer-motion";
 import { useEffect } from "react";
+import tauriConf from "../src-tauri/tauri.conf.json";
 import NavBar from "./components/chrome/NavBar";
 import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
 import LibraryGrid from "./components/library/LibraryGrid";
 import SettingsView from "./components/settings/SettingsView";
+import { TitleBar } from "./components/linear/TitleBar";
 import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
-import { useSspStore, type ViewId } from "./lib/store";
+import { formatElapsed } from "./lib/format";
 import { MOTION } from "./lib/motion";
-import { TitleBar } from "./components/linear/TitleBar";
+import { useSspStore, type ViewId } from "./lib/store";
 
-/* App shell — NavBar + view router (ARCHITECTURE §2; DESIGN.md v3.1).
-   The session-event hook mounts once here (§4.1: the event stream is the
-   state sync, so projections keep updating on any view). useHudWindow is
-   the spawn side of the §5.9 HUD float: main hears recording/started and
-   owns the child through Stop, including late creation. ToastHost (§5.6)
-   sits above every view — faults and the saved toast are floatover-level
-   surface, not view content.
-   DESIGN.md v2.0 §6.0: exactly one scroll owner per surface. Record owns
-   its scroll here; Library and Settings own theirs inside their surface,
-   so this shell is overflow-hidden for those views (no double scroll). */
+/* App shell — TitleBar + NavBar + view router (ARCHITECTURE §2; DESIGN.md v5.0).
+   One scroll owner per surface: Record owns its scroll in <main>;
+   Library and Settings own theirs inside their view root. */
 
-// §4.6 m.reveal (m.base): y +6→0, opacity 0→1. JS motion honors the user's
-// reduced-motion preference via <MotionConfig reducedMotion="user"> below —
-// the CSS media rule alone cannot neutralize framer-motion transforms.
 const enter = {
   initial: { y: MOTION.revealY, opacity: 0 },
   animate: { y: 0, opacity: 1 },
   transition: { duration: MOTION.base, ease: MOTION.easeBase },
 };
 
-// Surfaces that bring their own scroll + padding (§6.0).
 const SELF_SCROLLING_VIEWS: ViewId[] = ["library", "settings"];
 
-function ViewStub({ title, note }: { title: string; note: string }) {
+function RecordingTitleIndicator() {
+  const status = useSspStore((s) => s.session.status);
+  const paused = useSspStore((s) => s.session.paused);
+  const elapsedMs = useSspStore((s) => s.session.elapsedMs);
+
+  if (status !== "recording") return null;
+
   return (
-    <motion.section {...enter} className="pane rounded-md p-5">
-      <h1 className="text-display-md">{title}</h1>
-      <p className="mt-2 max-w-md text-body-sm text-ink-secondary">{note}</p>
-    </motion.section>
+    <span
+      role="status"
+      aria-label={paused ? "Recording paused" : "Recording live"}
+      className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--border)] bg-[var(--ssp-signal-muted)] px-1.5 py-0.5 text-[11px] font-mono tabular-nums text-[var(--ssp-signal)]"
+    >
+      <span
+        className={`size-1.5 rounded-full bg-[var(--ssp-signal)] ${paused ? "" : "animate-pulse-rec motion-reduce:animate-none"}`} /* linear-exception: dot */
+        aria-hidden="true"
+      />
+      <span>{paused ? "PAUSED" : "REC"}</span>
+      <span>{formatElapsed(elapsedMs)}</span>
+    </span>
   );
 }
-
-const STUB_NOTES: Record<Exclude<ViewId, "record">, string> = {
-  library:
-    "The recordings grid lands with the library feature — seeded from the SQLite index (task 0.8).",
-  settings: "",
-};
 
 export default function App() {
   const view = useSspStore((s) => s.view);
@@ -65,9 +64,10 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <div className="flex h-dvh flex-col bg-canvas text-ink">
         <TitleBar
-          title="Screen Studio Pro"
-          version="v0.1.0-beta.1"
+          title={tauriConf.productName ?? "Screen Studio Pro"}
+          version={`v${tauriConf.version ?? "0.1.0-beta.1"}`}
           icon={<img src="/logo.png" alt="SSP" className="size-4 object-contain" />}
+          recordingIndicator={<RecordingTitleIndicator />}
         />
         <NavBar showWindowControls={false} />
         <main
@@ -75,7 +75,7 @@ export default function App() {
           role="tabpanel"
           aria-labelledby={`view-tab-${view}`}
           className={`min-h-0 min-w-0 flex-1 ${
-            selfScrolling ? "overflow-hidden" : "overflow-y-auto p-4 min-[720px]:p-5 min-[1280px]:p-6"
+            selfScrolling ? "overflow-hidden" : "overflow-y-auto p-3 min-[720px]:p-4"
           }`}
         >
           <motion.div key={view} {...enter} className={selfScrolling ? "h-full" : undefined}>
@@ -83,16 +83,8 @@ export default function App() {
               <RecordView />
             ) : view === "library" ? (
               <LibraryGrid />
-            ) : view === "settings" ? (
-              <SettingsView />
             ) : (
-              <ViewStub
-                title={
-                  (view as unknown as string).charAt(0).toUpperCase() +
-                  (view as unknown as string).slice(1)
-                }
-                note={STUB_NOTES[view as Exclude<ViewId, "record">]}
-              />
+              <SettingsView />
             )}
           </motion.div>
         </main>

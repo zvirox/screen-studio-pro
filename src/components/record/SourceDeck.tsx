@@ -196,9 +196,8 @@ function RegionDragRect({
         height: `${(rect.h / previewHeight) * 100}%`,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         border: "2px solid",
-        borderColor: "var(--ssp-accent)",
+        borderColor: "var(--accent-blue)",
         borderRadius: "var(--radius-sm)",
-        boxShadow: "var(--ssp-elev-1)",
         cursor: "move",
         zIndex: "var(--ssp-z-sticky)",
       }}
@@ -284,7 +283,7 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
   return (
     <section
       aria-label="Source"
-      className="studio-deck min-w-0 rounded-lg border border-line-glass p-4 shadow-elev-2 min-[720px]:p-5"
+      className="studio-deck min-w-0 rounded-md p-3 min-[720px]:p-3.5"
     >
       {!hideHeaderChips && (
         <div className="flex flex-wrap items-center gap-2">
@@ -323,7 +322,7 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
       <div
         aria-label="Source preview"
         className={cn(
-          "relative mx-auto flex aspect-video w-full items-center justify-center rounded-lg hero-canvas border border-line-glass shadow-elev-float overflow-hidden",
+          "relative mx-auto flex aspect-video w-full items-center justify-center rounded-md hero-canvas overflow-hidden",
           !hideHeaderChips && "mt-4",
         )}
       >
@@ -331,7 +330,7 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
           <img
             src={still.dataUrl}
             alt="Source preview"
-            className="absolute inset-0 h-full w-full rounded-lg object-contain"
+            className="absolute inset-0 h-full w-full rounded-md object-contain"
           />
         ) : null}
         {slotVisible ? (
@@ -339,7 +338,7 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
             <div
               role="status"
               aria-live="polite"
-              className="flex items-center gap-2 text-body-sm text-on-canvas/80"
+              className="flex items-center gap-2 text-body-sm text-[var(--text-muted)]"
             >
               <LoaderCircle
                 size={16}
@@ -355,25 +354,25 @@ export default function SourceDeck({ hideHeaderChips = false }: SourceDeckProps 
                 <AppWindow
                   size={28}
                   strokeWidth={1.5}
-                  className="text-on-canvas/80"
+                  className="text-[var(--text-muted)]"
                   aria-hidden="true"
                 />
               ) : isRegionActive ? (
                 <Crop
                   size={28}
                   strokeWidth={1.5}
-                  className="text-on-canvas/80"
+                  className="text-[var(--text-muted)]"
                   aria-hidden="true"
                 />
               ) : (
                 <Monitor
                   size={28}
                   strokeWidth={1.5}
-                  className="text-on-canvas/80"
+                  className="text-[var(--text-muted)]"
                   aria-hidden="true"
                 />
               )}
-              <p className="max-w-md text-body-md leading-relaxed text-on-canvas/80">
+              <p className="max-w-md text-body-md leading-relaxed text-[var(--text-muted)]">
                 {isRegionActive
                   ? "Drag to select region; arrow keys to nudge (Shift = 10px)"
                   : isWindowActive

@@ -1,3 +1,4 @@
+import tauriConf from "../../../src-tauri/tauri.conf.json";
 import { useSspStore } from "../../lib/store";
 import logoUrl from "../../assets/screen-studio-pro-logo.png";
 
@@ -13,7 +14,7 @@ export default function AboutPane() {
         <img
           src={logoUrl}
           alt="Screen Studio Pro logo"
-          className="h-12 w-12 rounded-lg object-contain"
+          className="h-12 w-12 rounded-md object-contain"
         />
         <div>
           <p className="mt-1 text-body-sm text-ink-secondary">
@@ -27,12 +28,12 @@ export default function AboutPane() {
         <dl className="space-y-2">
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink-secondary">Name</dt>
-            <dd className="text-body-sm text-ink">Screen Studio Pro</dd>
+            <dd className="text-body-sm text-ink">{tauriConf.productName ?? "Screen Studio Pro"}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink-secondary">Version</dt>
-            <dd className="text-body-sm text-ink text-mono-sm">
-              {capabilities?.version?.app ?? "0.1.0-beta.1"}
+            <dd className="text-body-sm text-ink font-mono text-mono-sm">
+              {capabilities?.version?.app ?? tauriConf.version ?? "0.1.0-beta.1"}
             </dd>
           </div>
           <div className="flex justify-between">

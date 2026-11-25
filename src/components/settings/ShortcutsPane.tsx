@@ -100,7 +100,7 @@ export default function ShortcutsPane() {
           {toggling ? "Applying…" : "Apply shortcuts"}
         </button>
         {applied && (
-          <span className="ml-2 h-9 flex items-center px-2 rounded-sm bg-success/10 text-success text-xs text-success">
+          <span className="ml-2 h-9 flex items-center px-2.5 rounded-xs bg-tint-green text-success text-xs font-medium">
             Applied
           </span>
         )}

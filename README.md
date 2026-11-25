@@ -166,14 +166,14 @@ When you are presenting slides, live coding, or demonstrating an app, switching 
 - **One-Prompt Editing Handoff**: Tell Starship Control *"Take a 60-second recording and open it in Easy Edits Pro so I can trim out silent pauses."*
 - **Chapter Marking While Speaking**: Summon the Floating HUD with `Super+Shift+Space` and ask it to tag key moments while you record tutorials.
 
-### How Connection Works
+### How Connection Works (Phase 8 Integration Architecture)
 
-Setup happens automatically when you launch both apps:
+Screen Studio Pro embeds the `starship-plugin` SDK (`src-tauri/src/starship_bridge.rs` scaffold implemented and unit-tested; live startup registration and CET telemetry sidecar export complete in Phase 8):
 
-1. **Local Discovery**: Screen Studio Pro writes a small plugin descriptor to `$XDG_DATA_HOME/starship/plugins/ssp.json`.
+1. **Local Discovery**: Manifest descriptor targets `$XDG_DATA_HOME/starship/plugins/ssp.json`.
 2. **Private Unix Socket**: Commands flow through `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` on your local disk.
-3. **Kernel User Verification**: Every message checks Linux peer credentials (`SO_PEERCRED`). Only processes running as your user account can control the recorder. Zero network ports open.
-4. **Instant Detection**: Open Starship Control or press `Super+Shift+Space` to start commanding Screen Studio Pro immediately. For downloads and setup details, visit the [Starship Control repository](https://github.com/zvirox/starship-control) and [releases](https://github.com/zvirox/starship-control/releases).
+3. **Kernel User Verification**: Uses Linux peer credentials (`SO_PEERCRED`) so only your local user account can invoke capture tools, with zero network ports open.
+4. **Companion Detection**: Once Phase 8 runtime daemon wiring lands, launching Starship Control discovers Screen Studio Pro automatically. Visit [Starship Control](https://github.com/zvirox/starship-control) and [releases](https://github.com/zvirox/starship-control/releases).
 
 ---
 

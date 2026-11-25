@@ -48,7 +48,7 @@ describe("SourceDeck (§6.1/§6.3)", () => {
     expect(guidance).toBeInTheDocument();
     // Neutral secondary copy on the dark canvas; accent is reserved for
     // the primary action, live state, focus rings and meter fill.
-    expect(guidance).toHaveClass("text-on-canvas/80");
+    expect(guidance).toHaveClass("text-[var(--text-muted)]");
   });
 
   it("clicking the chip starts the portal selection (§2.1)", () => {

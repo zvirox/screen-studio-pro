@@ -53,7 +53,10 @@ export default function HudBar() {
         // text carry the state, never color alone).
         <div data-hud="dot" className="h-[22px] w-[22px] rounded-xs bg-signal" />
       ) : (
-        <div data-hud="dot" className="h-2.5 w-2.5 animate-pulse-rec rounded-full bg-signal" />
+        <div
+          data-hud="dot"
+          className="h-2.5 w-2.5 animate-pulse-rec rounded-full bg-signal" /* linear-exception: dot */
+        />
       )}
       <div role="timer" className="font-mono text-mono-md tabular-nums text-ink">
         {formatElapsed(session.elapsedMs)}

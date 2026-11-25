@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — ScreenStudio Pro
 
-**Version:** 1.1 · **Authority chain:** PRD.md (scope) → ARCHITECTURE.md (structure) → DESIGN.md (UI law)
+**Version:** 1.2 · **Authority chain:** PRD.md (scope) → ARCHITECTURE.md (structure) → DESIGN.md (UI law v5.0, Final & Locked)
 **Rules applied:** simple, popular, well-documented tools only. No code in this file. MVP scope only (recording), with named seams for V2 streaming and the scene compositor — seams, not scaffolding.
 
 ---
@@ -9,11 +9,11 @@
 
 | Layer | Choice | Reason |
 |---|---|---|
-| App shell | **Tauri 2** | Small native Linux binaries, custom titlebar/glass panels, and a clean Rust↔webview IPC — decided in stack selection |
+| App shell | **Tauri 2** | Small native Linux binaries, frameless flat titlebar, and a clean Rust↔webview IPC — decided in stack selection |
 | Frontend | **React 19 + TypeScript + Vite** | Fast HMR dev loop, TS types the IPC contract end-to-end, Vite is the standard bundler for Tauri |
-| Styling | **Tailwind CSS v4** | `@theme` block generates directly from DESIGN.md tokens (§8 governance); utility speed for a panel-dense app |
-| UI kit | **shadcn/ui + Radix primitives** | Accessible, copy-paste components restyled to DESIGN.md specs — no version-fight npm dependency |
-| Motion | **framer-motion** | Spring-based motion tokens (§4.6) in one system without hand-rolled RAF code |
+| Styling | **Tailwind CSS v4** | `@theme` block generates directly from DESIGN.md v5.0 Linear tokens; enforced by `scripts/check-linear.mjs` |
+| UI kit & Charts | **Radix primitives (Popover/Switch) + custom `components/linear/*` + Apache ECharts 6** | Accessible primitives restyled to flat Linear specs (`8px`/`6px`/`4px` radii) plus real-time telemetry charts |
+| Motion | **framer-motion** | 150ms ease-out motion tokens with `<MotionConfig reducedMotion="user">` |
 | State (TS) | **Zustand** | Async-heavy state syncing with Tauri events fits its vanilla-store model; smallest API surface |
 | DnD | **dnd-kit** | Powers region overlay + V2 compositor canvas; keyboard-accessible by default |
 | Language (core) | **Rust, single crate `screen-studio-pro` (workspace later if ever needed)** | All capture/encode logic is native; a monolith crate avoids premature workspace ceremony |
@@ -58,21 +58,26 @@ screen-studio-pro/
 │   ├── screen-studio-pro.desktop   # Desktop entry
 │   ├── scripts/                    # postinstall.sh / preremove.sh hooks
 │   └── icons/                      # hicolor PNG icon set
+├── scripts/
+│   └── check-linear.mjs            # Linear UI enforcement gate (zero blur/rgba/pills/raw-hex)
 ├── docs/
-│   └── portal-support.md           # Known per-compositor quirks (PRD risks §9)
+│   ├── portal-support.md           # Known per-compositor quirks (PRD risks §9)
+│   └── screenshots/                # Dark/Light rendered Linear UI previews
 └── src-tauri/                      # Rust core + Tauri shell
     ├── Cargo.toml
-    ├── tauri.conf.json             # window config, CSP, bundle metadata
+    ├── tauri.conf.json             # 1280x800 default / 1024x640 min, decorations:false, transparent:false
     ├── build.rs
     ├── capabilities/               # Tauri 2 permission manifests
-    │   └── main.json
+    │   └── default.json
     ├── icons/                      # app icon set
     └── src/
-        ├── main.rs                 # binary entry: builds Tauri app, binds commands
+        ├── main.rs                 # binary entry: calls ssp::run()
+        ├── lib.rs                  # setup, tracing bootstrap, Tauri invoke handler registration
+        ├── starship_bridge.rs      # starship-plugin SDK bridge scaffold (Phase 8 runtime spawn pending)
         ├── app_state.rs            # Owned AppState (recording controller handle, settings cache)
         ├── tray.rs                 # Native tray menu + main-window visibility; delegates lifecycle to app_state
         ├── settings/
-        │   ├── mod.rs              # load/save TOML config, Zod-equivalent validation
+        │   ├── mod.rs              # load/save TOML config, serde validation
         │   └── defaults.rs         # first-run defaults (PRD G3: 60s-to-first-recording)
         ├── ipc/
         │   ├── mod.rs              # command + event registration (the UI↔core contract)
@@ -82,62 +87,72 @@ screen-studio-pro/
         │   ├── mod.rs              # CaptureSource trait (monitor/window/region/camera/audio)
         │   ├── portal.rs           # ashpd screencast session orchestration
         │   ├── pipewire.rs         # PipeWire stream consumption → frame bus
-        │   ├── camera_v4l2.rs      # V4L2 camera frames → frame bus (+ portal fallback)
+        │   ├── preview.rs          # Drop-oldest PreviewMailbox + ≤8fps JPEG encoder
+        │   ├── camera_v4l2.rs      # V4L2 camera frames → stills mailbox (+ sysfs hotplug watcher)
         │   └── audio.rs            # cpal mic + PipeWire desktop audio → audio bus
         ├── encode/
         │   ├── mod.rs              # Encoder trait + capability detection (VAAPI/NVENC/x264)
-        │   ├── hw_vaapi.rs         # VAAPI hwaccel encoder impl
-        │   ├── hw_nvenc.rs         # NVENC hwaccel encoder impl
-        │   └── sw_x264.rs          # CPU fallback impl
+        │   ├── hw_vaapi.rs         # VAAPI probe / stub (full zero-copy hwaccel slated Phase 10)
+        │   ├── hw_nvenc.rs         # NVENC probe / stub (full zero-copy hwaccel slated Phase 10)
+        │   └── sw_x264.rs          # Active CPU H.264 encoder impl (ffmpeg-next)
         ├── pipeline/
-        │   ├── mod.rs              # Recording session controller: source→encode→file state machine
-        │   ├── muxer.rs            # MKV/MP4/WebM writing + MKV→MP4 remux on stop
-        │   ├── composite.rs        # webcam PiP compositing + region cropping (MVP overlay)
-        │   └── stats.rs            # fps/drop/bitrate meters → throttled events
+        │   ├── mod.rs              # Recording session controller + SPSC ring
+        │   ├── audio.rs            # Audio rings, linear mix & meter calculation
+        │   ├── presets.rs          # Static M11 quality presets (YouTube/Discord/Lossless/Smallest)
+        │   ├── session.rs          # Worker loops, pause tracking, naming & remux orchestration
+        │   ├── muxer.rs            # MKV/MP4 writing + MKV→MP4 remux on stop
+        │   ├── composite.rs        # webcam PiP compositing + region cropping
+        │   └── stats.rs            # fps/drop/bitrate/encode-time throttled stats
         ├── library/
-        │   ├── mod.rs              # library index operations (CRUD)
-        │   ├── store.rs            # rusqlite schema + migrations (embedded)
-        │   └── thumbs.rs           # thumbnail generation + cache
+        │   ├── mod.rs              # library index exports
+        │   ├── store.rs            # rusqlite schema, WAL migrations & CRUD
+        │   └── thumbs.rs           # thumbnail PNG extraction + cache
         └── util/
             ├── paths.rs            # XDG dirs: config/data/cache locations
+            ├── time.rs             # monotonic / wall-clock formatting helpers
             └── error.rs            # CoreError enum → serializable IPC errors
 └── src/                            # React frontend (Tauri webview)
-    ├── package.json / vite.config.ts / tsconfig.json / index.html
-    ├── tailwind.css                # @theme tokens generated per DESIGN.md v1.0
-    ├── components.json             # shadcn config
-    ├── main.tsx
-    ├── App.tsx                     # NavBar + view router (Record/Library/Settings)
+    ├── package.json / vite.config.ts / tsconfig.json / index.html (`ui-theme` pre-paint)
+    ├── tailwind.css                # DESIGN.md v5.0 Linear palette, Inter + JetBrains Mono fonts
+    ├── main.tsx / hud-main.tsx
+    ├── App.tsx                     # TitleBar + NavBar + view router (Record/Library/Settings)
     ├── lib/
     │   ├── ipc.ts                  # typed wrappers over invoke() — mirrors src-tauri/ipc
     │   ├── events.ts               # typed listeners for Tauri events (single source)
     │   ├── store.ts                # Zustand store wiring: UI state ↔ events
-    │   └── errors.ts               # CoreError → human copy mapping (DESIGN §7.9)
+    │   ├── boot.ts / format.ts / hudWindow.ts / motion.ts / cn.ts
+    │   └── errors.ts               # CoreError → human copy mapping
     ├── components/
-    │   ├── ui/                     # shadcn primitives restyled to DESIGN.md §5
+    │   ├── linear/                 # Locked Linear primitives: TitleBar, ThemeToggle, LinearCard, LinearButton, StatCard, StatusPill, ProgressRow, RangeTabs, DonutLegend, echarts-linear-theme
+    │   ├── ui/                     # Restyled Button, Radix Popover & Switch, Reveal
     │   ├── record/
-    │   │   ├── SourceDeck.tsx      # monitor/window/region chips + preview (§6.1)
-    │   │   ├── AudioStrip.tsx      # channel cards, meters, device popovers
-    │   │   ├── CameraSlab.tsx      # PiP toggle/preview
-    │   │   └── ActionRow.tsx       # Record button, preset select, encoder chip
+    │   │   ├── RecordView.tsx      # Tri-panel studio layout (1120px) & responsive compact stack
+    │   │   ├── CaptureInspector.tsx# Source mode, Camera PiP controls, quality preset & encoder badge
+    │   │   ├── SourceDeck.tsx      # Hero 16:9 canvas + JPEG preview + region crop overlay
+    │   │   ├── AudioMixerDeck.tsx  # Dual channel cards, green→amber→red meters, blue gain sliders
+    │   │   ├── TakesGallery.tsx    # Recent takes gallery & preset quick switcher
+    │   │   ├── TelemetryDeck.tsx   # Live FPS/bitrate/drop StatCards + ECharts line/donut charts
+    │   │   └── ActionRow.tsx       # Record/Stop CTA, elapsed timer, paused indicator & stats line
     │   ├── library/
-    │   │   ├── LibraryGrid.tsx     # §5.5 recording items
-    │   │   ├── RecordingDrawer.tsx # detail drawer (§5.7)
-    │   │   └── EmptyStates.tsx     # §6.3 education slots
+    │   │   ├── LibraryGrid.tsx     # §5.5 recording cards + search/sort/empty/missing states
+    │   │   ├── RecordingDrawer.tsx # 420px metadata drawer
+    │   │   └── DeleteConfirm.tsx   # Centered confirmation dialog over solid dimmed scrim
     │   ├── settings/
-    │   │   ├── SettingsView.tsx    # left rail + panes (§6.4)
-    │   │   └── panes/              # Capture/Audio/Camera/Files/Shortcuts/About
+    │   │   ├── SettingsView.tsx    # Left rail + 560px content column
+    │   │   └── *Pane.tsx           # FirstRun, Capture, Audio, Camera, Files, Shortcuts, About
     │   ├── huds/
-    │   │   ├── HudBar.tsx          # recording toolbar (§5.9)
-    │   │   └── CameraPip.tsx       # floating PiP (§6.6)
+    │   │   ├── HudBar.tsx          # Transparent-window floating matte Linear HUD toolbar
+    │   │   └── CameraPip.tsx       # Draggable/resizable webcam PiP frame inside Hero Canvas
     │   └── chrome/
-    │       ├── NavBar.tsx          # window chrome (§5.8)
-    │       └── ToastHost.tsx       # sonner-styled toasts (§5.6)
+    │       ├── NavBar.tsx          # 3-tab flat segmented bar, telemetry chip & Record CTA
+    │       ├── BootError.tsx       # Contract version mismatch fallback
+    │       └── ToastHost.tsx       # Bottom-center notifications stack
     ├── hooks/
-    │   ├── useRecordingState.ts    # store selectors, session flow (§6.5)
-    │   └── useGlobalShortcuts.ts   # portal shortcut registration via plugin
+    │   ├── useRecordingState.ts    # Single event-subscription bridge
+    │   ├── useSourcePreview.ts     # ≤8fps polled source & camera stills
+    │   └── useHudWindow.ts         # Recording HUD lifecycle spawn/teardown
     └── types/
-        ├── ipc.ts                  # command/event payload types (contract mirror)
-        └── domain.ts               # Recording, Preset, SourceKind...
+        └── ipc.ts                  # command/event payload types (contract mirror)
 ```
 
 Tree rules: `commands.rs` handlers stay thin (validation + delegation); no business logic in ipc; frontend never imports Rust internals — only the typed contract in `lib/ipc.ts` ↔ `types/ipc.ts`.
@@ -231,13 +246,13 @@ finishes committing.
 - Rust: `snake_case` modules/functions, `UpperCamelCase` types, `SCREAMING_SNAKE` consts. Modules named by domain (`capture/portal.rs` not `portal_capture.rs`).
 - TS: `PascalCase` components, `camelCase` functions/vars, `kebab-case` CSS/token files. Types end in plain nouns; no `I` prefixes.
 - IPC contract: commands `snake_case` verbs (`start_recording`), events `domain/verb` (`recording/tick`, `library/updated`).
-- Design tokens: exactly the DESIGN.md names in Tailwind `@theme` (`accent`, `surface-glass`, `elev-float`…).
-- Files: one primary type per file; test files `name.rs` + `#[cfg(test)] mod tests` (Rust), `name.test.ts` (TS where meaningful).
+- Design tokens: exact DESIGN.md v5.0 names in Tailwind `@theme inline` (`--bg-app`, `--bg-surface`, `--bg-surface-2`, `--border`, `--accent-blue`, `--shadow-card`…).
+- Files: one primary type per file; test files `name.rs` + `#[cfg(test)] mod tests` (Rust), `*.test.{ts,tsx}` (TS).
 
 ### 5.2 Code style
-- Rust: rustfmt + clippy `-D warnings`; edition 2024. TS: tsc strict, eslint, prettier; no `any` in the ipc contract (that file is fully typed both directions).
-- Comments explain *why*, never restate *what*; every exported contract has a doc comment citing the governing doc (PRD feature ID / DESIGN section).
-- All UI work must pass DESIGN.md §8 lint governance (`/* DESIGN.md v1.0 */` provenance in tailwind `@theme`).
+- Rust: rustfmt + clippy `-D warnings`; edition 2024. TS: tsc strict, eslint, prettier; no `any` in the ipc contract.
+- Comments explain *why*, never restate *what*; exported contracts carry doc comments.
+- All UI work must obey DESIGN.md v5.0 (verified automatically by `npm run check:linear` + `/* DESIGN.md v5.0 */` provenance).
 
 ### 5.3 Environment variables list (dev/runtime only — none in production UI)
 | Var | Meaning | Default |

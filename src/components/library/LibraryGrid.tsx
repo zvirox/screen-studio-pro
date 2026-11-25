@@ -18,15 +18,10 @@ import { cn } from "../../lib/cn";
 import { Reveal } from "../ui/Reveal";
 import Button from "../ui/Button";
 
-/* §6.5 Cards & the recording library grid (task 5.2).
-   Card: surface.solid, r.md, border.subtle, elev.1, padding space.4.
-   Interactive hover: neutral surface step + glass hairline, no lift.
-   Loading: skeleton grid — shimmer on surface.solid shapes, never spinners
-   mid-page. Recording item: 16:9 thumbnail (r.sm), duration chip bottom-right
-   (mono-sm, rgba(0,0,0,0.5) ground), name body-sm 500, meta row
-   (label/mono-sm: date · size · fps · encoder). Actions remain visible for
-   touch and keyboard users. Thumbnail/open action = detail drawer (§5.7).
-   Nothing important hidden behind hover. */
+/* DESIGN.md v5.0 — Library grid (task 5.2).
+   Card: solid surface, 8px radius, 1px `--border`, `shadow-card` (none dark / hairline light).
+   Loading: skeleton grid — shimmer on solid shapes. Recording item: 16:9 thumbnail
+   (6px radius), opaque dark duration chip bottom-right, visible quick actions. */
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -72,8 +67,8 @@ function LibraryCard({
   return (
     <article
       className={cn(
-        "group relative rounded-md border border-subtle bg-solid p-4 shadow-[var(--shadow-elev-1)]",
-        "transition-colors duration-fast ease-fast hover:border-line-glass hover:bg-surface-hover focus-within:border-line-glass",
+        "group relative rounded-md border border-subtle bg-solid p-4 shadow-card",
+        "transition-colors duration-fast ease-fast hover:border-border-strong hover:bg-surface-hover focus-within:border-border-strong",
         featured && "lg:col-span-2",
       )}
     >
@@ -93,15 +88,15 @@ function LibraryCard({
           onClick={() => onOpen(item.id)}
           className="absolute inset-0 rounded-sm focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         />
-        {/* Duration chip bottom-right (mono-sm, dark ground and white text). */}
-        <span className="pointer-events-none absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-black/50 px-1.5 py-0.5 font-mono text-mono-sm text-white">
+        {/* Duration chip bottom-right (opaque dark ground and white text). */}
+        <span className="pointer-events-none absolute bottom-1 right-1 flex items-center gap-1 rounded-xs bg-[var(--hero-canvas-bg)] px-1.5 py-0.5 font-mono text-mono-sm text-white">
           {formatDuration(item.durationMs)}
         </span>
         {/* Missing-file overlay (§5.5): thumbnail persists + error chip. */}
         {item.status === "missing" && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-sm bg-black/50">
-            <div className="flex items-center gap-2 rounded-md border border-error bg-error/10 p-2">
-              <span className="text-body-sm font-medium text-white">File missing</span>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-sm bg-canvas">
+            <div className="flex items-center gap-2 rounded-sm border border-error bg-tint-red px-2.5 py-1.5">
+              <span className="text-body-sm font-medium text-error">File missing</span>
             </div>
           </div>
         )}
@@ -153,12 +148,12 @@ function LibraryCard({
 
 function SkeletonCard() {
   return (
-    <article className="group relative cursor-default rounded-md border border-subtle bg-solid p-4 shadow-[var(--shadow-elev-1)]">
+    <article className="group relative cursor-default rounded-md border border-subtle bg-solid p-4 shadow-card">
       {/* §6.5 loading: skeleton grid — shimmer on surface.solid shapes, never spinners mid-page. */}
       <div className="relative aspect-video w-full overflow-hidden rounded-sm bg-solid">
         <div className="h-full w-full animate-pulse bg-solid" />
-        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-sm bg-black/50 px-1.5 py-0.5">
-          <div className="h-3 w-8 rounded bg-ink-disabled" />
+        <div className="absolute bottom-1 right-1 flex items-center gap-1 rounded-xs bg-[var(--hero-canvas-bg)] px-1.5 py-0.5">
+          <div className="h-3 w-8 rounded-xs bg-ink-disabled" />
         </div>
       </div>
       <div className="mt-3">

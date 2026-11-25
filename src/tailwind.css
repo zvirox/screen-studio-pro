@@ -1,30 +1,29 @@
-/* src/tailwind.css — ScreenStudio Pro design tokens + fonts
-   Provenance: DESIGN.md v3.2 (§2 colors, §3 type, §4 foundations, §5 components).
+/* src/tailwind.css — ScreenStudio Pro Linear-Style design tokens + fonts
+   Provenance: DESIGN.md v5.0 (Unified Linear-Style Design System — Final & Locked).
    Tailwind v4 @theme mapped onto a runtime variable layer so dark (default) and
-   light swap without re-generating utilities: @theme inline points at --ssp-*
-   vars that :root (dark) and :root[data-theme="light"], .light override.
+   light swap cleanly via html[data-theme="dark|light"].
 
-   GOVERNANCE (DESIGN §8): the closed set lives here and only here. Components
-   reference tokens by name — a hex/px literal in a component is a review failure.
-   Nothing "missing" gets invented; extensions require a DESIGN.md entry first. */
+   GOVERNANCE (DESIGN §8): the closed token set lives here and only here.
+   Components reference tokens by name — raw hex literals, blur, translucency,
+   dark-mode shadows, and macOS CSD dots outside this file fail check:linear. */
 
 /* ---------- Fonts (self-hosted, DESIGN §3 — never a CDN) ---------- */
 @font-face {
-  font-family: "Familjen Grotesk";
+  font-family: "Inter";
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
-  src: url("./fonts/FamiljenGrotesk-latin.woff2") format("woff2");
+  src: url("./fonts/Inter-latin.woff2") format("woff2");
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Familjen Grotesk";
+  font-family: "Inter";
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
-  src: url("./fonts/FamiljenGrotesk-latin-ext.woff2") format("woff2");
+  src: url("./fonts/Inter-latin-ext.woff2") format("woff2");
   unicode-range:
     U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
     U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
@@ -54,10 +53,9 @@
 
 @import "tailwindcss";
 
-/* ---------- Runtime palette layer (values from DESIGN.md v4.0, verbatim) ---------- */
+/* ---------- Runtime palette layer (DESIGN.md v5.0 — Linear Dark Default) ---------- */
 :root {
   color-scheme: dark;
-  /* Screenshot Palette Tokens (Section 3) */
   --bg-app: #050505;
   --bg-surface: #111213;
   --bg-surface-2: #1A1B1E;
@@ -68,37 +66,67 @@
   --text-muted: #8A8B91;
   --text-faint: #5A5B62;
 
-  --ssp-bg-canvas: #0A0B0E;
-  --ssp-bg-raised: #12141A;
-  --ssp-surface-solid: #181A22;
-  --ssp-surface-glass: rgba(255, 255, 255, 0.06);
-  --ssp-surface-glass-strong: rgba(18, 20, 26, 0.94);
-  --ssp-surface-hover: #202026;
-  --ssp-border-subtle: rgba(255, 255, 255, 0.14);
-  --ssp-border-glass: rgba(255, 255, 255, 0.10);
-  --ssp-border-focus: #3355FF;
-  --ssp-text-primary: #F4F5F8;
-  --ssp-text-secondary: rgba(244, 245, 248, 0.78);
-  --ssp-text-on-canvas: #F4F5F8;
-  --ssp-text-disabled: rgba(244, 245, 248, 0.46);
-  /* Studio Burgundy Accent & Broadcast Signal Red kept (§3 exception) */
+  /* Linear Accent Palette */
+  --accent-blue: #3355FF;
+  --accent-blue-hover: #2944CC;
+  --accent-blue-active: #1F3399;
+  --accent-sky: #38B6F0;
+  --accent-green: #22C55E;
+  --accent-red: #F43F5E;
+  --accent-amber: #EAB308;
+  --accent-teal: #1FB5A5;
+  --accent-pink: #EC4899;
+  --accent-purple: #7C5CE6;
+  --accent-orange: #F97316;
+  --close-hover: #E5484D;
+
+  /* Precomputed opaque icon-chip & badge tints (never translucent overlays) */
+  --tint-blue: #15192B;
+  --tint-sky: #152229;
+  --tint-green: #13241B;
+  --tint-red: #28171B;
+  --tint-amber: #272212;
+  --tint-teal: #132222;
+  --tint-pink: #281622;
+  --tint-purple: #1C1A28;
+  --tint-orange: #281C13;
+  --bg-scrim: #08090B;
+  --hero-canvas-bg: #050505;
+
+  /* Semantic aliases onto Linear surface tokens */
+  --ssp-bg-canvas: var(--bg-app);
+  --ssp-bg-raised: var(--bg-surface);
+  --ssp-surface-solid: var(--bg-surface-2);
+  --ssp-surface-hover: var(--bg-bar-idle);
+  --ssp-border-subtle: var(--border);
+  --ssp-border-strong: var(--border-strong);
+  --ssp-border-focus: var(--accent-blue);
+  --ssp-text-primary: var(--text);
+  --ssp-text-secondary: var(--text-muted);
+  --ssp-text-on-canvas: var(--text);
+  --ssp-text-disabled: var(--text-faint);
+
+  /* Studio Burgundy & Broadcast Signal Red — recording button & live indicator only */
   --ssp-accent: #A3284E;
   --ssp-accent-hover: #BA335D;
   --ssp-accent-active: #8C1E40;
   --ssp-accent-text: #FFFFFF;
-  --ssp-accent-muted: rgba(163, 40, 78, 0.15);
+  --ssp-accent-muted: #211419;
   --ssp-signal: #C92A2A;
-  --ssp-signal-muted: rgba(201, 42, 42, 0.16);
-  --ssp-success: #22C55E;
-  --ssp-warning: #EAB308;
-  --ssp-error: #F43F5E;
-  --ssp-error-muted: rgba(244, 63, 94, 0.14);
-  --ssp-elev-1: 0 1px 2px rgba(0, 0, 0, 0.20);
-  --ssp-elev-2: 0 2px 8px rgba(0, 0, 0, 0.24);
-  --ssp-elev-float: 0 6px 20px -6px rgba(0, 0, 0, 0.32);
-  --ssp-scrim-floor: 100%;
-  --ssp-modal-scrim: rgba(5, 5, 5, 0.85);
+  --ssp-signal-muted: #261415;
+
+  --ssp-primary: var(--accent-blue);
+  --ssp-primary-hover: var(--accent-blue-hover);
+  --ssp-primary-active: var(--accent-blue-active);
+  --ssp-primary-text: #FFFFFF;
+
+  --ssp-success: var(--accent-green);
+  --ssp-warning: var(--accent-amber);
+  --ssp-error: var(--accent-red);
+  --ssp-error-muted: var(--tint-red);
+  --ssp-shadow-card: none;
   --ssp-input-hover-border: var(--border-strong);
+
   --ssp-z-base: 0;
   --ssp-z-sticky: 10;
   --ssp-z-overlay: 40;
@@ -107,7 +135,7 @@
   --ssp-z-hud: 70;
 }
 
-/* §2.2 Light mode — screenshot palette & compatibility */
+/* ---------- Light mode (DESIGN.md v5.0 — Linear Light Mode) ---------- */
 :root[data-theme="light"],
 .light {
   color-scheme: light;
@@ -121,55 +149,43 @@
   --text-muted: #6B7280;
   --text-faint: #9CA3AF;
 
-  --ssp-bg-canvas: #F1F3F6;
-  --ssp-bg-raised: #FFFFFF;
-  --ssp-surface-solid: #E5E8ED;
-  --ssp-surface-glass: rgba(255, 255, 255, 0.78);
-  --ssp-surface-glass-strong: rgba(255, 255, 255, 0.96);
-  --ssp-surface-hover: #E5E7EB;
-  --ssp-border-subtle: var(--border);
-  --ssp-border-glass: var(--border);
-  --ssp-border-focus: #3355FF;
-  --ssp-text-primary: #12141A;
-  --ssp-text-secondary: var(--text-muted);
-  --ssp-text-on-canvas: var(--text);
-  --ssp-text-disabled: var(--text-faint);
+  --tint-blue: #EBEEFF;
+  --tint-sky: #EBF7FD;
+  --tint-green: #E9F9EF;
+  --tint-red: #FEECEF;
+  --tint-amber: #FDF7E6;
+  --tint-teal: #E8F8F6;
+  --tint-pink: #FDECF5;
+  --tint-purple: #F2EEFC;
+  --tint-orange: #FFF1E7;
+  --bg-scrim: #E2E5EB;
+  --hero-canvas-bg: #111213;
+
   --ssp-accent: #8B1E3F;
   --ssp-accent-hover: #751834;
   --ssp-accent-active: #5C1B30;
   --ssp-accent-text: #FFFFFF;
-  --ssp-accent-muted: rgba(139, 30, 63, 0.12);
+  --ssp-accent-muted: #F3E5EA;
   --ssp-signal: #D32F2F;
-  --ssp-signal-muted: rgba(211, 47, 47, 0.12);
-  --ssp-success: #22C55E;
-  --ssp-warning: #EAB308;
-  --ssp-error: #F43F5E;
-  --ssp-error-muted: rgba(244, 63, 94, 0.12);
-  --ssp-elev-1: 0 1px 2px rgba(18, 20, 26, 0.04);
-  --ssp-elev-2: 0 2px 8px rgba(18, 20, 26, 0.06);
-  --ssp-elev-float: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
-  --ssp-modal-scrim: rgba(18, 20, 26, 0.28);
-  --ssp-input-hover-border: var(--border-strong);
+  --ssp-signal-muted: #FDECEC;
+
+  --ssp-shadow-card: 0 1px 2px rgb(16 24 40 / 5%);
 }
 
 /* ---------- Tailwind theme bridge ---------- */
-/* DESIGN.md v3.2 */
+/* DESIGN.md v5.0 */
 @theme inline {
-  /* DESIGN.md v3.2 §2 — colors (semantic names mirror the contract tokens) */
   --color-canvas: var(--ssp-bg-canvas);
   --color-raised: var(--ssp-bg-raised);
-  --color-glass: var(--ssp-surface-glass);
-  --color-glass-strong: var(--ssp-surface-glass-strong);
   --color-solid: var(--ssp-surface-solid);
   --color-surface-solid: var(--ssp-surface-solid);
-  --color-surface-glass: var(--ssp-surface-glass);
-  --color-surface-glass-strong: var(--ssp-surface-glass-strong);
   --color-surface-hover: var(--ssp-surface-hover);
+  --color-scrim: var(--bg-scrim);
 
   --color-subtle: var(--ssp-border-subtle);
   --color-border-subtle: var(--ssp-border-subtle);
-  --color-line-glass: var(--ssp-border-glass);
-  --color-border-glass: var(--ssp-border-glass);
+  --color-line-glass: var(--ssp-border-strong);
+  --color-border-strong: var(--ssp-border-strong);
   --color-border-focus: var(--ssp-border-focus);
   --color-focus: var(--ssp-border-focus);
 
@@ -181,6 +197,11 @@
   --color-text-on-canvas: var(--ssp-text-on-canvas);
   --color-on-canvas: var(--ssp-text-on-canvas);
   --color-text-disabled: var(--ssp-text-disabled);
+
+  --color-primary: var(--ssp-primary);
+  --color-primary-hover: var(--ssp-primary-hover);
+  --color-primary-active: var(--ssp-primary-active);
+  --color-primary-text: var(--ssp-primary-text);
 
   --color-accent: var(--ssp-accent);
   --color-accent-hover: var(--ssp-accent-hover);
@@ -196,7 +217,11 @@
   --color-error: var(--ssp-error);
   --color-error-muted: var(--ssp-error-muted);
 
-  /* DESIGN.md v3.2 §8 — fixed z-level scale (no raw z-* in components) */
+  --color-tint-blue: var(--tint-blue);
+  --color-tint-green: var(--tint-green);
+  --color-tint-red: var(--tint-red);
+  --color-tint-amber: var(--tint-amber);
+
   --z-base: var(--ssp-z-base);
   --z-sticky: var(--ssp-z-sticky);
   --z-overlay: var(--ssp-z-overlay);
@@ -204,65 +229,56 @@
   --z-modal: var(--ssp-z-modal);
   --z-hud: var(--ssp-z-hud);
 
-  /* DESIGN.md v3.2 §3 — type scale (fixed rem) + §3 faces */
-  --font-sans: "Familjen Grotesk", system-ui, sans-serif;
+  /* Typography — Inter UI + JetBrains Mono numeric/log views (12/13/14/16/20/28 px) */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
   --text-display-lg: 1.75rem;
   --text-display-lg--line-height: 1.15;
   --text-display-lg--font-weight: 600;
-  --text-display-md: 1.375rem;
-  --text-display-md--line-height: 1.2;
+  --text-display-md: 1.25rem;
+  --text-display-md--line-height: 1.25;
   --text-display-md--font-weight: 600;
-  --text-heading: 1.125rem;
+  --text-heading: 1rem;
   --text-heading--line-height: 1.35;
-  --text-heading--font-weight: 500;
-  --text-body-md: 0.9375rem;
+  --text-heading--font-weight: 600;
+  --text-body-md: 0.875rem;
   --text-body-md--line-height: 1.5;
-  /* DESIGN.md v3.2 US-TT-01 body-sm: 14px WCAG floor; no smaller control labels */
-  --text-body-sm: 0.875rem;
+  --text-body-sm: 0.8125rem;
   --text-body-sm--line-height: 1.45;
   --text-label: 0.75rem;
   --text-label--line-height: 1.3;
   --text-label--font-weight: 500;
-  --text-mono-md: 0.9375rem;
-  --text-mono-md--line-height: 1.2;
+  --text-mono-md: 0.875rem;
+  --text-mono-md--line-height: 1.25;
   --text-mono-md--font-weight: 500;
-  --text-mono-sm: 0.8125rem;
+  --text-mono-sm: 0.75rem;
   --text-mono-sm--line-height: 1.3;
 
-  /* DESIGN.md v3.2 §4.1 — hardware-grade radius scale */
+  /* Minimal rounding: chips 4px, controls 6px, cards 8px */
   --radius-none: 0px;
   --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
   --radius-full: 999px;
 
-  /* DESIGN.md v3.2 §4.2 — elevation (shadow recipes live on the palette layer) */
-  --shadow-elev-1: var(--ssp-elev-1);
-  --shadow-elev-2: var(--ssp-elev-2);
-  --shadow-elev-float: var(--ssp-elev-float);
-  --shadow-float: var(--ssp-elev-float);
+  /* Shadows: none in dark mode, 1px hairline elevation in light mode */
+  --shadow-card: var(--ssp-shadow-card);
 
-  /* DESIGN.md v3.2 §4.6 — motion: four numeric tokens (m.fast/base/slow/
-     settle). Named compositions: m.press = scale(0.96) over m.fast;
-     m.reveal = opacity 0→1 + translateY(6px→0) over m.base. JS motion must
-     also honor reduced motion via <MotionConfig reducedMotion="user">. */
-  --duration-fast: 140ms; /* m.fast */
-  --duration-base: 180ms; /* m.base */
-  --duration-slow: 240ms; /* m.slow */
-  --duration-settle: 90ms; /* m.settle */
+  /* Motion: 150ms ease-out */
+  --duration-fast: 150ms;
+  --duration-base: 150ms;
+  --duration-slow: 150ms;
+  --duration-settle: 90ms;
 
-  /* DESIGN.md v3.2 §4.6 — one restrained easing curve for all transitions */
-  --ease-fast: cubic-bezier(0.22, 1, 0.36, 1); /* 140ms */
-  --ease-base: cubic-bezier(0.22, 1, 0.36, 1); /* 180ms */
-  --ease-slow: cubic-bezier(0.22, 1, 0.36, 1); /* 240ms */
-  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1); /* 90ms */
+  --ease-fast: cubic-bezier(0, 0, 0.2, 1);
+  --ease-base: cubic-bezier(0, 0, 0.2, 1);
+  --ease-slow: cubic-bezier(0, 0, 0.2, 1);
+  --ease-settle: cubic-bezier(0, 0, 0.2, 1);
   --animate-pulse-rec: hud-pulse-rec 1.4s ease-in-out infinite;
-  --animate-spin-slow: spin 800ms linear infinite; /* DESIGN.md v3.2 §4.6 m.spinner */
+  --animate-spin-slow: spin 800ms linear infinite;
 
-  /* 4px base; named steps for the closed set */
   --spacing: 4px;
 }
 
@@ -276,7 +292,6 @@
   }
 }
 
-/* DESIGN.md v3.2 §4.6 — reduced motion: transforms removed, opacity-only (§7.3) */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -287,88 +302,37 @@
   }
 }
 
-/* ---------- §4.3 Linear Solid Recipes (Zero Blur, Hairline Precision) ---------- */
+/* ---------- Solid Flat Linear Recipes (Zero Blur, Zero Dark Shadow) ---------- */
 @utility pane {
-  background-color: var(--ssp-surface-glass);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-float);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--ssp-shadow-card);
 }
 
 @utility float {
-  background-color: var(--ssp-surface-glass-strong);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-float);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--ssp-shadow-card);
 }
 
 @utility modal {
-  background-color: var(--ssp-bg-raised);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-2);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--ssp-shadow-card);
 }
 
-/* DESIGN.md v4.0 §4.3 Studio Solid Recipes (Zero Blur) */
 @utility studio-deck {
-  background-color: var(--ssp-surface-glass-strong);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-1);
-}
-
-@utility glass-studio-deck {
-  background-color: var(--ssp-surface-glass-strong);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-1);
-}
-
-@utility floating-hud {
-  background-color: var(--ssp-surface-glass-strong);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-2);
-}
-
-@utility glass-hud {
-  background-color: var(--ssp-surface-glass-strong);
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-2);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--ssp-shadow-card);
 }
 
 @utility hero-canvas {
-  background-color: #000000;
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-1);
+  background-color: var(--hero-canvas-bg);
+  border: 1px solid var(--border);
 }
 
-@utility glass-hero-canvas {
-  background-color: #000000;
-  border: 1px solid var(--ssp-border-subtle);
-  box-shadow: var(--ssp-elev-1);
-}
-
-/* DESIGN.md v3.2 §5.1 CSD Window Control Dots */
-@utility csd-dot-close {
-  background-color: var(--ssp-signal);
-  transition-property: filter, background-color;
-  &:hover {
-    filter: brightness(1.15);
-  }
-}
-
-@utility csd-dot-min {
-  background-color: var(--ssp-warning);
-  transition-property: filter, background-color;
-  &:hover {
-    filter: brightness(1.15);
-  }
-}
-
-@utility csd-dot-max {
-  background-color: var(--ssp-success);
-  transition-property: filter, background-color;
-  &:hover {
-    filter: brightness(1.15);
-  }
-}
-
-/* ---------- DESIGN.md v3.2 §8: fixed z-level scale as real utilities ---------- */
+/* ---------- Fixed z-level scale ---------- */
 @utility z-base {
   z-index: var(--ssp-z-base);
 }
@@ -388,12 +352,12 @@
   z-index: var(--ssp-z-hud);
 }
 
-/* ---------- §5.8 NavBar: the app mark (16px squircle, centered accent dot) ---------- */
+/* ---------- Brand mark (16px rounded square, centered indicator) ---------- */
 @layer components {
   .app-mark {
     width: 16px;
     height: 16px;
-    border-radius: 4px; /* DESIGN.md v3.2 §4.1 r.xs */
+    border-radius: 4px;
     background: var(--ssp-accent-muted);
     display: inline-flex;
     align-items: center;
@@ -404,12 +368,12 @@
     content: "";
     width: 6px;
     height: 6px;
-    border-radius: 9999px;
+    border-radius: 4px;
     background: var(--ssp-accent);
   }
 }
 
-/* Base: app defaults from tokens */
+/* Base defaults */
 @layer base {
   html,
   body,
@@ -432,12 +396,8 @@
     cursor: pointer;
   }
 
-  /* DESIGN §7.2 universal focus ring: 2px ground + 4px accent,
-     never suppressed — geometry+color redundancy is handled per control */
   :where(button, input, select, [tabindex]):focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 2px var(--ssp-bg-canvas),
-      0 0 0 4px var(--ssp-border-focus);
+    outline: 2px solid var(--ssp-border-focus);
+    outline-offset: 2px;
   }
 }

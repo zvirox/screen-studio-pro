@@ -74,16 +74,16 @@ function TakeCard({ item, onOpen }: TakeCardProps) {
   return (
     <article
       aria-labelledby={titleId}
-      className="group relative flex min-w-0 flex-col gap-2 rounded-md border border-subtle bg-solid p-2.5 shadow-elev-1 transition-colors duration-fast hover:border-line-glass"
+      className="group relative flex min-w-0 flex-col gap-2 rounded-md border border-subtle bg-solid p-2.5 transition-colors duration-fast hover:border-border-strong"
     >
       <button
         type="button"
         aria-label={`Recording ${item.fileName}`}
         onClick={() => onOpen(item.id)}
-        className="flex min-w-0 flex-col gap-2 rounded-xs text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+        className="flex min-w-0 flex-col gap-2 rounded-xs text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
       >
         {/* 16:9 Thumbnail Box */}
-        <div className="relative aspect-video w-full overflow-hidden rounded-sm bg-raised border border-subtle/50">
+        <div className="relative aspect-video w-full overflow-hidden rounded-sm bg-raised border border-subtle">
           {item.thumbPath ? (
             <img
               src={item.thumbPath}
@@ -98,7 +98,7 @@ function TakeCard({ item, onOpen }: TakeCardProps) {
           )}
 
           {/* Opaque token surfaces keep duration legible over every thumbnail. */}
-          <span className="absolute bottom-1.5 right-1.5 rounded-xs border border-glass bg-canvas px-1.5 py-0.5 font-mono text-mono-sm font-medium text-ink shadow-sm">
+          <span className="absolute bottom-1.5 right-1.5 rounded-xs border border-subtle bg-canvas px-1.5 py-0.5 font-mono text-mono-sm font-medium text-ink">
             {formatDuration(item.durationMs)}
           </span>
         </div>
@@ -211,7 +211,7 @@ export default function TakesGallery() {
   return (
     <aside
       aria-label="Takes and Presets Gallery"
-      className="flex w-full min-w-0 shrink-0 flex-col gap-4 studio-deck rounded-lg p-4 border border-line-glass shadow-elev-2 min-[1120px]:w-[260px]"
+      className="flex w-full min-w-0 shrink-0 flex-col gap-4 studio-deck rounded-md p-4 min-[1120px]:w-[260px]"
     >
       {/* Header with Segmented Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-3">
@@ -243,7 +243,7 @@ export default function TakesGallery() {
             <Film size={14} className="shrink-0" aria-hidden="true" />
             <span>Takes</span>
             {library.items.length > 0 && (
-              <span className="ml-0.5 shrink-0 rounded-full border border-subtle bg-solid px-1 font-mono text-label text-ink-secondary">
+              <span className="ml-0.5 shrink-0 rounded-xs border border-subtle bg-solid px-1 font-mono text-label text-ink-secondary">
                 {library.items.length}
               </span>
             )}
@@ -291,7 +291,7 @@ export default function TakesGallery() {
       >
         {recentItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2.5 py-10 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-subtle bg-solid text-ink-disabled">
+            <div className="flex h-12 w-12 items-center justify-center rounded-md border border-subtle bg-solid text-ink-disabled">
               <Film size={24} strokeWidth={1.5} aria-hidden="true" />
             </div>
             <div>

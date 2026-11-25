@@ -4,11 +4,15 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 ## [Unreleased]
 
+- **Final Locked Linear UI (`DESIGN.md v5.0`)**: Completed full Unified Linear-Style Design System across every surface — solid opaque dark (`#050505` / `#111213` / `#1A1B1E`) and light (`#F3F4F6` / `#FFFFFF` / `#F4F5F7`) tokens, 1px hairline borders, self-hosted `Inter` + `JetBrains Mono` typography (`12/13/14/16/20/28 px`), minimal `8px/6px/4px` rounding with zero pill clutter, zero dark-mode shadows, zero `rgba()`/translucency, and zero macOS CSD dots. Studio Burgundy / Broadcast Signal Red reserved exclusively for recording buttons and live recording indicators.
+- **Window & Chrome**: Updated primary window defaults to `1280×800` (min `1024×640`, `decorations: false`, `transparent: false`), added dynamic `tauri.conf.json` version badge and live recording indicator to `TitleBar`, unified theme persistence on `localStorage["ui-theme"]`, and updated close button hover to `#E5484D`.
+- **Telemetry & Meters**: Added `TelemetryDeck` with Apache ECharts real-time FPS/dropped line trace (`RangeTabs`) and CPU/GPU encode donut (`DonutLegend`) driven by live `session.stats`; updated `AudioMixerDeck` level meters to green → amber → red with blue gain sliders.
+- **Enforcement**: Hardened `scripts/check-linear.mjs` (`npm run check:linear`) to fail on blur, translucency, glow, dark-mode shadows, macOS CSD dots, disallowed pill shapes, and raw hex colors outside `src/tailwind.css`.
+
 ## [0.1.0-beta.1] - 2026-11-24
 
-- **Unified Linear-Style Design System**: Migrated to solid elevated surfaces (`#121215`, `#17171c`, `#202026`), hairline precision borders (`#23232a`), and zero blur across all screens and HUD.
-- **Packaging & CI**: Reusable packaging matrix generating .deb, .rpm, .apk, and .tar.gz assets with automated release publishing.
-- **Starship Control Integration**: Ecosystem orchestration bridge via `$XDG_DATA_HOME/starship/plugins/ssp.json` and Unix domain socket `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock`.
+- **Packaging & CI**: Locked `nfpm` packaging workflow generating native `.deb`, `.rpm`, and `.pkg.tar.zst` assets alongside `SHA256SUMS` (AppImage, Flatpak, tarballs, and AUR retired).
+- **Starship Control Bridge Scaffold**: Added `starship_bridge.rs` (`starship-plugin` SDK schema & tool definitions with unit tests; live runtime daemon startup and CET telemetry export scheduled in Phase 8).
 
 ## [0.0.1+alpha.9] - 2026-11-23
 
