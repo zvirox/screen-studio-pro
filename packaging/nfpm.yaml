@@ -25,6 +25,13 @@ contents:
     dst: /usr/share/icons/hicolor/512x512/apps/screen-studio-pro.png
   - src: LICENSE
     dst: /usr/share/doc/screen-studio-pro/LICENSE
+    packager: deb
+  - src: LICENSE
+    dst: /usr/share/doc/screen-studio-pro/LICENSE
+    packager: rpm
+  - src: LICENSE
+    dst: /usr/share/licenses/screen-studio-pro/LICENSE
+    packager: archlinux
 
 scripts:
   postinstall: packaging/scripts/postinstall.sh

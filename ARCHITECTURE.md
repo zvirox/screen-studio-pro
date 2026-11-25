@@ -53,11 +53,11 @@ screen-studio-pro/
 │   │   ├── ci.yml                  # lint + test + build (Linux)
 │   │   └── release.yml             # tagged build → GitHub Releases artifacts
 │   └── ISSUE_TEMPLATE/
-├── packaging/                      # PRD G5: distro packaging
-│   ├── aur/PKGBUILD
-│   ├── deb/                        # debian/ control, rules
-│   ├── rpm/                        # spec file
-│   └── icons/                      # hicolor SVG/PNG icon set
+├── packaging/                      # PRD G5: uniform nfpm packaging (.deb, .rpm, .pkg.tar.zst)
+│   ├── nfpm.yaml                   # Single manifest generating all 3 formats
+│   ├── screen-studio-pro.desktop   # Desktop entry
+│   ├── scripts/                    # postinstall.sh / preremove.sh hooks
+│   └── icons/                      # hicolor PNG icon set
 ├── docs/
 │   └── portal-support.md           # Known per-compositor quirks (PRD risks §9)
 └── src-tauri/                      # Rust core + Tauri shell

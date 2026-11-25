@@ -47,7 +47,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 - **G2.** A UI users screenshot on its own: glass panels, springs, expressive motion — built on Tauri 2 + React as decided in stack selection.
 - **G3.** Time-to-first-recording under 60 seconds from install, with zero manual portal/permission ceremony beyond the OS prompt.
 - **G4.** Recording core is pure Rust: PipeWire capture, VAAPI/NVENC when available, x264 fallback.
-- **G5.** Ship toward distro packaging users can install with `apt`/`dnf` (`.deb`/`.rpm`/AppImage via GitHub Releases) plus Flatpak; AUR (`pacman`) as a follow-up.
+- **G5.** Ship exclusively uniform native Linux packages built via `nfpm`: `.deb`, `.rpm`, and `.pkg.tar.zst` plus `SHA256SUMS` (+ `.sig`) via GitHub Releases. AppImage, Flatpak, tarballs, and AUR are permanently retired.
 - **G6.** Architecture leaves clean seams for V2 streaming (RTMP), scene compositor (dnd-kit canvas), and replay buffer.
 
 ### Non-Goals (MVP)
@@ -136,8 +136,8 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 - As a user, I want the exact save path shown in the "saved" toast, so that I can click through to the file immediately.
 
 ### Distribution (MVP)
-- As an Arch user, I want an AUR package, so that I install with my normal tooling rather than shipping an AppImage around.
-- As an rpm/deb user, I want the same recording capability without portal permission weirdness, so that the experience matches what Arch users report.
+- As an Arch user, I want a native `.pkg.tar.zst` package (`pacman -U`), so that I install cleanly with `pacman` without third-party wrappers or AUR helpers.
+- As an rpm/deb user, I want native `.deb` and `.rpm` packages with identical permissions and layout.
 
 ---
 
@@ -183,7 +183,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 | Fracture/crash rate | < 0.5% of recorded sessions end in unrecoverable crash |
 | A/V sync drift across a 10-min recording | < 100 ms on hardware-encoder path |
 | Dropped-frame rate | < 0.5% at 1080p60 with VAAPI/NVENC on spec-reasonable hardware |
-| Distro adoption (AUR votes, deb/rpm downloads, Nixpkgs merge) | AUR published at MVP; 500 tracked installs within 90 days |
+| Distro adoption (`.deb` / `.rpm` / `.pkg.tar.zst` downloads) | Uniform GitHub Releases live; 500 tracked installs within 90 days |
 | Durable retention | ≥ 40% of week-1 users still recording at week 8 |
 | Community signal | GitHub ≥ 1,000 stars within 12 months; ≥ 20 third-party issue reports (healthy bug pipeline) |
 | "Looks" proof points | ≥ 5 notable showcase posts (r/unixporn, Hyprland Discourse) featuring the UI |
@@ -213,7 +213,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 1. **Camera plumbing:** Portal `Camera` vs direct V4L2 — which do Hyprland/niri/MangoWC portals reliably expose in 2026, or do we open a dialog to both paths based on runtime detection?
 2. **Flag/chapter markers:** Store in MKV chapters (spec-friendly) or sidecar JSON (tool-friendly)? Need one decision before encoder pipeline is frozen.
 3. **GlobalShortcuts fallback matrix:** What is the documented behavior set on MangoWC (youngest of the four) before we promise the hotkey in release notes?
-4. **Distro packaging owners:** Self-maintaining AUR/deb/rpm vs. first-contributor handover — which do we staff for MVP release week?
+4. **Locked distro packaging:** Standardized on `nfpm` via `zvirox/release-workflows` (`deb`, `rpm`, `pkg.tar.zst` only) — resolved.
 5. **Naming conflict check:** "ScreenStudio" names a commercial macOS product — do we rename or rebrand to avoid trademark/legal friction before marketing on it?
 6. **License choice for ecosystem effects:** If community overlays/effects arrive in Later, do we lock LGPL/GPL boundaries at architecture time?
 
@@ -240,15 +240,15 @@ Development and release progression follow three strict lifecycle tiers:
 │                     │ Telemetry, Replay Buffer, Plugins   │                            │
 ├─────────────────────┼─────────────────────────────────────┼────────────────────────────┤
 │ 1ST STABLE RELEASE  │ Post-Phase 14                       │ v1.0.0                     │
-│                     │ Production GA, Flathub Verified,    │                            │
-│                     │ Complete Distro Packaging, Zero Reg │                            │
+│                     │ Production GA, Locked Native Packages │                            │
+│                     │ (.deb, .rpm, .pkg.tar.zst), Zero Reg  │                            │
 └─────────────────────┴─────────────────────────────────────┴────────────────────────────┤
 ```
 
 ### 10.1 Strict Alpha Releases (Phases 0 – 9)
 - **Focus:** Vertical recording foundation, Wayland portal capture (`ashpd`), lock-free SPSC frame ring, x264 software encoder, floating HUD window, Camera PiP, Library with thumbnails, UI v2 glassmorphism, Starship Control UDS bridge (Phase 8), and complete container crash-resilience with native hybrid MP4 (`hybrid_mp4`) and isolated subprocess muxing (`ssp-mux`) (Phase 9).
 - **Target Versions:** `v0.0.1-alpha.1` through `v0.1.0-alpha.x`.
-- **Exit Criteria for Alpha:** Zero corrupted recordings under force-kill stress testing; automated release artifacts (.deb, .rpm, AppImage, Flatpak) build and install cleanly.
+- **Exit Criteria for Alpha:** Zero corrupted recordings under force-kill stress testing; automated release artifacts (exclusively `.deb`, `.rpm`, `.pkg.tar.zst` via `nfpm`, plus `SHA256SUMS`) pass clean-container CI smoke tests.
 
 ### 10.2 Strict Beta Releases (Phases 10 – 14)
 - **Focus:** Zero-copy PipeWire DMA-BUF GPU texture ingestion (`SPA_DATA_DmaBuf`), active VAAPI (`hw_vaapi`) and NVENC (`hw_nvenc`) hardware encoders, studio-grade DSP (RNNoise voice isolation, sidechain ducking, anti-feedback protection), multitrack audio isolation (Tracks 1–3), granular diagnostics (Rendering Lag vs Encoding Lag), canvas scaling & replay buffer, and dynamic module loading with remote control RPC bridge.
@@ -256,6 +256,6 @@ Development and release progression follow three strict lifecycle tiers:
 - **Exit Criteria for Beta:** Performance targets qualified across Intel, AMD, and NVIDIA hardware (**dropped frames < 0.5%** at 1080p60 on hardware encoders, **RSS < 150 MB**, zero A/V sync drift over 60-min takes); multitrack files verified in DaVinci Resolve and Kdenlive.
 
 ### 10.3 First Stable Release (`v1.0.0`)
-- **Focus:** General Availability across Flathub, AUR (`screen-studio-pro`), Ubuntu PPA / Debian, Fedora Copr / RPM, and GitHub Releases.
+- **Focus:** General Availability exclusively via GitHub Releases with the locked Linux package manifest (`.deb`, `.rpm`, `.pkg.tar.zst` + `SHA256SUMS` / `.sig`). Flatpak, Flathub, AppImage, tarballs, and AUR are permanently retired.
 - **Target Version:** `v1.0.0`.
 - **Exit Criteria:** Production GA with 100% green CI test suites, verified multi-distro packages, complete user and developer documentation, and zero open critical bugs.

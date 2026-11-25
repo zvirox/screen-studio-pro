@@ -402,7 +402,7 @@ Governed by repository governance rules, releases are strictly segmented into th
 - **Target Audience:** Early adopters, ricers, and developers running Hyprland, KDE Plasma, niri, and MangoWC.
 - **Alpha Exit Gate (Transition to Beta):**
   1. Phase 9 completed and verified: Subprocess muxer isolation (`ssp-mux`) and hybrid MP4 writer (`hybrid_mp4`) guarantee zero corrupted recordings upon application crash or `SIGKILL`.
-  2. Packaging matrix (.deb, .rpm, AppImage, Flatpak) runs clean in CI.
+  2. Locked `nfpm` packaging matrix (exclusively `.deb`, `.rpm`, `.pkg.tar.zst` + `SHA256SUMS`) runs clean with container smoke tests in CI. AppImage, Flatpak, AUR, and VM test requirements are retired.
   3. Starship Control bridge auto-registration verified.
 
 ---
@@ -415,14 +415,14 @@ Governed by repository governance rules, releases are strictly segmented into th
   1. Hardware encoder qualification across Intel, AMD, and NVIDIA GPUs.
   2. Performance verification against PRD §8 metrics: **steady dropped frames < 0.5%** at 1080p60 on hardware encoders, **RSS memory settled < 150 MB**, and zero audio/video sync drift (<50 ms over 60 min).
   3. Multitrack audio files probe clean across major video editing suites (DaVinci Resolve, Kdenlive, Blender).
-  4. Flathub submission ready with strict sandbox permissions.
+  4. Locked `nfpm` release workflow (`zvirox/release-workflows`) passes clean-container install/uninstall smoke tests on Ubuntu, Fedora, and Arch.
 
 ---
 
 ### Stage 3: First Stable Production Release (`v1.0.0`)
-- **Scope:** Complete, hardened production release of ScreenStudio Pro.
+- **Scope:** Complete, hardened production release of Screen Studio Pro.
 - **Versioning:** `v1.0.0`.
-- **Distribution:** General Availability across Flathub, AUR (`screen-studio-pro`), Ubuntu PPA / Debian, Fedora Copr / RPM, and GitHub Releases.
+- **Distribution:** General Availability exclusively via GitHub Releases shipping `.deb`, `.rpm`, and `.pkg.tar.zst` native packages (`nfpm`) + `SHA256SUMS` (+ `.sig`). Flathub, Flatpak, AppImage, tarballs, and AUR are permanently retired.
 - **Quality Gates:** 100% green CI test suites (Rust + Frontend), zero known crash bugs, full accessibility (WCAG 2.2 AA conformance), complete documentation, and fresh high-resolution video/screenshot showcases.
 
 ---
@@ -574,9 +574,8 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 > **Milestone Tag:** `v1.0.0`  
 > **Goal:** Rock-solid production release for general distribution.
 
-- [ ] **15.1 Production Hardening & Flathub Verification**
-  - Submit official verified manifest to Flathub with minimal, compliant portal permissions.
-  - Maintain native AUR package (`screen-studio-pro`) and signed Debian/Ubuntu `.deb` + Fedora `.rpm` releases.
+- [ ] **15.1 Production Hardening & Locked Distro Release Verification**
+  - Lock releases exclusively to native `.deb`, `.rpm`, and `.pkg.tar.zst` (`packaging/nfpm.yaml` + `zvirox/release-workflows`) + `SHA256SUMS` / `.sig` verified via CI clean containers (`ubuntu:22.04`, `ubuntu:24.04`, `fedora:latest`, `archlinux:latest`). AppImage, Flatpak, Flathub, AUR, and VM package tests are permanently excluded.
 - [ ] **15.2 Documentation, Localization & Showcase Assets**
   - Complete user guide, developer FFI docs, and verified per-compositor capability matrices.
   - High-resolution UI showcase media and release announcement for r/unixporn, Hyprland, and Linux creator communities.
@@ -604,6 +603,6 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
                                                    ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │ [FIRST STABLE PRODUCTION RELEASE]                                                      │
-│ v1.0.0 (Flathub, AUR, Distro Packages, Full Documentation & Community GA)              │
+│ v1.0.0 (Locked .deb / .rpm / .pkg.tar.zst, Docs & Community GA)                        │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
