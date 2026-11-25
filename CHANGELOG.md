@@ -4,6 +4,13 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-11-25
+
+### Fixed
+- **Multi-distro FFmpeg SONAME crash (`libavutil.so.58` / `libavcodec.so.60` not found):** Switched release packaging in `.github/workflows/release.yml` (via `zvirox/release-workflows@v1` `per_distro_build: true`) to compile release binaries natively inside Ubuntu 24.04, Fedora Latest (`ffmpeg-free-devel`), and Arch Linux Latest (`ffmpeg`) containers instead of repacking one Ubuntu-linked binary across incompatible FFmpeg ABIs.
+- **Explicit runtime dependencies & custom protocol:** Added `ffmpeg` and ALSA runtime dependencies (`libasound2t64 | libasound2` for `.deb`, `alsa-lib` + `(libav*-free or ffmpeg-libs)` for `.rpm`, `ffmpeg` + `alsa-lib` for `.pkg.tar.zst`) in `packaging/nfpm.yaml`, enabled `--features custom-protocol` explicitly in release builds, and excluded `ubuntu:22.04` smoke test (`smoke_ubuntu22: false`) since `ssp-mux` uses FFmpeg >= 5.1 `AVChannelLayout`.
+- **CI & container smoke-test hardening:** Added early `--version` / `-V` CLI handling in `src-tauri/src/main.rs` so headless containers can execute `screen-studio-pro --version` (`check_version_flag: true`), verified shared-library resolution (`ldd`) across `/usr/bin/*` ELF binaries in clean containers, and added `npm run check:linear` and `npm run build` to `.github/workflows/ci.yml`.
+
 ## [0.1.0-beta.2] - 2026-11-25
 
 - **Phase 7.4 — real hardware encoders pulled forward from 10.2:** `hw_vaapi.rs` and `hw_nvenc.rs` are no longer stubs. VAAPI creates a DRM-render-node AVHWDeviceContext + NV12 AVHWFramesContext, uploads system-memory frames to surfaces, and encodes with `h264_vaapi`; NVENC mirrors the path with a CUDA device and `h264_nvenc` (compiles + probes, UNQUALIFIED here — no NVIDIA GPU on the test host). Availability probes now require real device init, `SSP_FORCE_ENCODER` fails typed instead of silently falling back, and all backends share the `Encoder` seam behind `Box<dyn Encoder>`. Hardware streams get a yuv420p codecpar so MKV/fragmented MP4 stay ffprobe-valid. The perf harness now measures A/V drift from actual `EncodedPacket` pts (a half-rate audio feeder bug was fixed in the process) and activates the PRD §8 hardware gates via `is_hardware`. Reconciled PRD §8 with PLAN 7.4 to the stricter **<50 ms / 60 min, <150 MB RSS, <0.5% drops @1080p60** targets. Measured on Intel TigerLake (release, 5 s @1080p60): **0% steady drops, 126 MiB RSS, 10.6 ms drift**; a shortened 5 × 60 s soak held 0 drops/take, 113–128 MiB RSS and 10.66 ms drift with flat threads — short-take gates pass; the full 60-min soak and NVIDIA qualification remain open. No UI changes; DESIGN.md v5.0 untouched.

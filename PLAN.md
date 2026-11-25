@@ -411,7 +411,7 @@ optional — measured band levels are the agreed accept signal.
 
 | # | Work | Phase | Exit gate | Status |
 |---|---|---|---|---|
-| 16 | Locked nfpm release matrix | 15.1 | `.deb`, `.rpm`, `.pkg.tar.zst`, `SHA256SUMS`/`.sig` pass clean-container install/uninstall on Ubuntu, Fedora, Arch | Open; nfpm matrix active, containers/signatures unverified |
+| 16 | Locked nfpm release matrix | 15.1 | `.deb`, `.rpm`, `.pkg.tar.zst`, `SHA256SUMS`/`.sig` pass clean-container install/uninstall + `ldd` + `--version` on Ubuntu 24.04+, Fedora, Arch | Open; per-distro native builds + `ldd` smoke checks wired, live CI tag run + GPG signing pending |
 | 17 | Documentation, localization, showcase | 15.2 | User/FFI docs, per-compositor matrix, fresh high-res assets | Open |
 | 18 | WCAG 2.2 AA and accessibility proof | 15 / §7 | Screen-reader and HUD-webview focus smoke pass | Open |
 
@@ -425,7 +425,7 @@ optional — measured band levels are the agreed accept signal.
 
 ### Tooling gap
 
-- `npm run check:linear` is required by `AGENTS.md` §3.7/§3.8 but is not yet a CI job or branch-protection status check. Add it to CI and to the documented required-check list before treating the locked UI as automatically enforced.
+- `npm run check:linear` and `npm run build` are now wired into `.github/workflows/ci.yml` (`AGENTS.md` §3.7/§3.8). Repository branch protection must still require that status check before treating the locked UI as merge-gated.
 
 ---
 

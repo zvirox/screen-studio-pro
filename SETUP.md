@@ -52,9 +52,11 @@ sudo apt install -y build-essential curl pkg-config libwebkit2gtk-4.1-dev \
 ### Fedora / RHEL
 ```bash
 sudo dnf install -y gcc gcc-c++ clang make cmake pkgconf-pkg-config \
-  webkit2gtk4.1-devel libudev-devel openssl-devel ffmpeg-devel \
-  pipewire-devel pipewire-spa-devel alsa-lib-devel libayatana-appindicator-gtk3-devel
+  webkit2gtk4.1-devel libudev-devel openssl-devel ffmpeg-free-devel \
+  pipewire-devel pipewire-libs alsa-lib-devel libxdo-devel \
+  libayatana-appindicator-gtk3-devel
 ```
+*(Or `ffmpeg-devel` instead of `ffmpeg-free-devel` when RPM Fusion is enabled.)*
 
 ---
 

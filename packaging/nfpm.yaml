@@ -48,6 +48,8 @@ overrides:
       - libayatana-appindicator3-1
       - libpipewire-0.3-0
       - xdg-desktop-portal
+      - ffmpeg
+      - libasound2t64 | libasound2
   rpm:
     depends:
       - webkit2gtk4.1
@@ -55,6 +57,12 @@ overrides:
       - libayatana-appindicator-gtk3
       - pipewire-libs
       - xdg-desktop-portal
+      - alsa-lib
+      - "(libavcodec-free or ffmpeg-libs)"
+      - "(libavformat-free or ffmpeg-libs)"
+      - "(libavutil-free or ffmpeg-libs)"
+      - "(libswscale-free or ffmpeg-libs)"
+      - "(libavdevice-free or ffmpeg-libs)"
   archlinux:
     depends:
       - webkit2gtk-4.1
@@ -62,3 +70,5 @@ overrides:
       - libayatana-appindicator
       - pipewire
       - xdg-desktop-portal
+      - ffmpeg
+      - alsa-lib

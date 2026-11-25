@@ -15,8 +15,13 @@ jobs:
       app_name: ${{ github.event.repository.name }}
       runs_on: ubuntu-24.04
       frontend_dir: .
-      system_deps: libxdo-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavdevice-dev libavfilter-dev libpipewire-0.3-dev libasound2-dev ffmpeg
-      build_cmd: cargo build --release --locked --manifest-path src-tauri/Cargo.toml --target-dir target
+      per_distro_build: true
+      smoke_ubuntu22: false
+      check_version_flag: true
+      system_deps: libxdo-dev clang libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavdevice-dev libavfilter-dev libpipewire-0.3-dev libasound2-dev libudev-dev ffmpeg
+      rpm_build_deps: libxdo-devel clang cmake systemd-devel ffmpeg-free-devel pipewire-devel pipewire-libs alsa-lib-devel
+      arch_build_deps: xdotool clang cmake ffmpeg pipewire alsa-lib
+      build_cmd: cargo build --release --locked --features custom-protocol --manifest-path src-tauri/Cargo.toml --target-dir target
       binary_path: target/release/screen-studio-pro
       nfpm_config: packaging/nfpm.yaml
     secrets: inherit
