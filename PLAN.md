@@ -372,6 +372,57 @@ optional — measured band levels are the agreed accept signal.
 - **Distribution:** General Availability exclusively via GitHub Releases shipping `.deb`, `.rpm`, and `.pkg.tar.zst` native packages (`nfpm`) + `SHA256SUMS` (+ `.sig`). Flathub, Flatpak, AppImage, tarballs, and AUR are permanently retired.
 - **Quality Gates:** 100% green CI test suites (Rust + Frontend), zero known crash bugs, full accessibility (WCAG 2.2 AA conformance), complete documentation, and fresh high-resolution video/screenshot showcases.
 
+## Current status & remaining work register (2026-11-25)
+
+**Baseline:** `v0.1.0-beta.1` plus the locked Linear UI v5.0 (`DESIGN.md` v5.0, commit `8be596f`). Phases 0–7 core recording, library, settings, HUD, PiP, and nfpm packaging are complete; the UI is final and locked. This register consolidates the open work already described in the phase sections below; it does not change scope.
+
+**Governing rule:** every item starts only after its governing contract files (`PRD.md`, `DESIGN.md`, `ARCHITECTURE.md`, `DATABASE.md`, `API.md`) are updated in the same task and the user green-lights that task. No UI style redesign is permitted while `DESIGN.md` v5.0 is locked. No new dependency is added without AGENTS §4.2 approval.
+
+### Alpha closer gates (Phases 7.4–9)
+
+| # | Work | Phase | Exit gate | Status |
+|---|---|---|---|---|
+| 1 | Hardware encoder performance qualification (VAAPI/NVENC) | 7.4 | PRD §8: dropped frames < 0.5% at 1080p60, RSS < 150 MB, A/V drift < 50 ms over 60 min | Open; x264 fallback only |
+| 2 | Starship Control UDS runtime bridge | 8 | Live UDS server at boot, real `AppState` recording control, `.cet.jsonl` sidecar export | Open; scaffolding/tests exist |
+| 3 | Native hybrid MP4 writer | 9.1 | Force-kill produces immediately playable, seekable MP4 | Open |
+| 4 | Subprocess muxer isolation (`ssp-mux`) | 9.2 | Parent panic/webview crash finalizes file via EOF | Open |
+| 5 | In-take chapter markers and lossless auto-splitting | 9.3 | `ffprobe` chapter tags; gapless split | Open |
+| 6 | Corruption stress gate | 9 | Zero corrupt recordings under SIGKILL | Open |
+
+### Beta track (Phases 10–14)
+
+| # | Work | Phase | Exit gate | Status |
+|---|---|---|---|---|
+| 7 | PipeWire DMA-BUF zero-copy ingestion | 10.1 | No host RAM frame readback, measured CPU at 1080p60/4K60 | Open |
+| 8 | VAAPI/NVENC zero-copy encoders, HEVC/AV1 | 10.2 | PRD §8 hardware gates on Intel/AMD/NVIDIA | Open |
+| 9 | Discrete multitrack audio | 11.1 | `ffprobe` confirms Mix/Mic/Desktop streams | Open |
+| 10 | RNNoise voice isolation | 11.2 | Listen A/B with >30 dB hum attenuation | Open |
+| 11 | Sidechain ducking and anti-feedback | 11.3–11.4 | Voice over music ducks smoothly; duplicate sink mutes loop | Open |
+| 12 | Frame-drop classification and overload banners | 12.1 | Synthetic load triggers distinct GPU/encoder warnings | Open |
+| 13 | Sub-ms latency tracing and auto-config wizard | 12.2–12.3 | Monotonic CTS/FER/PIR progression; low-end vs dGPU presets | Open |
+| 14 | Scalable canvas, replay buffer, dual output | 13.1–13.3 | Downscale quality, 30 s replay clip, synchronized 16:9 + 9:16 files | Open |
+| 15 | Dynamic module ABI and WebSocket/companion RPC | 14.1–14.2 | Third-party filter loads; external controller runs atomic macros | Open |
+
+### Stable GA (Phase 15)
+
+| # | Work | Phase | Exit gate | Status |
+|---|---|---|---|---|
+| 16 | Locked nfpm release matrix | 15.1 | `.deb`, `.rpm`, `.pkg.tar.zst`, `SHA256SUMS`/`.sig` pass clean-container install/uninstall on Ubuntu, Fedora, Arch | Open; nfpm matrix active, containers/signatures unverified |
+| 17 | Documentation, localization, showcase | 15.2 | User/FFI docs, per-compositor matrix, fresh high-res assets | Open |
+| 18 | WCAG 2.2 AA and accessibility proof | 15 / §7 | Screen-reader and HUD-webview focus smoke pass | Open |
+
+### Residual human/live gates
+
+- PRD G3 ≤60s fresh-profile time-to-first-recording measurement.
+- Live non-KDE compositor runs (Hyprland, niri, MangoWC) and no-tray-host behavior.
+- Physical USB webcam replug during a live `cargo tauri dev` pass.
+- Multitrack files probing clean in DaVinci Resolve, Kdenlive, and Blender.
+- Fresh real in-app screenshots replacing mocked-IPC previews.
+
+### Tooling gap
+
+- `npm run check:linear` is required by `AGENTS.md` §3.7/§3.8 but is not yet a CI job or branch-protection status check. Add it to CI and to the documented required-check list before treating the locked UI as automatically enforced.
+
 ---
 
 ## Reference-app learnings → phased plan (planning only, 2026-11-18)
