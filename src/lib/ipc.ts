@@ -232,6 +232,14 @@ export function recordingFlag(recordingId: string, label?: string): Promise<Chap
   );
 }
 
+/** `cmd://recording_add_chapter` (9.3) — additive alias of `recording_flag`.
+    Same chapter law, same reply shape (plus an optional `chapterCount`). */
+export function recordingAddChapter(recordingId: string, label?: string): Promise<Chapter> {
+  return call<{ chapter: Chapter }>("recording_add_chapter", { recordingId, label }).then(
+    (r) => r.chapter,
+  );
+}
+
 /** `cmd://source_region_set` (M3) — set the region crop rect. */
 export function sourceRegionSet(sourceId: string, rect: RegionRect): Promise<{ ok: boolean }> {
   return call("source_region_set", { sourceId, rect });

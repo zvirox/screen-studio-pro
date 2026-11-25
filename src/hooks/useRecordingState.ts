@@ -6,7 +6,8 @@ import { useSspStore } from "../lib/store";
    session events (API §3) into the store's reducers — components never
    subscribe on their own, and the store stays the single projection.
    tick → elapsed clock · error → fault copy · finished → teardown.
-   2.2: recording/meters routes into the audio projection at its ≤30 Hz
+   9.3: recording/split routes the new segment path into the session
+   projection; 2.2: recording/meters routes into the audio projection at its ≤30 Hz
    cadence (still coalesced in Rust, API §3). 3.5: recording/stats feeds
    the session's stats line at 0.5 Hz; source/lost joins with M2/M3
    multi-source flows. 4.2: device/changed (camera half) re-lists camera
@@ -27,6 +28,7 @@ export function useRecordingState() {
       listenEvent("recording/stats", store.getState().onStats),
       listenEvent("recording/error", store.getState().onSessionError),
       listenEvent("recording/finished", store.getState().onFinished),
+      listenEvent("recording/split", store.getState().onSplit),
       listenEvent("device/changed", () => void store.getState().onDeviceChanged()),
       listenEvent("library/updated", (evt) => void store.getState().onLibraryUpdated(evt)),
     ]).then((fns) => {

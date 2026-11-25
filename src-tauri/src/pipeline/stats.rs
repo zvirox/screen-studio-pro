@@ -147,6 +147,79 @@ pub enum SessionEvent {
     Error(IpcError),
 }
 
+/* ---------- PLAN 7.4: A/V drift measurement ---------- */
+
+/// Worst |video pts − nearest audio packet pts| over the samples where
+/// both clocks overlap, in microseconds. The audio sample clock is
+/// DISCRETE (one AAC access unit = 1024 samples ≈ 21.3 ms), so the nearest
+/// audio packet is the playable sample closest to a video frame; the
+/// residual bounds their presentation mismatch. A true clock drift shows
+/// up as a growing offset; a constant offset is a sync error too and is
+/// counted. `None` means no overlap (no audio, or fewer than two packets).
+///
+/// This is deliberately pure: the perf harness feeds it the ACTUAL
+/// `EncodedPacket` pts values (captured at the mux write boundary), so the
+/// number is a property of the recorded take, not of a wall-clock guess.
+pub fn av_drift_us(video_pts: &[i64], audio_pts: &[i64]) -> Option<i64> {
+    let mut video = video_pts.to_vec();
+    let mut audio = audio_pts.to_vec();
+    video.sort_unstable();
+    audio.sort_unstable();
+    if audio.len() < 2 || video.is_empty() {
+        return None;
+    }
+    let mut worst = 0i64;
+    for &v in &video {
+        // Sorted clocks let the nearest neighbour be found by a binary
+        // search (or a short scan here — takes have at most a few thousand
+        // packets and this runs only in the perf harness).
+        let nearest = audio
+            .binary_search(&v)
+            .map(|i| audio[i])
+            .unwrap_or_else(|i| {
+                let hi = audio[i.min(audio.len() - 1)];
+                let lo = audio[i.saturating_sub(1)];
+                if (v - lo).abs() <= (hi - v).abs() {
+                    lo
+                } else {
+                    hi
+                }
+            });
+        worst = worst.max((v - nearest).abs());
+    }
+    Some(worst)
+}
+
+/// Test-only packet tap. Keyed by output path (every take uses a unique
+/// tempdir path), so parallel tests cannot mix clocks. No production code
+/// observes or stores packets through this module.
+#[cfg(all(test, feature = "encode"))]
+pub(crate) mod packet_probe {
+    use crate::encode::EncodedPacket;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    type PacketClock = HashMap<String, Vec<(u8, i64)>>;
+    static PACKETS: Mutex<Option<PacketClock>> = Mutex::new(None);
+
+    pub(crate) fn record(path: &std::path::Path, packet: &EncodedPacket) {
+        let mut guard = PACKETS.lock().unwrap_or_else(|p| p.into_inner());
+        guard
+            .get_or_insert_with(HashMap::new)
+            .entry(path.to_string_lossy().into_owned())
+            .or_default()
+            .push((packet.stream, packet.pts_us));
+    }
+
+    pub(crate) fn take(path: &std::path::Path) -> Vec<(u8, i64)> {
+        let mut guard = PACKETS.lock().unwrap_or_else(|p| p.into_inner());
+        guard
+            .as_mut()
+            .and_then(|map| map.remove(&path.to_string_lossy().into_owned()))
+            .unwrap_or_default()
+    }
+}
+
 /// Where a session's events go.
 ///
 /// The IPC layer injects a Tauri-backed sink; tests inject a recording
@@ -191,6 +264,33 @@ mod tests {
         assert_eq!(empty.fps, 0.0);
         assert_eq!(empty.bitrate_kbps, 0);
         assert_eq!(empty.encode_time_ms, 0.0);
+    }
+
+    #[test]
+    fn av_drift_measures_the_worst_video_vs_audio_packet_offset() {
+        // Audio packets at 0, 21 ms, 42 ms; a video frame at 11 ms is
+        // 11 ms from either neighbour — that is the worst mismatch.
+        let video = [0, 11_000, 20_000];
+        let audio = [0, 21_000, 42_000];
+        let drift = av_drift_us(&video, &audio).expect("overlap");
+        assert_eq!(drift, 10_000, "worst |video - nearest audio| in µs");
+
+        // Input order is irrelevant (packets interleave at the muxer).
+        assert_eq!(
+            av_drift_us(&[20_000, 0, 11_000], &[42_000, 0, 21_000]),
+            Some(10_000)
+        );
+    }
+
+    #[test]
+    fn av_drift_has_no_sample_when_a_clock_is_missing() {
+        assert_eq!(av_drift_us(&[0, 1_000], &[]), None);
+        assert_eq!(av_drift_us(&[], &[0, 1_000]), None);
+        assert_eq!(
+            av_drift_us(&[0], &[0]),
+            None,
+            "one audio packet is not a clock"
+        );
     }
 
     #[test]

@@ -20,6 +20,8 @@ pub mod topic {
     pub const RECORDING_METERS: &str = "recording/meters";
     pub const RECORDING_STATS: &str = "recording/stats";
     pub const RECORDING_FLAGGED: &str = "recording/flagged";
+    /// 9.3: a gapless auto-split boundary (on user-configured thresholds).
+    pub const RECORDING_SPLIT: &str = "recording/split";
     pub const RECORDING_ERROR: &str = "recording/error";
     pub const RECORDING_FINISHED: &str = "recording/finished";
     pub const LIBRARY_UPDATED: &str = "library/updated";
@@ -109,6 +111,21 @@ pub struct Chapter {
 pub struct RecordingFlagged {
     pub recording_id: String,
     pub chapter: Chapter,
+    /// 9.3: additive — the marker count on the take after this flag.
+    pub chapter_count: usize,
+}
+
+/// `recording/split` — one gapless boundary; the payload describes the
+/// SEGMENT THAT JUST CLOSED plus the path the child opened next.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingSplit {
+    pub recording_id: String,
+    /// 1-based index of the NEW segment (the closed one was index - 1).
+    pub segment_index: u32,
+    pub path: String,
+    pub duration_ms: u64,
+    pub size_bytes: u64,
 }
 
 /// `recording/error` — the payload IS the API.md §1 standard error shape.
@@ -135,6 +152,8 @@ pub struct LibraryRecording {
     pub is_hw_encoder: bool,
     pub audio_json: Option<String>,
     pub chapter_json: Option<String>,
+    /// 9.3: ordered segment metadata (NULL = a single segment).
+    pub segment_json: Option<String>,
     pub thumb_path: Option<String>,
     pub deleted_at: Option<String>,
     pub created_at: String,
@@ -269,6 +288,23 @@ pub fn recording_started(app: &tauri::AppHandle, info: &crate::pipeline::session
     );
 }
 
+/// `recording/split` — additive event (API §3), fired by the session's
+/// split callback at the moment the parent asks `ssp-mux` for a new path.
+#[cfg(feature = "encode")]
+pub fn recording_split(app: &tauri::AppHandle, info: &crate::pipeline::session::SplitInfo) {
+    let _ = emit(
+        app,
+        topic::RECORDING_SPLIT,
+        RecordingSplit {
+            recording_id: info.recording_id.clone(),
+            segment_index: info.segment_index,
+            path: info.path.clone(),
+            duration_ms: info.duration_ms,
+            size_bytes: info.size_bytes,
+        },
+    );
+}
+
 /// `recording/finished` — once per session, after the trailer was
 /// written (ARCHITECTURE §3.2 step 6).
 #[cfg(feature = "encode")]
@@ -278,13 +314,14 @@ pub fn recording_finished(
     outcome: &crate::pipeline::session::StopOutcome,
     id: i64,
     thumb_path: Option<String>,
+    segment_json: Option<String>,
 ) {
     let _ = emit(
         app,
         topic::RECORDING_FINISHED,
         RecordingFinished {
             recording_id: recording_id.to_string(),
-            recording: library_recording(outcome, id, thumb_path),
+            recording: library_recording(outcome, id, thumb_path, segment_json),
         },
     );
 }
@@ -324,6 +361,8 @@ impl From<&crate::pipeline::session::StopOutcome> for crate::library::FinalizedR
             updated_at: outcome.finished_at.clone(),
             audio_json: outcome.audio_json.clone(),
             chapter_json: outcome.chapter_json.clone(),
+            // 9.3: the IPC layer fills this from TakeMeta before the upsert.
+            segment_json: None,
             thumb_path: None, // 5.1 fills this in after thumbnail extraction
         }
     }
@@ -339,6 +378,7 @@ pub fn library_recording(
     outcome: &crate::pipeline::session::StopOutcome,
     id: i64,
     thumb_path: Option<String>,
+    segment_json: Option<String>,
 ) -> LibraryRecording {
     LibraryRecording {
         // The row id from the task-1.6 upsert (0 only if the index write
@@ -369,6 +409,7 @@ pub fn library_recording(
         // (flow 7.2) and thumbnails (5.1) join later.
         audio_json: outcome.audio_json.clone(),
         chapter_json: outcome.chapter_json.clone(),
+        segment_json,
         thumb_path,
         deleted_at: None,
         created_at: outcome.started_at.clone(),
@@ -402,7 +443,7 @@ mod tests {
 
     #[test]
     fn the_finished_projection_carries_the_row_shape() {
-        let row = library_recording(&outcome(), 17, None);
+        let row = library_recording(&outcome(), 17, None, None);
         assert_eq!(row.id, 17, "the upsert row id rides the finished payload");
         assert_eq!(row.path, "/home/u/Videos/SSP/first-rec.mkv");
         assert_eq!(row.file_name, "first-rec.mkv");
@@ -418,6 +459,7 @@ mod tests {
         assert!(!row.is_hw_encoder);
         assert!(row.audio_json.is_none());
         assert!(row.chapter_json.is_none());
+        assert!(row.segment_json.is_none(), "single segment → NULL");
         assert!(row.thumb_path.is_none());
         assert!(row.deleted_at.is_none());
         assert_eq!(row.created_at, "2026-11-02T10:00:00Z");
@@ -430,7 +472,7 @@ mod tests {
     fn the_finished_payload_matches_the_api_wire_shape() {
         let value = serde_json::to_value(RecordingFinished {
             recording_id: "rec_01hv4".to_string(),
-            recording: library_recording(&outcome(), 17, None),
+            recording: library_recording(&outcome(), 17, None, None),
         })
         .expect("serialize");
         assert_eq!(value["recordingId"], "rec_01hv4");
@@ -475,6 +517,31 @@ mod tests {
                 "droppedFrames": 0,
                 "bitrateKbps": 12100,
                 "encodeTimeMs": 5.2,
+            })
+        );
+    }
+
+    /// API §3 P1: the additive `recording/split` topic and its camelCase
+    /// wire names mirror `types/ipc.ts::RecordingSplitEvt`.
+    #[test]
+    fn the_split_payload_matches_the_api_wire_shape() {
+        assert_eq!(topic::RECORDING_SPLIT, "recording/split");
+        let value = serde_json::to_value(RecordingSplit {
+            recording_id: "rec_01hv4".into(),
+            segment_index: 2,
+            path: "/v/second.mkv".into(),
+            duration_ms: 1_800_000,
+            size_bytes: 40_000,
+        })
+        .expect("serialize");
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "recordingId": "rec_01hv4",
+                "segmentIndex": 2,
+                "path": "/v/second.mkv",
+                "durationMs": 1_800_000,
+                "sizeBytes": 40_000,
             })
         );
     }

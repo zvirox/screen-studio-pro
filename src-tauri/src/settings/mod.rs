@@ -75,6 +75,13 @@ pub struct Files {
     pub naming_pattern: String,
     /// DATABASE §2.1 container CHECK: mkv | mp4 | webm.
     pub container: String,
+    /// 9.3: auto-split takes into gapless segments. Disabled by default;
+    /// thresholds come from here (the session resolves them at start).
+    pub auto_split_enabled: bool,
+    /// Duration threshold in minutes (1..240).
+    pub auto_split_duration_min: u16,
+    /// Size threshold in MB (64..16384).
+    pub auto_split_size_mb: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -143,6 +150,15 @@ pub fn validate(settings: &Settings) -> Result<(), CoreError> {
     }
     if !matches!(f.container.as_str(), "mkv" | "mp4" | "webm") {
         return Err(invalid("Container must be mkv, mp4 or webm."));
+    }
+    // 9.3: bounds are enforced here (the same settings value law as frame
+    // rate / levels), so a hand-edited TOML with a silly threshold is a typed
+    // settings.invalid_value — never a split-every-frame runaway.
+    if !(1..=240).contains(&f.auto_split_duration_min) {
+        return Err(invalid("Auto-split duration must be 1–240 minutes."));
+    }
+    if !(64..=16_384).contains(&f.auto_split_size_mb) {
+        return Err(invalid("Auto-split size must be 64–16384 MB."));
     }
     for combo in [
         &settings.shortcuts.quick_record,
@@ -534,6 +550,54 @@ mod tests {
             SettingsStore::from_defaults(tmp.path()).get(),
             &default_settings()
         );
+    }
+
+    #[test]
+    fn pre_93_settings_files_load_with_auto_split_defaults() {
+        // Pre-9.3 TOML (no auto-split keys) must still parse — the container
+        // level #[serde(default)] fills the new fields from default_settings().
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("settings.toml"),
+            "[files]\ndir = \"/tmp/rec\"\nnamingPattern = \"demo-%H%M\"\ncontainer = \"mkv\"\n",
+        )
+        .unwrap();
+        let loaded = store(tmp.path());
+        let files = &loaded.get().files;
+        assert!(!files.auto_split_enabled);
+        assert_eq!(files.auto_split_duration_min, 30);
+        assert_eq!(files.auto_split_size_mb, 4096);
+    }
+
+    #[test]
+    fn auto_split_thresholds_are_validated() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut s = store(tmp.path());
+        assert_eq!(
+            s.apply_patch(&json!({ "files": { "autoSplitDurationMin": 0 } }))
+                .unwrap_err()
+                .code(),
+            "settings.invalid_value"
+        );
+        assert_eq!(
+            s.apply_patch(&json!({ "files": { "autoSplitSizeMb": 63 } }))
+                .unwrap_err()
+                .code(),
+            "settings.invalid_value"
+        );
+        let merged = s
+            .apply_patch(&json!({
+                "files": {
+                    "autoSplitEnabled": true,
+                    "autoSplitDurationMin": 5,
+                    "autoSplitSizeMb": 512
+                }
+            }))
+            .unwrap();
+        assert_eq!(merged["files"]["autoSplitEnabled"], true);
+        assert_eq!(merged["files"]["autoSplitDurationMin"], 5);
+        assert_eq!(merged["files"]["autoSplitSizeMb"], 512);
+        assert!(merged["files"]["autoSplitDurationMin"].as_u64().unwrap() <= 240);
     }
 
     #[test]

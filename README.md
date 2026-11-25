@@ -140,13 +140,13 @@ flowchart LR
     Starship["Starship Control (Optional)"] <-->|SO_PEERCRED Unix Socket| Core
 ```
 
-| Capability | Supported Scope | Notes |
-| :--- | :--- | :--- |
-| **Capture Sources** | Full Monitor, Application Window, Custom Region | Selected through Linux XDG Portals |
-| **Compositors** | Hyprland, niri, MangoWC, KDE Plasma, GNOME, X11 | PipeWire native capture |
-| **Encoders** | VAAPI, NVENC, x264 | Picked automatically or in Settings |
-| **Audio Inputs** | Microphone + System Loopback | Live gain sliders and meters |
-| **Outputs** | MKV and MP4 | Saved to `~/Videos/Screen Studio Pro` |
+| Capability          | Supported Scope                                 | Notes                                 |
+| :------------------ | :---------------------------------------------- | :------------------------------------ |
+| **Capture Sources** | Full Monitor, Application Window, Custom Region | Selected through Linux XDG Portals    |
+| **Compositors**     | Hyprland, niri, MangoWC, KDE Plasma, GNOME, X11 | PipeWire native capture               |
+| **Encoders**        | VAAPI, NVENC, x264                              | Picked automatically or in Settings   |
+| **Audio Inputs**    | Microphone + System Loopback                    | Live gain sliders and meters          |
+| **Outputs**         | MKV and MP4                                     | Saved to `~/Videos/Screen Studio Pro` |
 
 ---
 
@@ -162,18 +162,18 @@ When you are presenting slides, live coding, or demonstrating an app, switching 
 
 ### Real-World Use Cases
 
-- **Hands-Free Start and Stop**: Ask *"Start recording my primary monitor with webcam overlay"* without opening menus.
-- **One-Prompt Editing Handoff**: Tell Starship Control *"Take a 60-second recording and open it in Easy Edits Pro so I can trim out silent pauses."*
+- **Hands-Free Start and Stop**: Ask _"Start recording my primary monitor with webcam overlay"_ without opening menus.
+- **One-Prompt Editing Handoff**: Tell Starship Control _"Take a 60-second recording and open it in Easy Edits Pro so I can trim out silent pauses."_
 - **Chapter Marking While Speaking**: Summon the Floating HUD with `Super+Shift+Space` and ask it to tag key moments while you record tutorials.
 
 ### How Connection Works (Phase 8 Integration Architecture)
 
-Screen Studio Pro embeds the `starship-plugin` SDK (`src-tauri/src/starship_bridge.rs` scaffold implemented and unit-tested; live startup registration and CET telemetry sidecar export complete in Phase 8):
+Screen Studio Pro embeds the `starship-plugin` SDK (`src-tauri/src/starship_bridge.rs`). At boot it publishes the manifest, binds the UDS socket, and serves only implemented capture tools through the same `AppState` lifecycle used by the UI and tray:
 
 1. **Local Discovery**: Manifest descriptor targets `$XDG_DATA_HOME/starship/plugins/ssp.json`.
-2. **Private Unix Socket**: Commands flow through `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` on your local disk.
-3. **Kernel User Verification**: Uses Linux peer credentials (`SO_PEERCRED`) so only your local user account can invoke capture tools, with zero network ports open.
-4. **Companion Detection**: Once Phase 8 runtime daemon wiring lands, launching Starship Control discovers Screen Studio Pro automatically. Visit [Starship Control](https://github.com/zvirox/starship-control) and [releases](https://github.com/zvirox/starship-control/releases).
+2. **Private Unix Socket**: Newline-delimited JSON-RPC flows through `$XDG_RUNTIME_DIR/starship/bridges/ssp.sock` on your local disk.
+3. **Kernel User Verification**: Uses Linux peer credentials (`SO_PEERCRED`) so only your local user account can invoke capture tools, with zero network ports open. External Starship Control discovery/command proof remains a live gate.
+4. **CET Handoff**: Each finalized take may derive a `cet/1.0` sidecar next to the media file, with only observed header and chapter facts. Visit [Starship Control](https://github.com/zvirox/starship-control) and [releases](https://github.com/zvirox/starship-control/releases).
 
 ---
 
@@ -181,11 +181,11 @@ Screen Studio Pro embeds the `starship-plugin` SDK (`src-tauri/src/starship_brid
 
 Prebuilt Linux packages and checksum files are available on the [Releases page](https://github.com/zvirox/screen-studio-pro/releases).
 
-| Distribution | Package Format | Install Command |
-| :--- | :--- | :--- |
-| **Debian / Ubuntu / Pop!_OS / Mint** | `.deb` | `sudo apt install ./screen-studio-pro_*_amd64.deb` |
-| **Fedora / RHEL / openSUSE** | `.rpm` | `sudo dnf install ./screen-studio-pro-*.x86_64.rpm` |
-| **Arch Linux / Manjaro / CachyOS** | `.pkg.tar.zst` | `sudo pacman -U ./screen-studio-pro-*-x86_64.pkg.tar.zst` |
+| Distribution                          | Package Format | Install Command                                           |
+| :------------------------------------ | :------------- | :-------------------------------------------------------- |
+| **Debian / Ubuntu / Pop!\_OS / Mint** | `.deb`         | `sudo apt install ./screen-studio-pro_*_amd64.deb`        |
+| **Fedora / RHEL / openSUSE**          | `.rpm`         | `sudo dnf install ./screen-studio-pro-*.x86_64.rpm`       |
+| **Arch Linux / Manjaro / CachyOS**    | `.pkg.tar.zst` | `sudo pacman -U ./screen-studio-pro-*-x86_64.pkg.tar.zst` |
 
 <details>
 <summary><strong>Verify Checksums and Build From Source</strong></summary>
@@ -213,13 +213,13 @@ Official Linux releases ship exclusively as native `.deb`, `.rpm`, and `.pkg.tar
 
 ## Tech Stack
 
-| Layer | Technology | Role |
-| :--- | :--- | :--- |
-| **Capture Core** | Rust + PipeWire + Portal APIs | Display, window, audio, and webcam capture pipeline |
-| **Desktop Shell** | Tauri 2 | Native Linux windowing, tray controls, and Recording HUD |
-| **Frontend UI** | React 19 + TypeScript + Tailwind CSS v4 | Matte dark interface, meters, and recording library |
-| **Telemetry & Charts** | Apache ECharts 6 + Zustand | Performance charts and responsive state updates |
-| **Automation Bridge** | `starship-plugin` SDK | Local Unix socket integration with Starship Control |
+| Layer                  | Technology                              | Role                                                     |
+| :--------------------- | :-------------------------------------- | :------------------------------------------------------- |
+| **Capture Core**       | Rust + PipeWire + Portal APIs           | Display, window, audio, and webcam capture pipeline      |
+| **Desktop Shell**      | Tauri 2                                 | Native Linux windowing, tray controls, and Recording HUD |
+| **Frontend UI**        | React 19 + TypeScript + Tailwind CSS v4 | Matte dark interface, meters, and recording library      |
+| **Telemetry & Charts** | Apache ECharts 6 + Zustand              | Performance charts and responsive state updates          |
+| **Automation Bridge**  | `starship-plugin` SDK                   | Local Unix socket integration with Starship Control      |
 
 ---
 
@@ -275,15 +275,15 @@ I build local-first open-source Linux and Android tools under **Zvirox**. Writin
 
 All six applications in the Zvirox desktop suite work standalone and connect together through Starship Control:
 
-| Logo | Application | Purpose | Repository | Download & Project |
-| :---: | :--- | :--- | :--- | :--- |
-| <img src="https://raw.githubusercontent.com/zvirox/starship-control/main/assets/logo.png" alt="Starship Control logo" width="32" height="32" /> | **[Starship Control](https://zvirox.in/projects/sc/)** | Local-first AI desktop cockpit and floating HUD | [github.com/zvirox/starship-control](https://github.com/zvirox/starship-control) | [Download](https://zvirox.in/downloads/sc/) · [Releases](https://github.com/zvirox/starship-control/releases) |
-| <img src="src/assets/screen-studio-pro-logo.png" alt="Screen Studio Pro logo" width="32" height="32" /> | **[Screen Studio Pro](https://zvirox.in/projects/ssp/)** | Wayland and X11 screen recorder with PipeWire | [github.com/zvirox/screen-studio-pro](https://github.com/zvirox/screen-studio-pro) | [Download](https://zvirox.in/downloads/ssp/) · [Releases](https://github.com/zvirox/screen-studio-pro/releases) |
-| <img src="https://raw.githubusercontent.com/zvirox/easy-edits-pro/main/docs/assets/easy-edits-pro-logo.png" alt="Easy Edits Pro logo" width="32" height="32" /> | **[Easy Edits Pro](https://zvirox.in/projects/eep/)** | Non-destructive multitrack video editor | [github.com/zvirox/easy-edits-pro](https://github.com/zvirox/easy-edits-pro) | [Download](https://zvirox.in/downloads/eep/) · [Releases](https://github.com/zvirox/easy-edits-pro/releases) |
-| <img src="https://raw.githubusercontent.com/zvirox/audio-labs-pro/main/packaging/branding/audio-labs-pro-logo.png" alt="Audio Labs Pro logo" width="32" height="32" /> | **[Audio Labs Pro](https://zvirox.in/projects/alp/)** | Offline voice studio and multitrack audio editor | [github.com/zvirox/audio-labs-pro](https://github.com/zvirox/audio-labs-pro) | [Download](https://zvirox.in/downloads/alp/) · [Releases](https://github.com/zvirox/audio-labs-pro/releases) |
-| <img src="https://raw.githubusercontent.com/zvirox/agentic-tuneup-pro/main/.github/assets/logo.png" alt="Agentic Tuneup Pro logo" width="32" height="32" /> | **[Agentic Tuneup Pro](https://zvirox.in/projects/atp/)** | Safety-first disk cleaner and system optimizer | [github.com/zvirox/agentic-tuneup-pro](https://github.com/zvirox/agentic-tuneup-pro) | [Download](https://zvirox.in/downloads/atp/) · [Releases](https://github.com/zvirox/agentic-tuneup-pro/releases) |
-| <img src="https://raw.githubusercontent.com/zvirox/net-watch-pro/main/docs/assets/net-watch-pro-logo.png" alt="Net Watch Pro logo" width="32" height="32" /> | **[Net Watch Pro](https://zvirox.in/projects/nwp/)** | Real-time network speed and per-app data tracker | [github.com/zvirox/net-watch-pro](https://github.com/zvirox/net-watch-pro) | [Download](https://zvirox.in/downloads/nwp/) · [Releases](https://github.com/zvirox/net-watch-pro/releases) |
-| - | **[Your TV Friend](https://zvirox.in/projects/ytf/)** | Android TV non-destructive debloater and Your UI launcher | [github.com/zvirox/your-tv-friend](https://github.com/zvirox/your-tv-friend) | [Download APK](https://zvirox.in/downloads/ytf/) · [Releases](https://github.com/zvirox/your-tv-friend/releases) |
+|                                                                                  Logo                                                                                  | Application                                               | Purpose                                                   | Repository                                                                           | Download & Project                                                                                               |
+| :--------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------- | :-------------------------------------------------------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+|            <img src="https://raw.githubusercontent.com/zvirox/starship-control/main/assets/logo.png" alt="Starship Control logo" width="32" height="32" />             | **[Starship Control](https://zvirox.in/projects/sc/)**    | Local-first AI desktop cockpit and floating HUD           | [github.com/zvirox/starship-control](https://github.com/zvirox/starship-control)     | [Download](https://zvirox.in/downloads/sc/) · [Releases](https://github.com/zvirox/starship-control/releases)    |
+|                                <img src="src/assets/screen-studio-pro-logo.png" alt="Screen Studio Pro logo" width="32" height="32" />                                 | **[Screen Studio Pro](https://zvirox.in/projects/ssp/)**  | Wayland and X11 screen recorder with PipeWire             | [github.com/zvirox/screen-studio-pro](https://github.com/zvirox/screen-studio-pro)   | [Download](https://zvirox.in/downloads/ssp/) · [Releases](https://github.com/zvirox/screen-studio-pro/releases)  |
+|    <img src="https://raw.githubusercontent.com/zvirox/easy-edits-pro/main/docs/assets/easy-edits-pro-logo.png" alt="Easy Edits Pro logo" width="32" height="32" />     | **[Easy Edits Pro](https://zvirox.in/projects/eep/)**     | Non-destructive multitrack video editor                   | [github.com/zvirox/easy-edits-pro](https://github.com/zvirox/easy-edits-pro)         | [Download](https://zvirox.in/downloads/eep/) · [Releases](https://github.com/zvirox/easy-edits-pro/releases)     |
+| <img src="https://raw.githubusercontent.com/zvirox/audio-labs-pro/main/packaging/branding/audio-labs-pro-logo.png" alt="Audio Labs Pro logo" width="32" height="32" /> | **[Audio Labs Pro](https://zvirox.in/projects/alp/)**     | Offline voice studio and multitrack audio editor          | [github.com/zvirox/audio-labs-pro](https://github.com/zvirox/audio-labs-pro)         | [Download](https://zvirox.in/downloads/alp/) · [Releases](https://github.com/zvirox/audio-labs-pro/releases)     |
+|      <img src="https://raw.githubusercontent.com/zvirox/agentic-tuneup-pro/main/.github/assets/logo.png" alt="Agentic Tuneup Pro logo" width="32" height="32" />       | **[Agentic Tuneup Pro](https://zvirox.in/projects/atp/)** | Safety-first disk cleaner and system optimizer            | [github.com/zvirox/agentic-tuneup-pro](https://github.com/zvirox/agentic-tuneup-pro) | [Download](https://zvirox.in/downloads/atp/) · [Releases](https://github.com/zvirox/agentic-tuneup-pro/releases) |
+|      <img src="https://raw.githubusercontent.com/zvirox/net-watch-pro/main/docs/assets/net-watch-pro-logo.png" alt="Net Watch Pro logo" width="32" height="32" />      | **[Net Watch Pro](https://zvirox.in/projects/nwp/)**      | Real-time network speed and per-app data tracker          | [github.com/zvirox/net-watch-pro](https://github.com/zvirox/net-watch-pro)           | [Download](https://zvirox.in/downloads/nwp/) · [Releases](https://github.com/zvirox/net-watch-pro/releases)      |
+|                                                                                   -                                                                                    | **[Your TV Friend](https://zvirox.in/projects/ytf/)**     | Android TV non-destructive debloater and Your UI launcher | [github.com/zvirox/your-tv-friend](https://github.com/zvirox/your-tv-friend)         | [Download APK](https://zvirox.in/downloads/ytf/) · [Releases](https://github.com/zvirox/your-tv-friend/releases) |
 
 ---
 

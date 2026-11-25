@@ -85,6 +85,7 @@ pub async fn run(
             }
         } else if quit {
             state.exit_allowed.store(true, Ordering::Release);
+            crate::starship_bridge::shutdown(&app);
             app.exit(0);
         }
         result
@@ -245,7 +246,25 @@ impl Lifecycle {
         let thumbs_dir = crate::util::paths::data_dir().join("thumbs");
         let _ = std::fs::create_dir_all(&thumbs_dir);
         let mut thumb_path: Option<String> = None;
+        let mut cet_path: Option<String> = None;
+        // 9.3: additive take facts, consumed once from the session. The
+        // `finalizing` closure may be retried (index failure), so keep the
+        // first successful read.
+        let mut meta = crate::pipeline::session::TakeMeta::default();
         let (recording_id, outcome, row_id) = self.finalize(&recordings, id, |outcome| {
+            if meta.segment_json.is_none() && meta.chapter_count == 0 {
+                meta = recordings.take_last_meta().unwrap_or_default();
+            }
+            // 8.3: derived CET sidecar — non-fatal, because the media and
+            // library row are authoritative and must survive a metadata fault.
+            match crate::pipeline::cet::write_sidecar(outcome) {
+                Ok(path) => {
+                    cet_path = path.to_str().map(ToOwned::to_owned);
+                }
+                Err(err) => {
+                    tracing::warn!(code = %err.code(), "CET sidecar export failed; media kept");
+                }
+            }
             // 5.1: extract a thumbnail from the finalized MKV, non-fatal.
             let tp = extract_thumbnail(&outcome.path, &thumbs_dir, &stop)
                 .ok()
@@ -253,12 +272,30 @@ impl Lifecycle {
             thumb_path = tp.clone();
             let mut rec = crate::library::FinalizedRecording::from(outcome);
             rec.thumb_path = tp;
+            // 9.3: segment metadata is written on the SAME row as the take —
+            // one logical recording, N gapless segment files.
+            rec.segment_json = meta.segment_json.clone();
             library.record_finalize(&rec)
         })?;
-        events::recording_finished(app, &recording_id, &outcome, row_id, thumb_path.clone());
+        events::recording_finished(
+            app,
+            &recording_id,
+            &outcome,
+            row_id,
+            thumb_path.clone(),
+            meta.segment_json.clone(),
+        );
         events::library_updated(app, row_id);
         Ok(serde_json::json!({
-            "recording": events::library_recording(&outcome, row_id, thumb_path.clone())
+            "recording": events::library_recording(
+                &outcome,
+                row_id,
+                thumb_path.clone(),
+                meta.segment_json.clone(),
+            ),
+            "cetPath": cet_path,
+            "segmentJson": meta.segment_json,
+            "chapterCount": meta.chapter_count,
         }))
     }
 
@@ -332,6 +369,15 @@ fn start(
         camera_id,
         Some(app),
     )
+}
+
+/// Bridge-facing lifecycle snapshot (Phase 8): the UDS tool reports the
+/// same truth the tray uses, never a separate cached copy.
+#[must_use]
+pub fn bridge_snapshot(app: &tauri::AppHandle) -> Snapshot {
+    let state = app.state::<AppState>();
+    let lifecycle = state.operations.lock().unwrap_or_else(|p| p.into_inner());
+    lifecycle.snapshot(app)
 }
 
 impl Snapshot {

@@ -13,6 +13,9 @@ contents:
   - src: target/release/screen-studio-pro
     dst: /usr/bin/screen-studio-pro
     file_info: { mode: 0755 }
+  - src: target/release/ssp-mux
+    dst: /usr/bin/ssp-mux
+    file_info: { mode: 0755 }
   - src: packaging/screen-studio-pro.desktop
     dst: /usr/share/applications/screen-studio-pro.desktop
   - src: packaging/icons/hicolor/32x32/apps/screen-studio-pro.png

@@ -35,6 +35,7 @@ import type {
   RecordingFinishedEvt,
   RecordingMetersEvt,
   RecordingStartedEvt,
+  RecordingSplitEvt,
   RecordingStatsEvt,
   RecordingTickEvt,
   ShellErrorEvt,
@@ -110,6 +111,9 @@ export interface SessionSlice {
       take's first beat. Resets with the slice — the §6.1 #6 stats line
       renders only while a take is active. */
   stats: RecordingStatsEvt | null;
+  /** 9.3: last gapless split boundary (`recording/split`); null until one
+      happens. Optional so older session fixtures still typecheck. */
+  lastSplit?: RecordingSplitEvt | null;
 }
 
 export const INITIAL_SESSION: SessionSlice = {
@@ -121,6 +125,7 @@ export const INITIAL_SESSION: SessionSlice = {
   paused: false,
   fault: null,
   stats: null,
+  lastSplit: null,
 };
 
 /* ---------- Audio projection (§6.1 #3 strip; API §2.2 + §3, task 2.2) ---------- */
@@ -444,6 +449,8 @@ interface SspState {
   showError: (err: IpcError) => void;
   onTick: (evt: RecordingTickEvt) => void;
   onStats: (evt: RecordingStatsEvt) => void;
+  /** 9.3: `recording/split` reducer — records the new segment path. */
+  onSplit: (evt: RecordingSplitEvt) => void;
   onSessionError: (err: IpcError) => void;
   onFinished: (evt: RecordingFinishedEvt) => void;
 
@@ -1499,6 +1506,15 @@ export const useSspStore = create<SspState>((set, get) => ({
     // teardown must not resurrect the §6.1 #6 line on the idle row.
     if (session.status !== "recording") return;
     set({ session: { ...session, stats: evt } });
+  },
+
+  onSplit(evt) {
+    const { session } = get();
+    // A split only means something inside a live take — a late event after
+    // teardown must not resurrect the split projection on the idle row.
+    if (session.status !== "recording") return;
+    if (session.recordingId !== evt.recordingId) return;
+    set({ session: { ...session, lastSplit: evt } });
   },
 
   onSessionError(err) {

@@ -131,6 +131,7 @@ pub fn run() {
         ipc::commands::recording_pause,
         ipc::commands::recording_resume,
         ipc::commands::recording_flag,
+        ipc::commands::recording_add_chapter,
         ipc::commands::recording_stop,
     ]);
     #[cfg(not(feature = "encode"))]
@@ -205,6 +206,11 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     if let Err(err) = tray::setup(app) {
         // Hiding re-checks tray availability and returns typed human copy.
         tracing::warn!(error = %err, "tray unavailable; keeping window controls reachable");
+    }
+    // PLAN 8: publish the Starship manifest and bind the UDS bridge. A
+    // failure is non-fatal — the local Tauri surface remains fully usable.
+    if let Err(err) = starship_bridge::start(app.handle()) {
+        tracing::warn!(code = %err.code(), "Starship bridge unavailable; local UI unchanged");
     }
     Ok(())
 }

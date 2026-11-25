@@ -30,6 +30,10 @@ pub fn default_settings() -> Settings {
             naming_pattern: "screen-%Y-%m-%d-%H%M".into(),
             // Record to MKV, remux to MP4 on stop (M9 crash-safety model).
             container: "mp4".into(),
+            // 9.3: auto-split is opt-in; sane defaults when enabled.
+            auto_split_enabled: false,
+            auto_split_duration_min: 30,
+            auto_split_size_mb: 4096,
         },
         shortcuts: Shortcuts {
             quick_record: "Super+Shift+R".into(), // API §2.7 example

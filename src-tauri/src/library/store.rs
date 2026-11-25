@@ -21,6 +21,7 @@ const PREF_NAMESPACES: [&str; 3] = ["hud.", "pip.", "last."];
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("../../sql/0001_recordings.sql")),
     (2, include_str!("../../sql/0002_ui_prefs.sql")),
+    (3, include_str!("../../sql/0003_auto_split.sql")),
 ];
 
 /// Open the connection and set session pragmas (§1/§6.4).
@@ -172,6 +173,9 @@ pub struct FinalizedRecording {
     /// DATABASE §2.1 `chapter_json` — the take's chapter markers, as the
     /// JSON array text (None = no flags on the take, column stays NULL).
     pub chapter_json: Option<String>,
+    /// DATABASE §2.1 `segment_json` — ordered gapless segments of the ONE
+    /// logical take (None = a single segment, column stays NULL).
+    pub segment_json: Option<String>,
     /// DATABASE §2.1 `thumb_path` — the thumbnail PNG path (None = no
     /// thumb extracted yet; 5.1 sets it on finalize).
     pub thumb_path: Option<String>,
@@ -213,6 +217,7 @@ pub struct LibraryListItem {
     pub is_hw_encoder: i64,
     pub audio_json: Option<String>,
     pub chapter_json: Option<String>,
+    pub segment_json: Option<String>,
     pub thumb_path: Option<String>,
     pub deleted_at: Option<String>,
     pub created_at: String,
@@ -364,7 +369,7 @@ impl LibraryStore {
             .prepare(&format!(
                 "SELECT id, path, file_name, kind, container, status, duration_ms,
                  width, height, fps, size_bytes, encoder, is_hw_encoder,
-                 audio_json, chapter_json, thumb_path, deleted_at,
+                 audio_json, chapter_json, segment_json, thumb_path, deleted_at,
                  created_at, updated_at
                  FROM recordings WHERE {where_sql}
                  ORDER BY {order_by} {direction}
@@ -395,10 +400,11 @@ impl LibraryStore {
                     is_hw_encoder: row.get(12)?,
                     audio_json: row.get(13)?,
                     chapter_json: row.get(14)?,
-                    thumb_path: row.get(15)?,
-                    deleted_at: row.get(16)?,
-                    created_at: row.get(17)?,
-                    updated_at: row.get(18)?,
+                    segment_json: row.get(15)?,
+                    thumb_path: row.get(16)?,
+                    deleted_at: row.get(17)?,
+                    created_at: row.get(18)?,
+                    updated_at: row.get(19)?,
                 })
             })
             .map_err(db_error)?
@@ -414,7 +420,7 @@ impl LibraryStore {
         let query_result = conn.query_row(
             "SELECT id, path, file_name, kind, container, status, duration_ms,
              width, height, fps, size_bytes, encoder, is_hw_encoder,
-             audio_json, chapter_json, thumb_path, deleted_at,
+             audio_json, chapter_json, segment_json, thumb_path, deleted_at,
              created_at, updated_at
              FROM recordings WHERE id = ?1",
             [id],
@@ -435,10 +441,11 @@ impl LibraryStore {
                     is_hw_encoder: row.get(12)?,
                     audio_json: row.get(13)?,
                     chapter_json: row.get(14)?,
-                    thumb_path: row.get(15)?,
-                    deleted_at: row.get(16)?,
-                    created_at: row.get(17)?,
-                    updated_at: row.get(18)?,
+                    segment_json: row.get(15)?,
+                    thumb_path: row.get(16)?,
+                    deleted_at: row.get(17)?,
+                    created_at: row.get(18)?,
+                    updated_at: row.get(19)?,
                 })
             },
         );
@@ -533,7 +540,8 @@ impl LibraryStore {
                 size_bytes = ?6, updated_at = ?7,
                 audio_json = COALESCE(?8, audio_json),
                 chapter_json = COALESCE(?9, chapter_json),
-                thumb_path = COALESCE(?10, thumb_path)
+                segment_json = COALESCE(?10, segment_json),
+                thumb_path = COALESCE(?11, thumb_path)
              WHERE path = ?1",
             rusqlite::params![
                 rec.path,
@@ -545,6 +553,7 @@ impl LibraryStore {
                 rec.updated_at,
                 rec.audio_json,
                 rec.chapter_json,
+                rec.segment_json,
                 rec.thumb_path,
             ],
         )
@@ -596,10 +605,10 @@ mod tests {
     }
 
     #[test]
-    fn fresh_db_migrates_to_version_2_with_seed_rows() {
+    fn fresh_db_migrates_to_version_3_with_seed_rows() {
         let (tmp, store) = open_tmp();
         let conn = store.lock();
-        assert_eq!(version(&conn), 2);
+        assert_eq!(version(&conn), 3);
         let seeds: i64 = conn
             .query_row("SELECT COUNT(*) FROM ui_prefs", [], |r| r.get(0))
             .unwrap();
@@ -636,7 +645,7 @@ mod tests {
         {
             let store = LibraryStore::open(tmp.path()).unwrap();
             let conn = store.lock();
-            assert_eq!(version(&conn), 2);
+            assert_eq!(version(&conn), 3);
             let seeds: i64 = conn
                 .query_row("SELECT COUNT(*) FROM ui_prefs", [], |r| r.get(0))
                 .unwrap();
@@ -742,6 +751,7 @@ mod tests {
             updated_at: "2026-11-02T09:00:02Z".into(), // trailer written
             audio_json: None,                          // 2.1: row tests stay video-only
             chapter_json: None,                        // 2.5: chapter row tests added in 2.5
+            segment_json: None,                        // 9.3: single-segment take
             thumb_path: None,                          // 5.1: thumbnail not yet extracted
         }
     }
@@ -843,5 +853,49 @@ mod tests {
         assert_eq!(duration, 1_600);
         assert_eq!(updated, "2026-11-02T09:00:03Z");
         assert_eq!(created, vec!["2026-11-02T09:00:00Z"]);
+    }
+
+    /// 9.3: an auto-split take is still ONE row; `segment_json` round-trips
+    /// in order, and a re-finalize keeps `created_at` while bumping
+    /// `updated_at` (DATABASE §2.1 mutation law).
+    #[test]
+    fn segment_json_round_trips_and_upsert_preserves_created_at() {
+        let (_, store) = open_tmp();
+        let mut rec = finalized();
+        rec.segment_json = Some(
+            r#"[{"path":"/v/one.mkv","size_bytes":100,"duration_ms":900},
+                {"path":"/v/two.mkv","size_bytes":80,"duration_ms":600}]"#
+                .into(),
+        );
+        let id = store.record_finalize(&rec).unwrap();
+        {
+            let conn = store.lock();
+            let json: String = conn
+                .query_row(
+                    "SELECT segment_json FROM recordings WHERE id = ?1",
+                    [id],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            let segments: Vec<serde_json::Value> = serde_json::from_str(&json).unwrap();
+            assert_eq!(segments.len(), 2);
+            assert_eq!(segments[0]["path"], "/v/one.mkv");
+            assert_eq!(segments[1]["path"], "/v/two.mkv");
+        }
+        // Re-finalize the same logical take with a later update stamp.
+        rec.updated_at = "2026-11-02T09:00:09Z".into();
+        rec.created_at = "2026-11-02T11:00:00Z".into(); // must NOT overwrite
+        assert_eq!(store.record_finalize(&rec).unwrap(), id);
+        let conn = store.lock();
+        let (created, updated, count): (String, String, i64) = conn
+            .query_row(
+                "SELECT created_at, updated_at, COUNT(*) FROM recordings WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(created, "2026-11-02T09:00:00Z");
+        assert_eq!(updated, "2026-11-02T09:00:09Z");
+        assert_eq!(count, 1);
     }
 }

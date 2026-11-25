@@ -20,7 +20,7 @@ describe("AboutPane (§6.4 / 6.1)", () => {
           compositor: "kwin_wayland",
           windowCapture: true,
         },
-        version: { app: "0.1.0-beta.1", ipcContract: "1.6.0" },
+        version: { app: "0.1.0-beta.1", ipcContract: "1.8.0" },
       },
     });
   });
@@ -33,7 +33,7 @@ describe("AboutPane (§6.4 / 6.1)", () => {
 
   it("renders IPC contract version", () => {
     render(<AboutPane />);
-    expect(screen.getAllByText("1.6.0").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("1.8.0").length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders capability matrix", () => {

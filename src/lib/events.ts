@@ -6,6 +6,7 @@ import type {
   RecordingErrorEvt,
   RecordingFlaggedEvt,
   RecordingFinishedEvt,
+  RecordingSplitEvt,
   RecordingMetersEvt,
   RecordingStartedEvt,
   RecordingStatsEvt,
@@ -28,6 +29,7 @@ export const EVENT_TOPICS = [
   "recording/meters",
   "recording/stats",
   "recording/flagged",
+  "recording/split",
   "recording/error",
   "recording/finished",
   "library/updated",
@@ -42,6 +44,7 @@ export interface EventMap {
   "recording/meters": RecordingMetersEvt;
   "recording/stats": RecordingStatsEvt;
   "recording/flagged": RecordingFlaggedEvt;
+  "recording/split": RecordingSplitEvt;
   "recording/error": RecordingErrorEvt;
   "recording/finished": RecordingFinishedEvt;
   "library/updated": LibraryUpdatedEvt;

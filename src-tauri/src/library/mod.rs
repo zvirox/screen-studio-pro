@@ -3,6 +3,7 @@ mod store;
 mod thumbs;
 
 pub use store::LibraryHandle;
+#[cfg(feature = "encode")]
 pub use store::{LibraryListFilter, LibraryListSort};
 #[cfg(feature = "encode")]
 pub use thumbs::extract_thumbnail;

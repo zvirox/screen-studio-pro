@@ -16,6 +16,8 @@ import {
   prefsGet,
   prefsSet,
   presetsList,
+  recordingAddChapter,
+  recordingFlag,
   recordingStart,
   recordingStop,
   settingsGet,
@@ -161,6 +163,23 @@ describe("lib/ipc", () => {
     expect(invokeMock).toHaveBeenCalledWith("recording_stop", { recordingId: "rec_01hv4" });
   });
 
+  it("recordingFlag/recordingAddChapter address the chapter verbs and unwrap the marker (9.3)", async () => {
+    const reply = { chapter: { offsetMs: 1_200, label: "intro" }, chapterCount: 1 };
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(recordingFlag("rec_01hv4", "intro")).resolves.toEqual(reply.chapter);
+    expect(invokeMock).toHaveBeenCalledWith("recording_flag", {
+      recordingId: "rec_01hv4",
+      label: "intro",
+    });
+
+    invokeMock.mockResolvedValueOnce(reply);
+    await expect(recordingAddChapter("rec_01hv4")).resolves.toEqual(reply.chapter);
+    expect(invokeMock).toHaveBeenCalledWith("recording_add_chapter", {
+      recordingId: "rec_01hv4",
+      label: undefined,
+    });
+  });
+
   it("passes §1-shaped errors through without rewrapping", async () => {
     const shaped = {
       kind: "encoder",
@@ -187,8 +206,8 @@ describe("lib/ipc", () => {
   });
 
   it("pins the webview contract version (API §5.1)", () => {
-    expect(IPC_CONTRACT_VERSION).toBe("1.6.0");
-    expect(isContractMatch("1.6.0")).toBe(true);
+    expect(IPC_CONTRACT_VERSION).toBe("1.8.0");
+    expect(isContractMatch("1.8.0")).toBe(true);
     expect(isContractMatch("1.0.0")).toBe(false);
     expect(isContractMatch("2.0.0")).toBe(false);
   });

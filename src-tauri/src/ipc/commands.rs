@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::capture::CaptureHandle;
 use crate::library::LibraryHandle;
@@ -19,7 +19,7 @@ API.md §2 minus the prefix. */
 
 /// The pinned IPC contract version — API §5.1: versioned as a whole; the
 /// webview carries the same constant in `types/ipc.ts` and gates boot on it.
-pub const IPC_CONTRACT_VERSION: &str = "1.6.0";
+pub const IPC_CONTRACT_VERSION: &str = "1.8.0";
 
 /// `cmd://ipc_hello` — minimal handshake returning the contract version.
 #[derive(Debug, Clone, Serialize)]
@@ -269,19 +269,15 @@ pub fn prefs_set(
     library.prefs_set(&key, &value).map_err(|err| err.to_ipc())
 }
 
-/// `cmd://source_select` (API §2.1) — begin a portal session; monitor
-/// flavour is live in 1.1 (PRD M1), window joins with M2, region (M3)
-/// reuses the monitor session with a crop overlay. The caller-paced
-/// consent dialog means this command legitimately runs for minutes;
-/// concurrent selects return `portal.busy` from the slot.
-#[tauri::command]
-pub async fn source_select(
-    kind: String,
+/// Core source selection shared by Tauri IPC and the Starship UDS bridge.
+/// The portal picker owns the actual target; `target` stays a trace-only hint
+/// per API §2.1, so no caller can claim a monitor it did not approve.
+pub async fn select_source(
+    kind: &str,
     target: Option<String>,
     app: tauri::AppHandle,
-    capture_state: State<'_, CaptureHandle>,
-) -> Result<Value, IpcError> {
-    let parsed = crate::capture::SourceKind::parse(&kind).ok_or_else(capture_invalid_kind)?;
+) -> Result<Value, CoreError> {
+    let parsed = crate::capture::SourceKind::parse(kind).ok_or_else(capture_invalid_kind)?;
     if let Some(hint) = &target {
         tracing::debug!(hint = %hint, "target hint deferred to portal picker");
     }
@@ -302,9 +298,8 @@ pub async fn source_select(
         );
     };
 
-    capture_state.begin().map_err(|err| err.to_ipc())?;
-    // Region reuses the monitor portal session; the crop rect is set
-    // separately via `source_region_set` (M3).
+    let capture_state = app.state::<CaptureHandle>();
+    capture_state.begin()?;
     let portal_kind = if parsed == crate::capture::SourceKind::Region {
         crate::capture::SourceKind::Monitor
     } else {
@@ -321,7 +316,6 @@ pub async fn source_select(
     };
     match result {
         Ok((session, mut reply)) => {
-            // For region, override the reply kind to "region" so the UI knows.
             if parsed == crate::capture::SourceKind::Region {
                 reply.kind = "region";
                 reply.label = format!(
@@ -336,9 +330,22 @@ pub async fn source_select(
         }
         Err(err) => {
             capture_state.abort();
-            Err(err.to_ipc())
+            Err(err)
         }
     }
+}
+
+/// `cmd://source_select` (API §2.1) — thin Tauri wrapper over the shared
+/// portal selection law used by the Starship bridge too.
+#[tauri::command]
+pub async fn source_select(
+    kind: String,
+    target: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<Value, IpcError> {
+    select_source(&kind, target, app)
+        .await
+        .map_err(|err| err.to_ipc())
 }
 
 /// `cmd://source_release` (API §2.1) — end the portal session / free the
@@ -685,24 +692,22 @@ pub async fn recording_resume(
     .map_err(Into::into)
 }
 
-/// `cmd://recording_flag` (API §2.3 / flow 7.2) — append a chapter marker
-/// at the take's current recording-relative time. The label defaults to
-/// `flag-N` (N = 1-based marker count on this take). Emits `recording/flagged`
-/// at the same instant the marker lands so the HUD can react immediately.
+/// Shared flag law for Tauri IPC and the Starship UDS bridge.
 #[cfg(feature = "encode")]
-#[tauri::command]
-pub async fn recording_flag(
+pub async fn flag_recording(
     recording_id: String,
     label: Option<String>,
-    recordings: tauri::State<'_, crate::pipeline::session::RecordingHandle>,
     app: tauri::AppHandle,
-) -> Result<Value, IpcError> {
-    let chapter = recordings
-        .flag(&recording_id, label.clone())
-        .map_err(|err| err.to_ipc())?;
+) -> Result<Value, CoreError> {
+    let chapter = app
+        .state::<crate::pipeline::session::RecordingHandle>()
+        .flag(&recording_id, label.clone())?;
     let label = chapter.label.clone();
-    // ARCHITECTURE §3.2: fire the event the instant the marker lands
-    // (API §3: `recording/flagged`, on user action).
+    // 9.3: additive count — the HUD keeps using `chapter`; new consumers
+    // can read `chapterCount` without a breaking shape change.
+    let chapter_count = app
+        .state::<crate::pipeline::session::RecordingHandle>()
+        .chapter_count();
     super::events::emit(
         &app,
         super::events::topic::RECORDING_FLAGGED,
@@ -712,10 +717,10 @@ pub async fn recording_flag(
                 offset_ms: chapter.offset_ms,
                 label: chapter.label,
             },
+            chapter_count,
         },
     )
-    .map_err(|err| {
-        tracing::error!(error = %err, "flag event could not be emitted");
+    .map_err(|_| {
         CoreError::ipc(
             "ipc.bad_state",
             false,
@@ -726,8 +731,41 @@ pub async fn recording_flag(
         "chapter": {
             "offsetMs": chapter.offset_ms,
             "label": label,
-        }
+        },
+        "chapterCount": chapter_count,
     }))
+}
+
+/// `cmd://recording_flag` (API §2.3 / flow 7.2) — append a chapter marker
+/// at the take's current recording-relative time. The label defaults to
+/// `flag-N` (N = 1-based marker count on this take). Emits `recording/flagged`
+/// at the same instant the marker lands so the HUD can react immediately.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub async fn recording_flag(
+    recording_id: String,
+    label: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<Value, IpcError> {
+    flag_recording(recording_id, label, app)
+        .await
+        .map_err(Into::into)
+}
+
+/// `cmd://recording_add_chapter` (API §2.3, Phase 9.3) — an ADDITIVE alias of
+/// `recording_flag`. The HUD keeps its existing `recording_flag` wiring; new
+/// automation can use the chapter-named verb. Same reply, same event, same
+/// authoritative DB `chapter_json` — two names, one law.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub async fn recording_add_chapter(
+    recording_id: String,
+    label: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<Value, IpcError> {
+    flag_recording(recording_id, label, app)
+        .await
+        .map_err(Into::into)
 }
 
 /// `cmd://shortcuts_apply` (API §2.7) — register global shortcuts via the
@@ -919,6 +957,7 @@ pub async fn library_list(
             "isHwEncoder": it.is_hw_encoder == 1,
             "audioJson": it.audio_json,
             "chapterJson": it.chapter_json,
+            "segmentJson": it.segment_json,
             "thumbPath": it.thumb_path,
             "deletedAt": it.deleted_at,
             "createdAt": it.created_at,
@@ -954,6 +993,7 @@ pub async fn library_get(
             "isHwEncoder": it.is_hw_encoder == 1,
             "audioJson": it.audio_json,
             "chapterJson": it.chapter_json,
+            "segmentJson": it.segment_json,
             "thumbPath": it.thumb_path,
             "deletedAt": it.deleted_at,
             "createdAt": it.created_at,
@@ -988,7 +1028,7 @@ mod tests {
     #[test]
     fn hello_carries_the_pinned_contract() {
         let v = serde_json::to_value(ipc_hello()).unwrap();
-        assert_eq!(v["ipcContract"], "1.6.0");
+        assert_eq!(v["ipcContract"], "1.8.0");
     }
 
     #[test]
@@ -1001,7 +1041,7 @@ mod tests {
             .map(|e| e["backend"].as_str().unwrap())
             .collect();
         assert_eq!(backends, ["nvenc", "vaapi", "x264"]);
-        assert_eq!(v["version"]["ipcContract"], "1.6.0");
+        assert_eq!(v["version"]["ipcContract"], "1.8.0");
         assert_eq!(v["version"]["app"], env!("CARGO_PKG_VERSION"));
         assert!(v["portal"]["compositor"].is_string());
         assert!(v["encoders"][0]["isHardware"].is_boolean());

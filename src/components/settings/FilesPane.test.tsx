@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import FilesPane from "./FilesPane";
 import { useSspStore } from "../../lib/store";
 import type * as ipcModule from "../../lib/ipc";
+import type { FilesSettings } from "../../types/ipc";
 
 vi.mock("../../lib/ipc", async (importOriginal) => ({
   ...(await importOriginal<typeof ipcModule>()),
@@ -13,7 +14,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { settingsSet } from "../../lib/ipc";
 const mockedSettingsSet = vi.mocked(settingsSet);
 
-function setFilesSettings(files: { dir: string; namingPattern: string; container: string }) {
+function setFilesSettings(files: FilesSettings) {
   useSspStore.setState({
     settings: {
       capture: null,
@@ -34,6 +35,9 @@ describe("FilesPane (§6.4 / 6.1)", () => {
       dir: "/home/user/Videos/SSP",
       namingPattern: "screen-%Y-%m-%d-%H%M",
       container: "mkv",
+      autoSplitEnabled: false,
+      autoSplitDurationMin: 30,
+      autoSplitSizeMb: 4096,
     });
     vi.clearAllMocks();
   });
@@ -43,6 +47,9 @@ describe("FilesPane (§6.4 / 6.1)", () => {
     expect(screen.getByLabelText(/Output directory/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Naming pattern/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Container format/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Automatic splitting/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Duration \(minutes\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Size \(MB\)/)).toBeInTheDocument();
   });
 
   it("shows default directory", () => {
@@ -81,6 +88,25 @@ describe("FilesPane (§6.4 / 6.1)", () => {
       expect(mockedSettingsSet).toHaveBeenCalledWith({
         files: { container: "mp4" },
       }),
+    );
+  });
+
+  it("wires auto-split enable and thresholds through settingsSet", async () => {
+    render(<FilesPane />);
+    const toggle = screen.getByLabelText(/Automatic splitting/);
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(mockedSettingsSet).toHaveBeenCalledWith({ files: { autoSplitEnabled: true } }),
+    );
+    const duration = screen.getByLabelText(/Duration \(minutes\)/) as HTMLInputElement;
+    fireEvent.change(duration, { target: { value: "5" } });
+    await waitFor(() =>
+      expect(mockedSettingsSet).toHaveBeenCalledWith({ files: { autoSplitDurationMin: 5 } }),
+    );
+    const size = screen.getByLabelText(/Size \(MB\)/) as HTMLInputElement;
+    fireEvent.change(size, { target: { value: "512" } });
+    await waitFor(() =>
+      expect(mockedSettingsSet).toHaveBeenCalledWith({ files: { autoSplitSizeMb: 512 } }),
     );
   });
 

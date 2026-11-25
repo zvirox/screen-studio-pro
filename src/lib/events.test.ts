@@ -20,6 +20,7 @@ const API_MD_3_TOPICS = [
   "recording/meters",
   "recording/stats",
   "recording/flagged",
+  "recording/split",
   "recording/error",
   "recording/finished",
   "library/updated",

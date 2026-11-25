@@ -1,4 +1,4 @@
-/* Contract mirror of API.md v1.6.0 — the webview half of ARCHITECTURE §2's
+/* Contract mirror of API.md v1.8.0 — the webview half of ARCHITECTURE §2's
    `types/ipc.ts` ↔ `src-tauri/ipc/` pairing (TESTING §1 P1: #1 breakage risk).
    JSON-projection law (API §5.2): Rust truth is a superset — consumers must
    tolerate unknown/additional fields; this file pins the webview's subset.
@@ -6,7 +6,7 @@
 
    `ipcContract` pins the whole contract (API §5.1); the Rust twin is
    `ipc/commands.rs::IPC_CONTRACT_VERSION`. Bump both, and API.md, together. */
-export const IPC_CONTRACT_VERSION = "1.6.0";
+export const IPC_CONTRACT_VERSION = "1.8.0";
 
 /* ---------- §1 Standard Error Format ---------- */
 
@@ -121,6 +121,11 @@ export interface FilesSettings {
   namingPattern: string;
   /** "mkv" | "mp4" | "webm" (DATABASE §2.1 CHECK). */
   container: string;
+  /** 9.3: gapless auto-split (disabled by default). Additive/optional so
+      older snapshots still typecheck (JSON-projection law, API §5.2). */
+  autoSplitEnabled?: boolean;
+  autoSplitDurationMin?: number;
+  autoSplitSizeMb?: number;
 }
 
 export interface ShortcutsSettings {
@@ -233,9 +238,17 @@ export interface RecordingStopInfo {
   status: "ready";
 }
 
-/** §2.3 `recording_stop` 200 reply. */
+/** §2.3 `recording_stop` 200 reply. 9.3 adds additive segment/count facts. */
 export interface RecordingStopReply {
   recording: RecordingStopInfo;
+  segmentJson?: string | null;
+  chapterCount?: number;
+}
+
+/** §2.3 `recording_flag` / `recording_add_chapter` 200 reply (9.3 alias). */
+export interface RecordingFlagReply {
+  chapter: Chapter;
+  chapterCount?: number;
 }
 
 /** §2.3 `recording_pause`/`recording_resume` 200 reply — the new phase. */
@@ -284,6 +297,18 @@ export interface Chapter {
 export interface RecordingFlaggedEvt {
   recordingId: string;
   chapter: Chapter;
+  /** 9.3 additive: marker count after this flag. */
+  chapterCount: number;
+}
+
+/** 9.3: one gapless auto-split boundary (API §3 topic `recording/split`). */
+export interface RecordingSplitEvt {
+  recordingId: string;
+  /** 1-based index of the NEW segment. */
+  segmentIndex: number;
+  path: string;
+  durationMs: number;
+  sizeBytes: number;
 }
 
 /** `recording/error` — the payload IS the §1 standard error shape. */
@@ -309,6 +334,9 @@ export interface LibraryRecording {
   isHwEncoder: boolean;
   audioJson: string | null;
   chapterJson: string | null;
+  /** 9.3: ordered gapless segments of this one logical take. Additive —
+      older producers/fixtures may omit it (API §5.2 projection law). */
+  segmentJson?: string | null;
   thumbPath: string | null;
   deletedAt: string | null;
   createdAt: string;
@@ -356,6 +384,9 @@ export interface LibraryListItem {
   isHwEncoder: boolean;
   audioJson: string | null;
   chapterJson: string | null;
+  /** 9.3: ordered gapless segments of this one logical take. Additive —
+      older producers/fixtures may omit it (API §5.2 projection law). */
+  segmentJson?: string | null;
   thumbPath: string | null;
   deletedAt: string | null;
   createdAt: string;
@@ -386,6 +417,9 @@ export interface LibraryGetReply {
   isHwEncoder: boolean;
   audioJson: string | null;
   chapterJson: string | null;
+  /** 9.3: ordered gapless segments of this one logical take. Additive —
+      older producers/fixtures may omit it (API §5.2 projection law). */
+  segmentJson?: string | null;
   thumbPath: string | null;
   deletedAt: string | null;
   createdAt: string;

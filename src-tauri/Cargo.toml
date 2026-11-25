@@ -14,6 +14,14 @@ edition = "2024"
 name = "screen_studio_pro_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Phase 9.2 (PLAN 9.2): the parent process keeps the encoders; this helper
+# owns libavformat and finalizes the take on stdin EOF. Requires the same
+# system ffmpeg dev libs as the encode feature.
+[[bin]]
+name = "ssp-mux"
+path = "src/bin/ssp-mux.rs"
+required-features = ["encode"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

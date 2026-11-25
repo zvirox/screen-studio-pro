@@ -39,7 +39,7 @@ export default function AboutPane() {
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink">IPC contract</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
-              {capabilities?.version?.ipcContract ?? "1.6.0"}
+              {capabilities?.version?.ipcContract ?? "1.8.0"}
             </dd>
           </div>
           <div className="flex justify-between">
@@ -81,7 +81,7 @@ export default function AboutPane() {
           <div className="flex justify-between">
             <dt className="text-body-sm text-ink">IPC contract</dt>
             <dd className="text-body-sm text-ink text-mono-sm">
-              {capabilities?.version?.ipcContract ?? "1.6.0"}
+              {capabilities?.version?.ipcContract ?? "1.8.0"}
             </dd>
           </div>
         </dl>
