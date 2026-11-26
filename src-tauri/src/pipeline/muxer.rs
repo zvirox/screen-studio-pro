@@ -915,6 +915,7 @@ mod tests {
                 layout: crate::pipeline::FrameLayout::Bgrx,
                 pts_us: n * 16_667,
                 data,
+                dmabuf: None,
             };
             let packets = video.encode(&frame).expect("video encode");
             muxer.write(&packets).expect("video write");
@@ -1044,6 +1045,7 @@ mod tests {
                 layout: FrameLayout::Bgrx,
                 pts_us: n * 16_667,
                 data,
+                dmabuf: None,
             };
             write_packets(&mut input, encoder.encode(&frame).expect("encode"));
         }
@@ -1177,6 +1179,7 @@ mod tests {
             layout: FrameLayout::Bgrx,
             pts_us: n * 16_667,
             data: (0..128 * 4 * 96).map(|i| (n as usize ^ i) as u8).collect(),
+            dmabuf: None,
         };
         for n in 0..60 {
             let packets = encoder.encode(&frame(n)).expect("encode");
@@ -1241,6 +1244,7 @@ mod tests {
                 layout: FrameLayout::Bgrx,
                 pts_us: n * 16_667,
                 data,
+                dmabuf: None,
             };
             let packets = encoder.encode(&frame).expect("encode");
             mux.write(&packets).expect("wire write");
@@ -1291,6 +1295,7 @@ mod tests {
                     layout: FrameLayout::Bgrx,
                     pts_us: n * 16_667,
                     data,
+                    dmabuf: None,
                 })
                 .expect("encode");
             mux.write(&packets).expect("wire write");
@@ -1348,6 +1353,7 @@ mod tests {
                 layout: FrameLayout::Bgrx,
                 pts_us: n * 16_667,
                 data,
+                dmabuf: None,
             };
             let packets = encoder.encode(&frame).expect("encode");
             mux.write(&packets).expect("wire write");
@@ -1405,6 +1411,7 @@ mod tests {
                     layout: FrameLayout::Bgrx,
                     pts_us: n * 16_667,
                     data,
+                    dmabuf: None,
                 })
                 .expect("encode in parent mode");
             mux.write(&packets).expect("wire write in parent mode");

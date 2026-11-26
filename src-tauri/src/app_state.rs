@@ -434,6 +434,7 @@ mod tests {
                     layout: FrameLayout::Bgrx,
                     pts_us: n * 16_666,
                     data: vec![n as u8; 64 * 64 * 4],
+                    dmabuf: None,
                 }),
                 Push::Pushed
             ));

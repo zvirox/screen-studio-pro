@@ -157,6 +157,7 @@ mod tests {
             layout: FrameLayout::Bgrx,
             pts_us: 0,
             data,
+            dmabuf: None,
         }
     }
 

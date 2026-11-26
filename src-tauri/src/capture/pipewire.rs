@@ -215,6 +215,46 @@ impl FrameCounting {
     }
 }
 
+/// Hand a built frame to the preview tier (≤8 fps, gated BEFORE the encode
+/// copy) and then the encode bus (one try, never blocks). Shared by the
+/// MemFd and DMA-BUF producer paths so both obey the same §6 precedence.
+fn deliver(counting: &mut FrameCounting, frame: Frame) {
+    let bus = counting.frame_bus.clone();
+    let mailbox = counting.preview.clone();
+    let now_ms = preview::wall_ms();
+    let preview_due = mailbox.as_ref().is_some_and(|mb| mb.is_due(now_ms));
+    if bus.is_none() && !preview_due {
+        return;
+    }
+    if preview_due && let Some(mb) = mailbox {
+        // Latest-wins: the old still drops here, never queued.
+        mb.offer(frame.clone(), now_ms);
+    }
+    let Some(bus) = bus else {
+        return;
+    };
+    let (width, height, stride) = (frame.width, frame.height, frame.stride);
+    match bus.try_push(frame) {
+        Push::Pushed => {
+            // First successful hand-off proves the producer→bus half once.
+            if counting.first_drop_reason != Some("first frame pushed") {
+                counting.first_drop_reason = Some("first frame pushed");
+                tracing::debug!(
+                    width,
+                    height,
+                    stride,
+                    "first capture frame pushed onto the encode bus"
+                );
+            }
+        }
+        // Counted only — the session's 1 Hz log reports `dropped` (§6).
+        Push::Full(_) => {
+            counting.note_drop("encode bus full (worker not draining)");
+            bus.mark_dropped();
+        }
+    }
+}
+
 /// Live consumption guard for one portal stream: `stop()` ends the data
 /// thread and joins it. Dropping the guard stops too.
 pub struct StreamGuard {
@@ -353,7 +393,10 @@ fn run_loop(
     // screencast node, session 1919×1079 and 1920×1080 runs); the
     // builder lives in `format_offer_pod` so its shape stays testable,
     // and deliberately carries NO VideoModifier key (the doc comment
-    // there explains why — it forced DMABUF buffers on KWin).
+    // there explains why — it forced DMABUF buffers on KWin). The
+    // Phase 10.1 DMA consumer path handles DMA-BUF buffers when a
+    // compositor sends them; flipping this offer to request them is
+    // the remaining live-gate step (see PLAN 10.1).
     let format = format_offer_pod(size);
     // The pod object must be serialized to bytes before the stream can
     // carry it (upstream streams.rs pattern) — Object ≠ Pod in libspa.
@@ -460,6 +503,29 @@ fn run_loop(
                     return;
                 }
             };
+            let pts_us = frame_pts_us();
+
+            // Phase 10.1 zero-copy path (opt-in via SSP_DMA_BUF): import the
+            // DMA-BUF to the GPU and feed the bus from the CPU-map fallback.
+            // Any failure falls through to the MemFd path below — no
+            // regression when DMA-BUF is unavailable or disabled.
+            #[cfg(feature = "encode")]
+            if crate::capture::dmabuf::enabled() && data.type_() == spa::buffer::DataType::DmaBuf {
+                let frame = crate::capture::dmabuf::try_build_frame(
+                    data.fd(),
+                    stride as u32,
+                    neg_width,
+                    neg_height,
+                    neg_layout,
+                    pts_us,
+                );
+                match frame {
+                    Some(frame) => deliver(counting, frame),
+                    None => counting.note_drop("dmabuf frame build failed"),
+                }
+                return;
+            }
+
             let Some(pixels) = data.data() else {
                 counting.note_drop("buffer memory not host-accessible (dmabuf/unmapped)");
                 return;
@@ -475,53 +541,16 @@ fn run_loop(
                 counting.note_drop("buffer shorter than frame");
                 return;
             }
-            // Preview tier (3.5): check the ≤8fps gate BEFORE any pixel
-            // copy — idle capture stays count-only between stills, and
-            // preview work never competes with the encode tier (§6).
-            let bus = counting.frame_bus.clone();
-            let mailbox = counting.preview.clone();
-            let now_ms = preview::wall_ms();
-            let preview_due = mailbox.as_ref().is_some_and(|mb| mb.is_due(now_ms));
-            if bus.is_none() && !preview_due {
-                return;
-            }
             let frame = Frame {
                 width: neg_width,
                 height: neg_height,
                 stride: stride as u32,
                 layout: neg_layout,
-                pts_us: frame_pts_us(),
+                pts_us,
                 data: pixels[..need].to_vec(),
+                dmabuf: None,
             };
-            if preview_due && let Some(mb) = mailbox {
-                // Latest-wins: the old still drops here, never queued.
-                mb.offer(frame.clone(), now_ms);
-            }
-            let Some(bus) = bus else {
-                return;
-            };
-            match bus.try_push(frame) {
-                Push::Pushed => {
-                    // First successful hand-off: proves the producer→bus
-                    // half of the chain once (the worker logs its own 1 Hz).
-                    if counting.first_drop_reason != Some("first frame pushed") {
-                        counting.first_drop_reason = Some("first frame pushed");
-                        tracing::debug!(
-                            width = neg_width,
-                            height = neg_height,
-                            stride,
-                            "first capture frame pushed onto the encode bus"
-                        );
-                    }
-                }
-                // Counted only — the session's 1 Hz progress log reports
-                // `dropped` (§6 cadence law; a per-frame line here would
-                // fire up to 60×/s during an encoder stall).
-                Push::Full(_) => {
-                    counting.note_drop("encode bus full (worker not draining)");
-                    bus.mark_dropped();
-                }
-            }
+            deliver(counting, frame);
         })
         .register()
     else {

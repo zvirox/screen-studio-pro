@@ -1,6 +1,8 @@
 pub mod audio;
 #[cfg(feature = "encode")]
 pub mod camera_v4l2;
+#[cfg(feature = "encode")]
+pub mod dmabuf;
 pub mod pipewire;
 pub mod portal;
 pub mod preview;

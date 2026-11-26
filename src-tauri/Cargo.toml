@@ -61,6 +61,13 @@ starship-plugin = { git = "https://github.com/zvirox/starship-control", branch =
 v4l2r = { version = "0.0.8", optional = true }
 ffmpeg-next = { version = "9.0.0", optional = true, features = ["non-exhaustive-enums"] }
 ffmpeg-sys-next = { version = "9.0.1", optional = true }
+# Phase 10.1 zero-copy DMA-BUF ingestion. khronos-egl dlopens libEGL at
+# runtime (no build-time libEGL headers needed); drm-fourcc names the DRM
+# fourcc/modifier constants; memmap2 is the CPU-map fallback when a driver
+# forbids host mapping. All behind the `encode` feature.
+khronos-egl = { version = "6.0.0", optional = true, features = ["dynamic"] }
+drm-fourcc = { version = "2.2.0", optional = true }
+memmap2 = { version = "0.9", optional = true }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -81,7 +88,7 @@ tempfile = "3.27.0"
 # `sudo dnf install ffmpeg-devel`) must be covered by plain `cargo test`
 # and ci.yml; see SETUP.md §3.1 for the build requirement.
 default = ["encode"]
-encode = ["dep:ffmpeg-next", "dep:ffmpeg-sys-next"]
+encode = ["dep:ffmpeg-next", "dep:ffmpeg-sys-next", "dep:khronos-egl", "dep:drm-fourcc", "dep:memmap2"]
 camera = ["dep:v4l2r"]
 # Enables the Tauri custom protocol (`tauri://localhost`) and static asset
 # embedding for release builds. Required when building via raw cargo (e.g. Flatpak).

@@ -409,6 +409,7 @@ fn reader_loop(
                             layout: FrameLayout::Bgrx,
                             pts_us: 0,
                             data: output.data(0).to_vec(),
+                            dmabuf: None,
                         },
                         now,
                     );

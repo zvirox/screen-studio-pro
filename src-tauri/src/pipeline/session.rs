@@ -2128,6 +2128,7 @@ mod tests {
             layout: crate::pipeline::FrameLayout::Bgrx,
             pts_us,
             data,
+            dmabuf: None,
         }
     }
 

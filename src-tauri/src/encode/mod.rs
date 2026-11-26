@@ -169,6 +169,63 @@ impl Availability {
     }
 }
 
+/// The output video codec (PLAN 10.2): H.264 (default), H.265/HEVC or AV1.
+/// Encoders are picked per backend (`h264_vaapi` / `hevc_vaapi` / `av1_vaapi`,
+/// and the `_nvenc` variants). `SSP_FORCE_CODEC` overrides the settings value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Codec {
+    H264,
+    Hevc,
+    Av1,
+}
+
+impl Codec {
+    fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "h264" => Some(Self::H264),
+            "hevc" | "h265" => Some(Self::Hevc),
+            "av1" => Some(Self::Av1),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::H264 => "h264",
+            Self::Hevc => "hevc",
+            Self::Av1 => "av1",
+        }
+    }
+
+    /// The FFmpeg encoder name for a hardware backend, or `None` for a
+    /// backend/codec pair this build does not provide (e.g. AV1 on NVENC
+    /// without an AV1-capable GPU).
+    fn hw_encoder(self, kind: HwKind) -> Option<&'static str> {
+        match (kind, self) {
+            (HwKind::Vaapi, Codec::H264) => Some("h264_vaapi"),
+            (HwKind::Vaapi, Codec::Hevc) => Some("hevc_vaapi"),
+            (HwKind::Vaapi, Codec::Av1) => Some("av1_vaapi"),
+            (HwKind::Cuda, Codec::H264) => Some("h264_nvenc"),
+            (HwKind::Cuda, Codec::Hevc) => Some("hevc_nvenc"),
+            (HwKind::Cuda, Codec::Av1) => Some("av1_nvenc"),
+        }
+    }
+}
+
+/// Resolve the requested codec from `SSP_FORCE_CODEC` or the settings value,
+/// defaulting to H.264. An unknown value is an error, not a silent H.264.
+fn requested_codec(settings_codec: &str) -> Result<Codec, CoreError> {
+    let raw = std::env::var("SSP_FORCE_CODEC").unwrap_or_else(|_| settings_codec.to_string());
+    Codec::parse(&raw).ok_or_else(|| {
+        CoreError::encoder(
+            "encoder.unavailable",
+            false,
+            "The requested video codec is not supported.",
+        )
+        .with_details(serde_json::json!({ "codec": raw }))
+    })
+}
+
 /// Select an encoder and derive its open-time facts. `opts` are the
 /// preset's x264 options; hardware backends translate the quality/GOP
 /// intent into their own dictionaries (`hw_options`).
@@ -177,6 +234,17 @@ pub fn select_encoder(
     _dims: (u32, u32),
     opts: Vec<(String, String)>,
 ) -> Result<EncoderSelection, CoreError> {
+    select_encoder_codec(settings_encoder, "h264", _dims, opts)
+}
+
+/// As [`select_encoder`], with an explicit output codec (PLAN 10.2 HEVC/AV1).
+pub fn select_encoder_codec(
+    settings_encoder: &str,
+    settings_codec: &str,
+    _dims: (u32, u32),
+    opts: Vec<(String, String)>,
+) -> Result<EncoderSelection, CoreError> {
+    let codec = requested_codec(settings_codec)?;
     // SSP_FORCE_ENCODER wins over the settings snapshot (highest priority,
     // for testing/CI). ARCHITECTURE §5.3 documents the env var.
     let forced = std::env::var("SSP_FORCE_ENCODER").ok();
@@ -209,7 +277,7 @@ pub fn select_encoder(
             tried.push(serde_json::json!({"backend": backend, "status": "unavailable"}));
             continue;
         }
-        let selection = selection_for(backend, _dims, &opts)?;
+        let selection = selection_for(backend, codec, _dims, &opts)?;
         if !auto {
             tracing::info!(%backend, forced = forced.is_some(), "encoder selected");
         }
@@ -236,33 +304,43 @@ pub fn select_encoder(
 /// encoder owns its own device/frames refs for the whole take.
 fn selection_for(
     backend: &str,
+    codec: Codec,
     _dims: (u32, u32),
     opts: &[(String, String)],
 ) -> Result<EncoderSelection, CoreError> {
     let sw = ff::format::Pixel::YUV420P;
     match backend {
-        "x264" => Ok(EncoderSelection {
-            info: EncoderInfo {
-                backend: "x264",
-                is_hardware: false,
-            },
-            codec: "libx264",
-            pix_fmt: sw,
-            stream_pix_fmt: sw,
-            hw: None,
-            device_path: None,
-            options: opts.to_vec(),
-        }),
+        "x264" => {
+            // Software x264 is H.264 only; HEVC/AV1 software is out of scope.
+            if codec != Codec::H264 {
+                return Err(unsupported_codec(codec, "x264"));
+            }
+            Ok(EncoderSelection {
+                info: EncoderInfo {
+                    backend: "x264",
+                    is_hardware: false,
+                },
+                codec: "libx264",
+                pix_fmt: sw,
+                stream_pix_fmt: sw,
+                hw: None,
+                device_path: None,
+                options: opts.to_vec(),
+            })
+        }
         "vaapi" => {
             let device_path = vaapi_available().ok_or_else(unavailable)?;
+            let codec_name = codec
+                .hw_encoder(HwKind::Vaapi)
+                .ok_or_else(|| unsupported_codec(codec, "vaapi"))?;
             Ok(EncoderSelection {
                 info: EncoderInfo {
                     backend: "vaapi",
                     is_hardware: true,
                 },
-                codec: "h264_vaapi",
+                codec: codec_name,
                 // NV12 is the VAAPI surface sw_format: the iHD driver's
-                // H.264 encode entry point is NV12-native.
+                // encode entry points are NV12-native.
                 pix_fmt: ff::format::Pixel::VAAPI,
                 stream_pix_fmt: sw,
                 hw: Some(HwKind::Vaapi),
@@ -274,12 +352,15 @@ fn selection_for(
             if !nvenc_available() {
                 return Err(unavailable());
             }
+            let codec_name = codec
+                .hw_encoder(HwKind::Cuda)
+                .ok_or_else(|| unsupported_codec(codec, "nvenc"))?;
             Ok(EncoderSelection {
                 info: EncoderInfo {
                     backend: "nvenc",
                     is_hardware: true,
                 },
-                codec: "h264_nvenc",
+                codec: codec_name,
                 pix_fmt: ff::format::Pixel::CUDA,
                 stream_pix_fmt: sw,
                 hw: Some(HwKind::Cuda),
@@ -297,6 +378,17 @@ fn selection_for(
             .with_details(serde_json::json!({"backend": other})))
         }
     }
+}
+
+/// A backend/codec pair this build cannot provide (e.g. AV1 on NVENC without
+/// an AV1-capable GPU, or HEVC on software x264).
+fn unsupported_codec(codec: Codec, backend: &str) -> CoreError {
+    CoreError::encoder(
+        "encoder.unavailable",
+        false,
+        "The requested video codec is not supported by the selected encoder.",
+    )
+    .with_details(serde_json::json!({ "codec": codec.as_str(), "backend": backend }))
 }
 
 /// Translate the preset's x264 quality/GOP intent to a hardware dictionary.
@@ -462,6 +554,26 @@ pub(crate) mod hw {
             Ok(unsafe { ff::frame::Video::wrap(raw) })
         }
 
+        /// Import a DMA-BUF frame as a hardware surface with NO host readback
+        /// (PLAN 10.2 `PASS_TEXTURE`). The frame's fd is mapped to a VAAPI
+        /// surface via `av_hwframe_map(DRM_PRIME → VAAPI)`.
+        ///
+        /// BLOCKED in this build: the `AVDRMFrameDescriptor` types are not in
+        /// ffmpeg-sys-next's bindgen allowlist, so the DRM_PRIME source frame
+        /// cannot be constructed here. Landing the zero-copy map needs either
+        /// an allowlist extension (build change) or direct `vaImportSurface`
+        /// FFI. Until then this returns a typed error and the caller falls
+        /// back to the CPU upload path — no regression, no fabricated success.
+        pub(crate) fn import_dmabuf(
+            &self,
+            _dmabuf: &crate::pipeline::DmaBufRef,
+            _pts_us: i64,
+        ) -> Result<ff::frame::Video, CoreError> {
+            Err(encode_failed(
+                "dmabuf import unavailable: DRM_PRIME bindings absent",
+            ))
+        }
+
         fn hw_format(&self) -> ff::ffi::AVPixelFormat {
             // The frames context pins the surface format; no inference from
             // the sw_format (NV12 surfaces can back VAAPI or CUDA).
@@ -518,6 +630,25 @@ pub(crate) mod hw {
         }
 
         pub(crate) fn encode(&mut self, frame: &Frame) -> Result<Vec<EncodedPacket>, CoreError> {
+            // Phase 10.2 zero-copy: if the frame arrived as a DMA-BUF, try to
+            // import it as a hardware surface (no host readback). Any failure
+            // falls through to the CPU upload path below — the default and
+            // fallback behaviour is unchanged.
+            if let Some(dmabuf) = frame.dmabuf.as_ref() {
+                match self.hw.import_dmabuf(dmabuf, frame.pts_us as i64) {
+                    Ok(hw_frame) => {
+                        self.video.send_frame(&hw_frame).map_err(|err| {
+                            tracing::error!(error = %err, "hw send_frame (dmabuf) failed");
+                            encode_failed("send")
+                        })?;
+                        drop(hw_frame);
+                        return self.drain();
+                    }
+                    Err(err) => {
+                        tracing::debug!(error = %err, "dmabuf zero-copy import unavailable; uploading");
+                    }
+                }
+            }
             // spa BGRx/BGRA share byte order B,G,R,x with AV_PIX_FMT_BGRA
             // on little-endian Linux (the only target, PRD).
             let src_pix = match frame.layout {
@@ -704,7 +835,30 @@ mod tests {
             eprintln!("skip: NVIDIA device present, forced NVENC is legitimate here");
             return;
         }
-        let err = selection_for("nvenc", (320, 240), &[]).expect_err("no CUDA device");
+        let err = selection_for("nvenc", Codec::H264, (320, 240), &[]).expect_err("no CUDA device");
+        assert_eq!(err.code(), "encoder.unavailable");
+    }
+
+    #[test]
+    fn codec_maps_to_the_backend_encoder_name() {
+        assert_eq!(Codec::H264.hw_encoder(HwKind::Vaapi), Some("h264_vaapi"));
+        assert_eq!(Codec::Hevc.hw_encoder(HwKind::Vaapi), Some("hevc_vaapi"));
+        assert_eq!(Codec::Av1.hw_encoder(HwKind::Vaapi), Some("av1_vaapi"));
+        assert_eq!(Codec::Hevc.hw_encoder(HwKind::Cuda), Some("hevc_nvenc"));
+        assert_eq!(Codec::Av1.hw_encoder(HwKind::Cuda), Some("av1_nvenc"));
+    }
+
+    #[test]
+    fn hevc_on_software_x264_is_unavailable_not_silent_h264() {
+        let err = selection_for("x264", Codec::Hevc, (320, 240), &[])
+            .expect_err("x264 cannot encode HEVC");
+        assert_eq!(err.code(), "encoder.unavailable");
+    }
+
+    #[test]
+    fn unknown_codec_is_an_error() {
+        let err = select_encoder_codec("auto", "vp9", (320, 240), Vec::new())
+            .expect_err("unknown codec must not fall back");
         assert_eq!(err.code(), "encoder.unavailable");
     }
 }

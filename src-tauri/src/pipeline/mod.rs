@@ -67,10 +67,25 @@ impl FrameLayout {
     }
 }
 
+/// A DMA-BUF reference carried alongside a frame so the encoder can import it
+/// as a GPU surface with no host readback (PLAN 10.2 `PASS_TEXTURE`). The fd
+/// is OWNED (dup'd from the PipeWire buffer) and closed when the last `Arc`
+/// drops, so it stays valid across the capture→worker hand-off. `None` on the
+/// default MemFd path.
+#[derive(Debug)]
+pub struct DmaBufRef {
+    pub fd: std::os::fd::OwnedFd,
+    pub fourcc: u32,
+    pub modifier: u64,
+    pub stride: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
 /// One raw video frame. `stride` is the row pitch in bytes — PipeWire
 /// chunks may pad rows, so reading pixels must skip `stride - width*bpp`
 /// per row (lesson from the portal capture runs).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Frame {
     pub width: u32,
     pub height: u32,
@@ -80,6 +95,9 @@ pub struct Frame {
     pub pts_us: u64,
     /// Packed pixel data, `stride * height` bytes expected.
     pub data: Vec<u8>,
+    /// Present when the frame arrived as a DMA-BUF (10.1 opt-in): the encoder
+    /// imports this zero-copy (10.2) and ignores `data`.
+    pub dmabuf: Option<std::sync::Arc<DmaBufRef>>,
 }
 
 /* ---------- the SpSC ring ---------- */
@@ -249,6 +267,7 @@ mod tests {
             layout: FrameLayout::Bgrx,
             pts_us: n * 16_666, // ~60 fps cadence
             data: vec![0u8; 4 * 4],
+            dmabuf: None,
         }
     }
 

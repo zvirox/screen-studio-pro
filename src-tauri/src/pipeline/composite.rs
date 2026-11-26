@@ -42,6 +42,7 @@ pub fn apply_region_crop(
         layout: frame.layout,
         pts_us: frame.pts_us,
         data: dst_data,
+        dmabuf: None,
     })
 }
 
@@ -201,6 +202,7 @@ mod tests {
             layout: FrameLayout::Bgrx,
             pts_us: 0,
             data: vec![fill; (stride * h) as usize],
+            dmabuf: None,
         }
     }
 
@@ -221,6 +223,7 @@ mod tests {
             layout: FrameLayout::Bgra,
             pts_us: 0,
             data,
+            dmabuf: None,
         }
     }
 

@@ -273,6 +273,7 @@ mod tests {
             layout: crate::pipeline::FrameLayout::Bgrx,
             pts_us: 0,
             data: vec![0u8; 64 * 16],
+            dmabuf: None,
         };
         // Solid red frame: B=0x00, G=0x00, R=0xff.
         for y in 0..16u32 {

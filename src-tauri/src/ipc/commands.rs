@@ -1098,6 +1098,7 @@ mod tests {
             layout: crate::pipeline::FrameLayout::Bgrx,
             pts_us: 0,
             data: vec![0u8; 64],
+            dmabuf: None,
         }
     }
 
