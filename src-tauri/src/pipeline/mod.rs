@@ -8,6 +8,7 @@ pub mod audio;
 pub mod cet;
 #[cfg(feature = "encode")]
 pub mod composite;
+pub mod drops;
 pub mod ducking;
 pub mod loudness;
 #[cfg(feature = "encode")]

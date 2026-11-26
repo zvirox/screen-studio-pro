@@ -536,6 +536,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - Distinguish between **Rendering Lag** (GPU render loop >16.6ms), **Encoding Lag** (encoder queue overflow), and **Capture Starvation**.
   - Surface actionable, human-friendly warning banners in HUD and ActionRow when thresholds are exceeded.
   - *Verify:* Synthetic load correctly triggers separate "GPU busy" vs "Encoder overloaded" diagnostic warnings.
+  - ◐ **Classifier core landed (2026-11-26, pure Rust, no dep):** `pipeline/drops.rs` — `DropClass` (None/Capture/Encoder) + `DropClassifier` (dominant cause + share from the per-window deltas of the capture vs encode drop counters). **Verify:** `cargo test` (188, +4) + clippy -D warnings + --no-default green. **Remaining (wiring):** thread a shared capture-drop counter (portal→pipewire `FrameCounting.note_drop`), classify at the stats emit into `StatsSnapshot`/`RecordingStatsEvt` (`dropClass`/`dropRatio`), and render the HUD/ActionRow overload banner.
 - [ ] **12.2 Sub-Millisecond Pipeline Latency Tracing**
   - Instrument `EncodedPacket` with CTS (Composition Timestamp), FER (Frame Encode Request), FERC (Encode Complete), and PIR (Packet Interleaved).
   - *Verify:* Automated latency assertion test confirms monotonic sub-ms progression across the pipeline.
