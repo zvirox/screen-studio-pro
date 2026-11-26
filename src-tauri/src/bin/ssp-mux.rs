@@ -241,8 +241,8 @@ fn spec_to_parameters(spec: &wire::StreamSpec) -> Result<ff::codec::Parameters, 
 
 /// Write one packet into the child's muxer, rescaling from the wire's µs
 /// base onto the stream's container time base — the same law as the old
-/// in-process `Muxer::write` (including KEY flag restoration and pass-through
-/// `av_write_frame`, no interleave queue, so a crash loses ~1 s at most).
+/// in-process `Muxer::write` (including KEY flag restoration and
+/// `av_interleaved_write_frame`, which buffers to keep N streams monotonic).
 fn write_packet(
     ctx: &mut ff::format::context::Output,
     tbs: &[ff::Rational],
@@ -261,8 +261,12 @@ fn write_packet(
         wire.set_flags(ff::codec::packet::Flags::KEY);
     }
     wire.rescale_ts(ff::Rational(1, 1_000_000), stream_tb);
-    // av_write_frame returns 0 on success; ffmpeg-next maps 0 → Ok(false).
-    wire.write(ctx)
+    // av_interleaved_write_frame (not av_write_frame): libavformat buffers
+    // and interleaves packets by dts, so N audio/video streams stay
+    // per-stream monotonic. av_write_frame wrote in receive order and a
+    // multi-track take hit "non-monotonic dts" on the first cross-stream
+    // packets after the negative-pts offset (Phase 11.1).
+    wire.write_interleaved(ctx)
         .map_err(|err| io::Error::other(format!("ssp-mux: packet write failed: {err}")))?;
     Ok(())
 }

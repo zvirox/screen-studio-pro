@@ -92,9 +92,12 @@ impl SwAac {
                         // (the muxer builder adds video first).
                         stream: 1,
                         pts_us: samples_to_pts_us(pts_samples, self.sample_rate),
-                        dts_us: packet
-                            .dts()
-                            .map(|dts| samples_to_pts_us(dts, self.sample_rate)),
+                        // AAC has no B-frames: dts == pts. The codec's own
+                        // first dts is negative (encoder delay); a per-stream
+                        // negative offset across N tracks made libavformat see
+                        // non-monotonic dts (Phase 11.1). Use the monotonic,
+                        // non-negative pts for dts.
+                        dts_us: Some(samples_to_pts_us(pts_samples, self.sample_rate)),
                         key: packet.is_key(),
                         data: packet
                             .data()

@@ -2932,14 +2932,14 @@ mod tests {
     /// 11.1: a take with `audio_tracks` mapping mic→0 and desktop→1 probes
     /// THREE streams — video + two independent AAC tracks. Default (empty
     /// map) stays the single mixed track the test above pins.
-    // IGNORED (11.1 emission gate): the parent now emits N per-track AAC
-    // streams, but the `ssp-mux` child reorders the first packets across
-    // multiple audio streams (libavformat "non-monotonic dts in stream 1/2"
-    // after the negative-pts offset), so the 3-stream take fails to finalize.
-    // The default single-track path is unaffected (the test above is green).
-    // Fixing the child's per-stream interleaving is the remaining 11.1 step.
+    // IGNORED (11.1 emission gate): the parent emits N per-track AAC streams
+    // and the child now uses av_interleaved_write_frame + audio dts=pts (the
+    // single-track take stays green), but a 2-track take still trips
+    // libavformat "non-monotonic dts in stream 1" — a residual per-stream
+    // ordering edge in the multi-track drain. The default single-track path
+    // is unaffected. Fixing the residual is the remaining 11.1 step.
     #[test]
-    #[ignore = "ssp-mux child: per-stream dts interleaving for N audio tracks"]
+    #[ignore = "ssp-mux: residual non-monotonic dts across N audio tracks"]
     fn audio_take_two_tracks_probes_three_streams() {
         let handle = RecordingHandle::new();
         let bus = Arc::new(FrameBus::new(8));
