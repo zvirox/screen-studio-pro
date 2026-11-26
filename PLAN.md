@@ -541,6 +541,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 - [ ] **12.2 Sub-Millisecond Pipeline Latency Tracing**
   - Instrument `EncodedPacket` with CTS (Composition Timestamp), FER (Frame Encode Request), FERC (Encode Complete), and PIR (Packet Interleaved).
   - *Verify:* Automated latency assertion test confirms monotonic sub-ms progression across the pipeline.
+  - ◐ **Core landed (2026-11-26, pure Rust, no dep):** `pipeline/latency.rs` — `LatencyTrace` (CTS/FER/FERC/PIR + `encode_us`/`mux_us`/`total_us` deltas) and `LatencyMeter` (rolling per-stage averages). **Verify:** `cargo test` (194, +3) + clippy -D warnings + --no-default green. **Remaining (wiring):** add the four timestamps to `EncodedPacket` (set CTS at capture, FER/FERC in the encoder drain, PIR in the muxer), feed a `LatencyMeter` at the stats emit, and the monotonic sub-ms assertion test.
 - [ ] **12.3 Empirical Hardware Auto-Configuration Wizard**
   - 2-second benchmark on first run testing encoder throughput and portal resolution.
   - Auto-selects optimal defaults (resolution, FPS, encoder backend, preset) tailored to detected GPU power.

@@ -10,6 +10,7 @@ pub mod cet;
 pub mod composite;
 pub mod drops;
 pub mod ducking;
+pub mod latency;
 pub mod loudness;
 #[cfg(feature = "encode")]
 pub mod muxer;
