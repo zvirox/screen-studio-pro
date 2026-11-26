@@ -19,6 +19,14 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 /// Muted inputs still capture/drain at zero gain. Loss callbacks only log;
 /// the mixer emits the single device-lost event from the disabled ring.
 #[cfg(feature = "encode")]
+/// 11.3: true when the mic and desktop are the SAME node (a duplicate
+/// monitoring sink or the monitor picked as the mic) — the feedback loop
+/// the anti-feedback guard mutes.
+fn devices_collide(mic: &Option<String>, desktop: &Option<String>) -> bool {
+    matches!((mic, desktop), (Some(a), Some(b)) if a == b)
+}
+
+#[cfg(feature = "encode")]
 pub fn build_audio_plan(
     audio: &crate::settings::Audio,
     audio_tracks: &[crate::settings::AudioChannelMap],
@@ -31,6 +39,16 @@ pub fn build_audio_plan(
     };
     let mut producers = Vec::new();
     let mut channels = Vec::new();
+    // 11.3 anti-feedback: if the mic and desktop resolve to the SAME node
+    // (a duplicate monitoring sink / the monitor picked as the mic), the
+    // loop would howl — auto-mute the desktop and flag it in the row note.
+    let collision = devices_collide(&audio.mic_device_id, &audio.desktop_device_id);
+    if collision {
+        tracing::warn!(
+            "mic and desktop resolve to the same node; muting desktop to break the feedback loop"
+        );
+    }
+    let desktop_muted = audio.desktop_muted || collision;
     if audio.mic_enabled {
         let config = ChannelConfig {
             channel: AudioChannel::Mic,
@@ -56,7 +74,7 @@ pub fn build_audio_plan(
         let config = ChannelConfig {
             channel: AudioChannel::Desktop,
             enabled: true,
-            muted: audio.desktop_muted,
+            muted: desktop_muted,
             device_id: audio.desktop_device_id.clone(),
             level: audio.desktop_level,
             noise_suppression: false,
@@ -65,7 +83,7 @@ pub fn build_audio_plan(
         producers.push(start_desktop(&config, ring.clone(), on_lost())?);
         channels.push(MixSource {
             ring,
-            gain: if audio.desktop_muted {
+            gain: if desktop_muted {
                 0.0
             } else {
                 crate::capture::audio::channel_gain(audio.desktop_level)
@@ -87,7 +105,7 @@ pub fn build_audio_plan(
     };
     let row_note = serde_json::json!([
         { "source": "mic", "device": audio.mic_device_id, "used": audio.mic_enabled, "track": track_of("mic") },
-        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio, "track": track_of("desktop") },
+        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio, "track": track_of("desktop"), "collisionMuted": collision },
     ])
     .to_string();
     Ok(Some(super::session::AudioPlan {
@@ -575,6 +593,16 @@ mod mix_tests {
             source_id: source_id.into(),
             track_index,
         }
+    }
+
+    #[test]
+    fn same_node_is_a_collision() {
+        assert!(devices_collide(&Some("n1".into()), &Some("n1".into())));
+        assert!(!devices_collide(&Some("n1".into()), &Some("n2".into())));
+        assert!(
+            !devices_collide(&None, &None),
+            "defaults are not a collision"
+        );
     }
 
     #[test]
