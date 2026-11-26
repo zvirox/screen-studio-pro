@@ -533,7 +533,8 @@ impl SubprocessMuxer {
         audio_encoder: Option<&ff::encoder::Audio>,
         helper: Option<&Path>,
     ) -> Result<Self, CoreError> {
-        Self::spawn_with_stream_pix_fmt(path, video_encoder, audio_encoder, helper, None)
+        let audio: &[ff::encoder::Audio] = audio_encoder.map(std::slice::from_ref).unwrap_or(&[]);
+        Self::spawn_with_stream_pix_fmt(path, video_encoder, audio, helper, None)
     }
 
     /// Same as `spawn`, but rewrites the video stream's container pixel
@@ -543,7 +544,7 @@ impl SubprocessMuxer {
     pub fn spawn_with_stream_pix_fmt(
         path: &Path,
         video_encoder: &ff::encoder::Video,
-        audio_encoder: Option<&ff::encoder::Audio>,
+        audio_encoders: &[ff::encoder::Audio],
         helper: Option<&Path>,
         stream_pix_fmt: Option<ff::format::Pixel>,
     ) -> Result<Self, CoreError> {
@@ -596,7 +597,7 @@ impl SubprocessMuxer {
             video_spec.format = pixel as i32;
         }
         let mut specs = vec![video_spec];
-        if let Some(encoder) = audio_encoder {
+        for encoder in audio_encoders {
             specs.push(ssp_mux::codecpar_to_spec(
                 encoder,
                 &encoder_extradata(encoder),

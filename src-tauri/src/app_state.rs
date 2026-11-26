@@ -352,7 +352,8 @@ fn start(
         .unwrap_or_else(|p| p.into_inner())
         .get()
         .clone();
-    let audio = crate::pipeline::audio::build_audio_plan(&settings.audio)?;
+    let audio =
+        crate::pipeline::audio::build_audio_plan(&settings.audio, &settings.capture.audio_tracks)?;
     let dir = output_dir
         .map(std::path::PathBuf::from)
         .unwrap_or_else(crate::util::paths::videos_dir);

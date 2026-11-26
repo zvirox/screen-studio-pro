@@ -21,6 +21,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 #[cfg(feature = "encode")]
 pub fn build_audio_plan(
     audio: &crate::settings::Audio,
+    audio_tracks: &[crate::settings::AudioChannelMap],
 ) -> Result<Option<super::session::AudioPlan>, crate::util::error::CoreError> {
     use crate::capture::audio::{AudioChannel, ChannelConfig, OnLost, start_desktop, start_mic};
     let on_lost = || -> OnLost {
@@ -83,6 +84,7 @@ pub fn build_audio_plan(
         producers,
         channels,
         row_note: Some(row_note),
+        audio_tracks: audio_tracks.to_vec(),
     }))
 }
 
