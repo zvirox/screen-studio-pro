@@ -108,6 +108,7 @@ impl SwX264 {
                             .data()
                             .expect("a received packet always carries data")
                             .to_vec(),
+                        latency: Default::default(),
                     });
                 }
                 Err(err) => {

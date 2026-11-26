@@ -115,6 +115,8 @@ pub struct RecordingStats {
     pub drop_class: String,
     /// 12.1: the dominant cause's share of the window's drops (0..1).
     pub drop_ratio: f32,
+    /// 12.2: mean encode-stage latency over the window (µs).
+    pub encode_latency_us: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -266,6 +268,7 @@ impl crate::pipeline::stats::EventSink for TauriEventSink {
                         true_peak: snapshot.true_peak,
                         drop_class: drop_class_str(snapshot.drop_class).to_string(),
                         drop_ratio: snapshot.drop_ratio,
+                        encode_latency_us: snapshot.encode_latency_us,
                     },
                 );
             }
@@ -534,6 +537,7 @@ mod tests {
             true_peak: 0.5,
             drop_class: "none".to_string(),
             drop_ratio: 0.0,
+            encode_latency_us: 1200,
         })
         .expect("serialize");
         assert_eq!(
@@ -547,6 +551,7 @@ mod tests {
                 "truePeak": 0.5,
                 "dropClass": "none",
                 "dropRatio": 0.0,
+                "encodeLatencyUs": 1200,
             })
         );
     }

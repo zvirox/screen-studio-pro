@@ -1519,6 +1519,7 @@ fn capture_take(
     let mut stats_gate = Throttle::new(STATS_PERIOD);
     let mut meter = StatsMeter::new();
     let mut drop_classifier = crate::pipeline::drops::DropClassifier::new();
+    let mut latency_meter = crate::pipeline::latency::LatencyMeter::new();
     let mut stats_window = Instant::now();
     // M11 fps cap: a 30 fps preset on a 60 fps source keeps every
     // other frame (the source cadence is wall-clock µs, so the drop
@@ -1566,6 +1567,7 @@ fn capture_take(
             let (class, ratio) = drop_classifier.classify(cap, bus.dropped());
             snapshot.drop_class = class;
             snapshot.drop_ratio = ratio;
+            snapshot.encode_latency_us = latency_meter.averages_us().0;
             meter.reset();
             stats_window = Instant::now();
             ctx.events.emit(SessionEvent::Stats(snapshot));
@@ -1721,8 +1723,21 @@ fn capture_take(
                 // The encoder's cost is a meter (API §3 `encodeTimeMs`) —
                 // the muxer's cost is not part of the payload.
                 let encode_started = Instant::now();
-                let packets = encoder.encode(&frame)?;
+                let fer_us = wall_us();
+                let mut packets = encoder.encode(&frame)?;
                 let encode_time = encode_started.elapsed();
+                // 12.2: stamp the latency trace (CTS = capture pts, FER/FERC
+                // = encode window, PIR ≈ FERC — the child muxes inline).
+                let ferc_us = wall_us();
+                for packet in &mut packets {
+                    packet.latency = crate::pipeline::latency::LatencyTrace {
+                        cts_us: frame.pts_us,
+                        fer_us,
+                        ferc_us,
+                        pir_us: ferc_us,
+                    };
+                    latency_meter.record(&packet.latency);
+                }
                 let encoded_bytes: usize = packets.iter().map(|packet| packet.data.len()).sum();
                 segment_bytes += bytes_of(&packets);
                 mux.write(&packets)?;

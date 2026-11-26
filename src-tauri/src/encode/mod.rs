@@ -72,6 +72,8 @@ pub struct EncodedPacket {
     /// AV_PKT_FLAG_KEY equivalent: players derive seek points from these.
     pub key: bool,
     pub data: Vec<u8>,
+    /// 12.2: CTS/FER/FERC/PIR latency timestamps (set by the session worker).
+    pub latency: crate::pipeline::latency::LatencyTrace,
 }
 
 /// Time base all encoded packets are stamped in: microseconds.
@@ -751,6 +753,7 @@ pub(crate) mod hw {
                             .data()
                             .expect("a received packet always carries data")
                             .to_vec(),
+                        latency: Default::default(),
                     }),
                     Err(err) => {
                         let boundary = matches!(&err, ff::Error::Eof)

@@ -68,6 +68,8 @@ pub struct StatsSnapshot {
     pub drop_class: crate::pipeline::drops::DropClass,
     /// 12.1: the dominant cause's share of the window's drops (0..1).
     pub drop_ratio: f32,
+    /// 12.2: mean encode-stage latency over the window (µs).
+    pub encode_latency_us: u64,
 }
 
 /// The fps/drop/bitrate meters (ARCHITECTURE §2 tree: "fps/drop/bitrate
@@ -123,6 +125,7 @@ impl StatsMeter {
             true_peak: 0.0,
             drop_class: crate::pipeline::drops::DropClass::None,
             drop_ratio: 0.0,
+            encode_latency_us: 0,
         }
     }
 

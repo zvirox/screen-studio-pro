@@ -309,6 +309,8 @@ export interface RecordingStatsEvt {
   dropClass: "none" | "capture" | "encoder";
   /** 12.1: the dominant cause's share of the window's drops (0..1). */
   dropRatio: number;
+  /** 12.2: mean encode-stage latency over the window (µs). */
+  encodeLatencyUs: number;
 }
 
 export interface Chapter {
