@@ -4,6 +4,16 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 ## [Unreleased]
 
+## [0.1.0-beta.4] - 2026-11-26
+
+### Changed
+- **Linear palette v6.1 — Burgundy primary, no green, no charts (`DESIGN.md` v6.1):** The shared `src/styles/linear-theme.css` (byte-identical across all six apps) drops green, teal, `--blue-text`, `--chip-blue` and the `--btn-primary-*` pair, and adds `--sky-text` / `--chip-sky`; positive, healthy, online, done and up states now use **sky** instead of green. A new per-app `src/styles/app-accent.css` carries this app's single primary accent, **Studio Burgundy** (`--primary` family), used for the Record CTA, switches, faders, selection/region borders, focus rings, links and the assigned chip. `src/styles/recording-tokens.css` is reduced to the recording-only `--rec-red` (live dot and timer); the live state always pairs a pulsing dot with a `REC` label. All components were repointed by role and the Tailwind bridge in `src/tailwind.css` remapped.
+- **Charts removed:** ECharts is dropped from this app (capture/streaming needs no dashboard charts). `TelemetryDeck` now renders stat cards (frame rate, bitrate, dropped frames — dropped tinted `--red-text` only above zero), a Live/Idle `StatusPill`, and a single encode-budget `ProgressRow`. `echarts-linear-theme.ts`, `DonutLegend` and `RangeTabs` are deleted and the `echarts` dependency removed (main bundle ~1,534 kB → ~408 kB).
+
+### Added / Changed (enforcement & build)
+- **`check:linear` hardening:** fails on any green/teal hue (75–170°) or `green|emerald|teal|lime` class, any foreign-app primary accent value, any `echarts` / `echarts-linear-theme` import, and palette-file drift (pinned sha256 for `linear-theme.css` and `app-accent.css`), in addition to the existing blur/translucency/glow/shadow/pill/retired-value rules.
+- **Build:** added `default-run = "screen-studio-pro"` to `src-tauri/Cargo.toml` so `cargo run` / `tauri dev` build the app binary rather than the `ssp-mux` helper (two binaries, no default).
+
 ## [0.1.0-beta.3] - 2026-11-25
 
 ### Fixed
