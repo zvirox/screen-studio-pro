@@ -64,6 +64,10 @@ pub struct StatsSnapshot {
     pub lufs: Option<f32>,
     /// 11.4: 4× oversampled true-peak of the last window (linear scale).
     pub true_peak: f32,
+    /// 12.1: dominant drop cause over the window (None/Capture/Encoder).
+    pub drop_class: crate::pipeline::drops::DropClass,
+    /// 12.1: the dominant cause's share of the window's drops (0..1).
+    pub drop_ratio: f32,
 }
 
 /// The fps/drop/bitrate meters (ARCHITECTURE §2 tree: "fps/drop/bitrate
@@ -117,6 +121,8 @@ impl StatsMeter {
             encode_time_ms,
             lufs: None,
             true_peak: 0.0,
+            drop_class: crate::pipeline::drops::DropClass::None,
+            drop_ratio: 0.0,
         }
     }
 

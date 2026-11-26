@@ -111,6 +111,10 @@ pub trait LiveSource: Send {
     fn preview_mailbox(&self) -> Option<std::sync::Arc<crate::capture::preview::PreviewMailbox>> {
         None
     }
+    /// 12.1: the capture-tier drop counter (for the stats classifier).
+    fn drops(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU64>> {
+        None
+    }
 }
 
 /* ---------- the single-session slot (§2.1 portal.busy rule) ---------- */
@@ -159,6 +163,14 @@ impl CaptureHandle {
     pub fn active_id(&self) -> Option<String> {
         match &*self.locked() {
             Slot::Active(source) => Some(source.source_id().to_string()),
+            _ => None,
+        }
+    }
+
+    /// 12.1: the active source's capture-drop counter (None when idle).
+    pub fn drops(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU64>> {
+        match &*self.locked() {
+            Slot::Active(source) => source.drops(),
             _ => None,
         }
     }

@@ -814,6 +814,7 @@ impl RecordingHandle {
         audio: Option<AudioPlan>,
         region_rect: Option<crate::capture::RegionRect>,
         camera_id: Option<String>,
+        capture_drops: Option<Arc<std::sync::atomic::AtomicU64>>,
         app: Option<&tauri::AppHandle>,
     ) -> Result<StartInfo, CoreError> {
         // 9.3: ONE settings snapshot resolves both the take's encoder preset
@@ -847,6 +848,7 @@ impl RecordingHandle {
             audio,
             region_rect,
             camera_id,
+            capture_drops,
             app,
             settings,
             auto_split,
@@ -866,6 +868,7 @@ impl RecordingHandle {
         audio: Option<AudioPlan>,
         region_rect: Option<crate::capture::RegionRect>,
         camera_id: Option<String>,
+        capture_drops: Option<Arc<std::sync::atomic::AtomicU64>>,
         app: Option<&tauri::AppHandle>,
         settings: Option<crate::settings::Settings>,
         auto_split: AutoSplitConfig,
@@ -1118,6 +1121,7 @@ impl RecordingHandle {
         let worker_region_rect = region_rect;
         let worker_preset = preset;
         let worker_loudness = loudness.clone();
+        let worker_capture_drops = capture_drops.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
@@ -1141,6 +1145,7 @@ impl RecordingHandle {
                     worker_region_rect,
                     worker_preset,
                     worker_loudness,
+                    worker_capture_drops,
                     camera_overlay.unwrap_or_default(),
                 )
             })
@@ -1432,6 +1437,7 @@ fn run_session(
     region_rect: Option<crate::capture::RegionRect>,
     preset: crate::pipeline::presets::Preset,
     loudness: LoudnessShare,
+    capture_drops: Option<Arc<std::sync::atomic::AtomicU64>>,
     camera_overlay: CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
@@ -1448,6 +1454,7 @@ fn run_session(
         region_rect,
         preset,
         &loudness,
+        &capture_drops,
         &camera_overlay,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
@@ -1486,6 +1493,7 @@ fn capture_take(
     region_rect: Option<crate::capture::RegionRect>,
     preset: crate::pipeline::presets::Preset,
     loudness: &LoudnessShare,
+    capture_drops: &Option<Arc<std::sync::atomic::AtomicU64>>,
     camera_overlay: &CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
@@ -1510,6 +1518,7 @@ fn capture_take(
     let mut tick_gate = Throttle::new(TICK_PERIOD);
     let mut stats_gate = Throttle::new(STATS_PERIOD);
     let mut meter = StatsMeter::new();
+    let mut drop_classifier = crate::pipeline::drops::DropClassifier::new();
     let mut stats_window = Instant::now();
     // M11 fps cap: a 30 fps preset on a 60 fps source keeps every
     // other frame (the source cadence is wall-clock µs, so the drop
@@ -1550,6 +1559,13 @@ fn capture_take(
                 snapshot.lufs = share.0;
                 snapshot.true_peak = share.1;
             }
+            let cap = capture_drops
+                .as_ref()
+                .map(|a| a.load(std::sync::atomic::Ordering::Relaxed))
+                .unwrap_or(0);
+            let (class, ratio) = drop_classifier.classify(cap, bus.dropped());
+            snapshot.drop_class = class;
+            snapshot.drop_ratio = ratio;
             meter.reset();
             stats_window = Instant::now();
             ctx.events.emit(SessionEvent::Stats(snapshot));
@@ -2309,6 +2325,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         assert_eq!(info.encoder.backend, "x264");
@@ -2376,6 +2393,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("first start");
         produce(&bus, 5, 0);
@@ -2389,6 +2407,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -2431,6 +2450,7 @@ mod tests {
                     "%Y-%m-%d-%H%M",
                     "mkv",
                     TestSink::new(),
+                    None,
                     None,
                     None,
                     None,
@@ -2479,6 +2499,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .unwrap();
         produce(&bus, 5, 0);
@@ -2521,6 +2542,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("first");
         produce(&bus, 5, 0);
@@ -2539,6 +2561,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -2579,6 +2602,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("clean start");
         // No frames are ever produced: the bus stays empty the whole take.
@@ -2604,6 +2628,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -2638,6 +2663,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -2776,6 +2802,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2856,6 +2883,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -2927,6 +2955,7 @@ mod tests {
                 "mkv",
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
                 None,
                 None,
@@ -3071,6 +3100,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         let keep = Arc::new(AtomicBool::new(true));
@@ -3179,6 +3209,7 @@ mod tests {
                 "mkv",
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
                 None,
                 None,
@@ -3311,6 +3342,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -3408,6 +3440,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         assert!(matches!(
@@ -3430,6 +3463,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 sink.clone(),
+                None,
                 None,
                 None,
                 None,
@@ -3486,6 +3520,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 sink.clone(),
+                None,
                 None,
                 None,
                 None,
@@ -3663,6 +3698,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         // Raw pts jump forward, then step BACK (a producer clock stepping
@@ -3736,6 +3772,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 sink.clone(),
+                None,
                 None,
                 None,
                 None,
@@ -3970,6 +4007,7 @@ mod tests {
                     "mkv",
                     sink.clone(),
                     Some(plan),
+                    None,
                     None,
                     None,
                     None,
@@ -4212,6 +4250,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         produce(&bus, 10, 0);
@@ -4293,6 +4332,7 @@ mod tests {
                 "mkv",
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
                 None,
                 None,
@@ -4418,6 +4458,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
 
@@ -4498,6 +4539,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         produce(&bus, 5, 0);
@@ -4574,6 +4616,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("VAAPI recording starts");
         assert_eq!(info.encoder.backend, "vaapi");
@@ -4610,6 +4653,7 @@ mod tests {
                 "vaapi-mp4",
                 "mp4",
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,
@@ -4710,6 +4754,7 @@ mod tests {
                 "mkv",
                 sink.clone(),
                 Some(plan),
+                None,
                 None,
                 None,
                 None,
@@ -5085,6 +5130,7 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
             )
             .expect("recording starts");
         produce(&bus, 30, 0);
@@ -5138,6 +5184,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 TestSink::new(),
+                None,
                 None,
                 None,
                 None,

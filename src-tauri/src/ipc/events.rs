@@ -89,14 +89,32 @@ pub struct RecordingMeters {
     pub desktop: Meter,
 }
 
+/// 12.1: the wire string for a drop class.
+fn drop_class_str(class: crate::pipeline::drops::DropClass) -> &'static str {
+    use crate::pipeline::drops::DropClass;
+    match class {
+        DropClass::None => "none",
+        DropClass::Capture => "capture",
+        DropClass::Encoder => "encoder",
+    }
+}
+
 /// `recording/stats` — 0.5 Hz.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecordingStats {
     pub fps: f64,
     pub dropped_frames: u64,
     pub bitrate_kbps: u64,
     pub encode_time_ms: f64,
+    /// 11.4: gated integrated loudness (LUFS), None until a block gates.
+    pub lufs: Option<f32>,
+    /// 11.4: 4× oversampled true-peak (linear).
+    pub true_peak: f32,
+    /// 12.1: dominant drop cause — "none" | "capture" | "encoder".
+    pub drop_class: String,
+    /// 12.1: the dominant cause's share of the window's drops (0..1).
+    pub drop_ratio: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -244,6 +262,10 @@ impl crate::pipeline::stats::EventSink for TauriEventSink {
                         dropped_frames: snapshot.dropped_frames,
                         bitrate_kbps: snapshot.bitrate_kbps,
                         encode_time_ms: snapshot.encode_time_ms,
+                        lufs: snapshot.lufs,
+                        true_peak: snapshot.true_peak,
+                        drop_class: drop_class_str(snapshot.drop_class).to_string(),
+                        drop_ratio: snapshot.drop_ratio,
                     },
                 );
             }
@@ -508,6 +530,10 @@ mod tests {
             dropped_frames: 0,
             bitrate_kbps: 12_100,
             encode_time_ms: 5.2,
+            lufs: Some(-23.0),
+            true_peak: 0.5,
+            drop_class: "none".to_string(),
+            drop_ratio: 0.0,
         })
         .expect("serialize");
         assert_eq!(
@@ -517,6 +543,10 @@ mod tests {
                 "droppedFrames": 0,
                 "bitrateKbps": 12100,
                 "encodeTimeMs": 5.2,
+                "lufs": -23.0,
+                "truePeak": 0.5,
+                "dropClass": "none",
+                "dropRatio": 0.0,
             })
         );
     }

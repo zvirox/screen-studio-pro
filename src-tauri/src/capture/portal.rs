@@ -64,6 +64,10 @@ impl LiveSource for MonitorSession {
         self.stream.is_live()
     }
 
+    fn drops(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU64>> {
+        Some(self.stream.drops())
+    }
+
     fn stop_frames(&mut self) {
         // Stop consuming BEFORE closing the portal session so the
         // stream-error path can't race `source/lost` with a deliberate

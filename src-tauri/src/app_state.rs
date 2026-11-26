@@ -368,6 +368,7 @@ fn start(
         audio,
         region_rect,
         camera_id,
+        capture.drops(),
         Some(app),
     )
 }
@@ -420,6 +421,7 @@ mod tests {
                 "first-rec",
                 "mkv",
                 Arc::new(Sink),
+                None,
                 None,
                 None,
                 None,

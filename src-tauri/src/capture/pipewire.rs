@@ -77,6 +77,8 @@ fn layout_from_spa(format: spa::param::video::VideoFormat) -> Option<FrameLayout
 /// callbacks get `&mut self` there.
 struct FrameCounting {
     total_frames: Arc<AtomicU64>,
+    /// 12.1: cumulative capture-tier drops (shared with the stats emit).
+    drops: Arc<AtomicU64>,
     window_start: Option<Instant>,
     window_frames: u64,
     /// Frames after the stream left `Streaming` are teardown noise.
@@ -208,6 +210,8 @@ impl FrameCounting {
     /// `return`s below masked a zero-frame take behind a healthy 60 fps
     /// counter — every one of them must leave one line of evidence).
     fn note_drop(&mut self, reason: &'static str) {
+        self.drops
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if self.first_drop_reason.is_none() {
             self.first_drop_reason = Some(reason);
             tracing::debug!("capture frame dropped in producer once: {reason}");
@@ -260,8 +264,16 @@ fn deliver(counting: &mut FrameCounting, frame: Frame) {
 pub struct StreamGuard {
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
+    drops: Arc<AtomicU64>,
     lost_slot: LostSlot,
     thread: Option<JoinHandle<()>>,
+}
+
+impl StreamGuard {
+    /// 12.1: the shared capture-drop counter (for the stats classifier).
+    pub fn drops(&self) -> Arc<AtomicU64> {
+        self.drops.clone()
+    }
 }
 
 impl StreamGuard {
@@ -311,16 +323,18 @@ pub fn start(
 ) -> Result<StreamGuard, CoreError> {
     let stop = Arc::new(AtomicBool::new(false));
     let frames = Arc::new(AtomicU64::new(0));
+    let drops = Arc::new(AtomicU64::new(0));
     let lost_slot: LostSlot = Arc::new(std::sync::Mutex::new(Some(on_lost)));
     let thread = std::thread::Builder::new()
         .name("pipewire-frames".into())
         .spawn({
             let stop = stop.clone();
             let frames = frames.clone();
+            let drops = drops.clone();
             let lost_slot = lost_slot.clone();
             move || {
                 run_loop(
-                    node_id, size, remote_fd, frame_bus, preview, stop, frames, lost_slot,
+                    node_id, size, remote_fd, frame_bus, preview, stop, frames, drops, lost_slot,
                 )
             }
         })
@@ -334,6 +348,7 @@ pub fn start(
     Ok(StreamGuard {
         stop,
         frames,
+        drops,
         lost_slot,
         thread: Some(thread),
     })
@@ -352,12 +367,14 @@ fn run_loop(
     preview: Option<Arc<PreviewMailbox>>,
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
+    drops: Arc<AtomicU64>,
     lost_slot: LostSlot,
 ) {
     pw::init();
     let lost = |reason: &str| report_lost(&lost_slot, reason);
     let counting = FrameCounting {
         total_frames: frames,
+        drops: drops.clone(),
         window_start: None,
         window_frames: 0,
         exited: false,

@@ -305,6 +305,10 @@ export interface RecordingStatsEvt {
   lufs: number | null;
   /** 11.4: 4× oversampled true-peak (linear). */
   truePeak: number;
+  /** 12.1: dominant drop cause over the window. */
+  dropClass: "none" | "capture" | "encoder";
+  /** 12.1: the dominant cause's share of the window's drops (0..1). */
+  dropRatio: number;
 }
 
 export interface Chapter {

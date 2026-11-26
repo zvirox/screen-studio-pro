@@ -31,5 +31,11 @@ export function formatStats(stats: RecordingStatsEvt): string {
   if (stats.truePeak > 0) {
     parts.push(`${(20 * Math.log10(stats.truePeak)).toFixed(1)} dBFS TP`);
   }
+  // 12.1: a specific overload banner when one tier dominates the drops.
+  if (stats.dropRatio >= 0.5 && stats.dropClass !== "none") {
+    parts.push(
+      stats.dropClass === "encoder" ? "Encoder overloaded" : "Capture starvation",
+    );
+  }
   return parts.join(" · ");
 }

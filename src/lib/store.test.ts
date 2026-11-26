@@ -310,21 +310,21 @@ describe("session event projection (Rust truth, §4.1)", () => {
 
   it("onStats stores the latest §3 stats payload while a take runs (3.5)", () => {
     recordingSession();
-    const stats = { fps: 59.8, droppedFrames: 0, bitrateKbps: 12_100, encodeTimeMs: 5.2, lufs: null, truePeak: 0 };
+    const stats = { fps: 59.8, droppedFrames: 0, bitrateKbps: 12_100, encodeTimeMs: 5.2, lufs: null, truePeak: 0, dropClass: "none" as const, dropRatio: 0 };
     useSspStore.getState().onStats(stats);
     expect(useSspStore.getState().session.stats).toEqual(stats);
-    useSspStore.getState().onStats({ fps: 60, droppedFrames: 1, bitrateKbps: 9000, encodeTimeMs: 4, lufs: null, truePeak: 0 });
+    useSspStore.getState().onStats({ fps: 60, droppedFrames: 1, bitrateKbps: 9000, encodeTimeMs: 4, lufs: null, truePeak: 0, dropClass: "none" as const, dropRatio: 0 });
     expect(useSspStore.getState().session.stats?.droppedFrames).toBe(1);
   });
 
   it("onStats outside a recording session is dropped — no stale stats on the idle row", () => {
-    useSspStore.getState().onStats({ fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1, lufs: null, truePeak: 0 });
+    useSspStore.getState().onStats({ fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1, lufs: null, truePeak: 0, dropClass: "none" as const, dropRatio: 0 });
     expect(useSspStore.getState().session.stats).toBeNull();
   });
 
   it("a new take starts with empty stats (onStarted resets the slice)", () => {
     recordingSession();
-    useSspStore.getState().onStats({ fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1, lufs: null, truePeak: 0 });
+    useSspStore.getState().onStats({ fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1, lufs: null, truePeak: 0, dropClass: "none" as const, dropRatio: 0 });
     useSspStore.getState().onStarted({
       recordingId: "rec_new",
       encoder: "x264",
