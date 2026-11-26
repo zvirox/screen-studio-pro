@@ -148,6 +148,7 @@ const DUMMY_SETTINGS: Settings = {
     encoder: "vaapi",
     qualityPreset: "youtube",
     cameraSelfInsert: false,
+    audioTracks: [],
   },
   audio: {
     micDeviceId: null,
@@ -653,6 +654,7 @@ describe("Studio Store Integration: 7 UI v3 Features (Tier 1 & Tier 2)", () => {
         encoder: "vaapi",
         qualityPreset: "discord",
         cameraSelfInsert: false,
+    audioTracks: [],
       });
       await useSspStore.getState().loadPresets();
 

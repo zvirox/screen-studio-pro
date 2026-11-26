@@ -42,6 +42,23 @@ pub struct Capture {
     /// size 240, circle — the 4.2 defaults). Default off; the Camera
     /// settings pane (4.4) adds the toggle.
     pub camera_self_insert: bool,
+    /// 11.1: output audio track assignment. Empty = the default single
+    /// stereo mix (mic + desktop folded to track 0, plan 2.1). Each entry
+    /// maps a source to a container track index; two entries with the same
+    /// `track_index` are folded together, different indices become separate
+    /// AAC streams. `source_id` is `"mic"` or `"desktop"`.
+    pub audio_tracks: Vec<AudioChannelMap>,
+}
+
+/// 11.1: one source→track assignment (API §2.2 `audio_tracks`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AudioChannelMap {
+    /// `"mic"` or `"desktop"`.
+    pub source_id: String,
+    /// Container track index (0-based). Video is stream 0; audio tracks
+    /// are 1..=N in the muxer.
+    pub track_index: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

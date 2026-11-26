@@ -13,6 +13,7 @@ pub fn default_settings() -> Settings {
             // "youtube" == 1080p60 ~12Mbps, i.e. M8's sane defaults (API §2.5).
             quality_preset: "youtube".into(),
             camera_self_insert: false,
+            audio_tracks: Vec::new(),
         },
         audio: Audio {
             mic_device_id: None, // system default; M4 lists real devices

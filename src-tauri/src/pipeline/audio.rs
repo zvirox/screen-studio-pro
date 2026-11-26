@@ -409,10 +409,54 @@ fn measure_post_gain(gain: f32, samples: &[f32]) -> MeterReading {
 /// One channel in the pre-mix fold: the ring its producer feeds, the
 /// linear gain (level/100) snapshotted from Settings at recording_start,
 /// and which wire channel it is (2.2 meter payload keys).
+#[derive(Clone)]
 pub struct MixSource {
     pub ring: Arc<AudioRing>,
     pub gain: f32,
     pub channel: crate::capture::audio::AudioChannel,
+}
+
+/// 11.1: fold the flat source list into per-track buckets by the preset's
+/// `audio_tracks` map. An EMPTY map is the default single stereo track
+/// (plan 2.1 — every source to track 0), so the legacy behaviour is
+/// preserved exactly. A source with no map entry falls back to track 0.
+/// Pure: the worker encodes each returned bucket as its own AAC stream.
+pub fn group_by_track(
+    sources: &[MixSource],
+    map: &[crate::settings::AudioChannelMap],
+) -> Vec<Vec<MixSource>> {
+    if map.is_empty() {
+        return if sources.is_empty() {
+            Vec::new()
+        } else {
+            vec![sources.to_vec()]
+        };
+    }
+    let max = map.iter().map(|m| m.track_index).max().unwrap_or(0) as usize;
+    let mut tracks: Vec<Vec<MixSource>> = (0..=max).map(|_| Vec::new()).collect();
+    for source in sources {
+        let idx = track_index_for(source.channel, map) as usize;
+        tracks[idx].push(MixSource {
+            ring: source.ring.clone(),
+            gain: source.gain,
+            channel: source.channel,
+        });
+    }
+    tracks
+}
+
+fn track_index_for(
+    channel: crate::capture::audio::AudioChannel,
+    map: &[crate::settings::AudioChannelMap],
+) -> u16 {
+    let source_id = match channel {
+        crate::capture::audio::AudioChannel::Mic => "mic",
+        crate::capture::audio::AudioChannel::Desktop => "desktop",
+    };
+    map.iter()
+        .find(|m| m.source_id == source_id)
+        .map(|m| m.track_index)
+        .unwrap_or(0)
 }
 
 use std::sync::Arc;
@@ -477,6 +521,55 @@ mod mix_tests {
             gain,
             channel,
         }
+    }
+
+    fn map(source_id: &str, track_index: u16) -> crate::settings::AudioChannelMap {
+        crate::settings::AudioChannelMap {
+            source_id: source_id.into(),
+            track_index,
+        }
+    }
+
+    #[test]
+    fn empty_map_is_the_default_single_track() {
+        let a = Arc::new(AudioRing::new(64));
+        let b = Arc::new(AudioRing::new(64));
+        let sources = [
+            source(a, 1.0, AudioChannel::Mic),
+            source(b, 1.0, AudioChannel::Desktop),
+        ];
+        let tracks = group_by_track(&sources, &[]);
+        assert_eq!(tracks.len(), 1, "empty map folds everything to track 0");
+        assert_eq!(tracks[0].len(), 2);
+    }
+
+    #[test]
+    fn map_splits_sources_into_separate_tracks() {
+        let a = Arc::new(AudioRing::new(64));
+        let b = Arc::new(AudioRing::new(64));
+        let sources = [
+            source(a, 1.0, AudioChannel::Mic),
+            source(b, 1.0, AudioChannel::Desktop),
+        ];
+        let tracks = group_by_track(&sources, &[map("mic", 0), map("desktop", 1)]);
+        assert_eq!(tracks.len(), 2, "two track indices -> two buckets");
+        assert_eq!(tracks[0].len(), 1);
+        assert_eq!(tracks[1].len(), 1);
+        assert_eq!(tracks[0][0].channel, AudioChannel::Mic);
+        assert_eq!(tracks[1][0].channel, AudioChannel::Desktop);
+    }
+
+    #[test]
+    fn two_sources_on_one_index_fold_together() {
+        let a = Arc::new(AudioRing::new(64));
+        let b = Arc::new(AudioRing::new(64));
+        let sources = [
+            source(a, 1.0, AudioChannel::Mic),
+            source(b, 1.0, AudioChannel::Desktop),
+        ];
+        let tracks = group_by_track(&sources, &[map("mic", 0), map("desktop", 0)]);
+        assert_eq!(tracks.len(), 1);
+        assert_eq!(tracks[0].len(), 2, "same track index folds together");
     }
 
     #[test]

@@ -96,6 +96,16 @@ export interface CaptureSettings {
       encoded video at its UI position (bottom-right, margin 24,
       size 240, circle — the 4.2 defaults). Default false. */
   cameraSelfInsert: boolean;
+  /** 11.1: output audio track assignment. Empty = the default single
+      stereo mix (mic + desktop folded to track 0). Each entry maps a
+      source ("mic" | "desktop") to a container track index. */
+  audioTracks: AudioChannelMap[];
+}
+
+/** 11.1: one source→track assignment (Rust `AudioChannelMap`). */
+export interface AudioChannelMap {
+  sourceId: string;
+  trackIndex: number;
 }
 
 export interface AudioSettings {

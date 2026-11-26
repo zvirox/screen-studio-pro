@@ -140,6 +140,7 @@ describe("CaptureInspector (Stage v3.4 Left Floating Inspector Deck)", () => {
       encoder: "vaapi",
       qualityPreset: "youtube",
       cameraSelfInsert: true,
+    audioTracks: [],
     };
     vi.mocked(settingsGet).mockResolvedValue(
       mockCaptureSettings as unknown as Awaited<ReturnType<typeof settingsGet>>,
