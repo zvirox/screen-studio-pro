@@ -1,11 +1,12 @@
 /* src/tailwind.css — ScreenStudio Pro Linear-Style utilities + fonts
-   Provenance: DESIGN.md v6.0 (Unified Linear-Style Design System — Final & Locked).
+   Provenance: DESIGN.md v6.1 (Unified Linear-Style Design System — Final & Locked).
    Tailwind v4 @theme maps the shared and recording-only CSS variables onto utilities.
    Dark/light colors resolve through html[data-theme="dark|light"].
 
    GOVERNANCE (DESIGN §2): palette values live in src/styles/linear-theme.css and
-   src/styles/recording-tokens.css. Components reference token names only; raw colors
-   outside those token files fail check:linear. */
+   src/styles/app-accent.css (plus src/styles/recording-tokens.css for the recording
+   red). Components reference token names only; raw colors outside those token files
+   fail check:linear. */
 
 /* ---------- Fonts (self-hosted, DESIGN §3 — never a CDN) ---------- */
 @font-face {
@@ -53,10 +54,11 @@
 
 @import "tailwindcss";
 @import "./styles/linear-theme.css";
+@import "./styles/app-accent.css";
 @import "./styles/recording-tokens.css";
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-/* ---------- Runtime semantic aliases (DESIGN.md v6.0) ---------- */
+/* ---------- Runtime semantic aliases (DESIGN.md v6.1) ---------- */
 :root {
   color-scheme: dark;
   --hero-canvas-bg: var(--bg-app);
@@ -76,7 +78,7 @@
 }
 
 /* ---------- Tailwind theme bridge ---------- */
-/* DESIGN.md v6.0 */
+/* DESIGN.md v6.1 */
 @theme inline {
   --color-app: var(--bg-app);
   --color-sidebar: var(--bg-sidebar);
@@ -94,27 +96,29 @@
   --color-muted: var(--text-muted);
   --color-faint: var(--text-faint);
   --color-blue: var(--blue);
-  --color-blue-text: var(--blue-text);
   --color-sky: var(--sky);
-  --color-green: var(--green);
-  --color-green-text: var(--green-text);
+  --color-sky-text: var(--sky-text);
   --color-amber: var(--amber);
-  --color-teal: var(--teal);
   --color-pink: var(--pink);
   --color-purple: var(--purple);
   --color-orange: var(--orange);
   --color-red: var(--red);
   --color-red-text: var(--red-text);
   --color-gray: var(--gray);
-  --color-chip-green: var(--chip-green);
+  --color-chip-sky: var(--chip-sky);
   --color-chip-red: var(--chip-red);
-  --color-chip-blue: var(--chip-blue);
-  --color-btn: var(--btn-primary-bg);
-  --color-btn-fg: var(--btn-primary-text);
   --color-close-hover: var(--close-hover);
   --color-scrim: var(--scrim);
   --color-chart-fade-up: var(--chart-fade-up);
   --color-chart-fade-down: var(--chart-fade-down);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-text: var(--primary-text);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-border: var(--primary-border);
 
   --color-canvas: var(--bg-app);
   --color-raised: var(--bg-surface);
@@ -125,8 +129,8 @@
   --color-subtle: var(--border);
   --color-border-subtle: var(--border);
   --color-line-glass: var(--border-strong);
-  --color-border-focus: var(--blue-text);
-  --color-focus: var(--blue-text);
+  --color-border-focus: var(--primary-text);
+  --color-focus: var(--primary-text);
 
   --color-ink: var(--text);
   --color-ink-secondary: var(--text-secondary);
@@ -137,30 +141,21 @@
   --color-on-canvas: var(--text);
   --color-text-disabled: var(--text-faint);
 
-  --color-primary: var(--btn-primary-bg);
-  --color-primary-hover: var(--btn-primary-bg);
-  --color-primary-active: var(--btn-primary-bg);
-  --color-primary-text: var(--btn-primary-text);
-
-  --color-accent: var(--blue-text);
-  --color-accent-hover: var(--blue-text);
-  --color-accent-active: var(--blue-text);
+  --color-accent: var(--primary-text);
+  --color-accent-hover: var(--primary-text);
+  --color-accent-active: var(--primary-text);
   --color-accent-text: var(--text);
-  --color-accent-muted: var(--chip-blue);
+  --color-accent-muted: var(--primary-tint);
 
   --color-signal: var(--rec-red);
   --color-signal-muted: var(--chip-red);
-  --color-record: var(--rec-burgundy);
-  --color-record-border: var(--rec-burgundy-border);
-  --color-record-text: var(--rec-burgundy-text);
 
-  --color-success: var(--green);
+  --color-success: var(--sky);
   --color-warning: var(--amber);
   --color-error: var(--red);
   --color-error-muted: var(--chip-red);
 
-  --color-tint-blue: var(--chip-blue);
-  --color-tint-green: var(--chip-green);
+  --color-tint-blue: var(--primary-tint);
   --color-tint-red: var(--chip-red);
   --color-tint-amber: var(--bg-surface-2);
 
@@ -297,7 +292,7 @@
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    background: var(--chip-blue);
+    background: var(--primary-tint);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -308,7 +303,7 @@
     width: 6px;
     height: 6px;
     border-radius: 4px;
-    background: var(--blue);
+    background: var(--primary);
   }
 }
 
@@ -336,7 +331,7 @@
   }
 
   :where(button, input, select, [tabindex]):focus-visible {
-    outline: 2px solid var(--blue-text);
+    outline: 2px solid var(--primary-text);
     outline-offset: 2px;
   }
 }

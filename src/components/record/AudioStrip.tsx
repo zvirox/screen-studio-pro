@@ -41,7 +41,7 @@ function MeterBar({ channel, reading }: { channel: Channel; reading: { rms: numb
         className="flex h-full"
         style={{ width: `${peak * 100}%` }}
       >
-        <div className="h-full bg-[var(--green)]" style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }} />
+        <div className="h-full bg-[var(--sky)]" style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }} />
         <div
           data-testid={`${channel}-meter-hot`}
           className="h-full bg-[var(--red)]"

@@ -196,7 +196,7 @@ function RegionDragRect({
         height: `${(rect.h / previewHeight) * 100}%`,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         border: "2px solid",
-        borderColor: "var(--blue)",
+        borderColor: "var(--primary)",
         borderRadius: "var(--radius-sm)",
         cursor: "move",
         zIndex: "var(--ssp-z-sticky)",

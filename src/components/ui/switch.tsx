@@ -15,11 +15,11 @@ export function Switch({ className, ...props }: React.ComponentProps<typeof Swit
     >
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 h-5 rounded-sm border border-subtle bg-[var(--bg-track)] transition-colors duration-fast ease-fast group-data-[state=checked]:border-[var(--blue)] group-data-[state=checked]:bg-[var(--blue)]"
+        className="absolute inset-x-0 h-5 rounded-sm border border-subtle bg-[var(--bg-track)] transition-colors duration-fast ease-fast group-data-[state=checked]:border-[var(--primary)] group-data-[state=checked]:bg-[var(--primary)]"
       />
       <SwitchPrimitive.Thumb
         className={cn(
-          "pointer-events-none relative z-base ml-0.5 block h-4 w-4 rounded-xs bg-[var(--text-muted)] transition-[translate,background-color] duration-fast ease-fast data-[state=checked]:bg-[var(--btn-primary-text)]",
+          "pointer-events-none relative z-base ml-0.5 block h-4 w-4 rounded-xs bg-[var(--text-muted)] transition-[translate,background-color] duration-fast ease-fast data-[state=checked]:bg-[var(--primary-fg)]",
           "data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0",
         )}
       />

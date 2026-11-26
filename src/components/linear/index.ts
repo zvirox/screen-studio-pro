@@ -4,6 +4,3 @@ export * from './StatusPill';
 export * from './TitleBar';
 export * from './StatCard';
 export * from './ProgressRow';
-export * from './RangeTabs';
-export * from './DonutLegend';
-export * from './echarts-linear-theme';

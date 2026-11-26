@@ -267,7 +267,7 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
           {isRecording ? (
             <>
               <span
-                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-record-text motion-reduce:animate-none" /* linear-exception: dot */
+                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-signal motion-reduce:animate-none" /* linear-exception: dot */
                 aria-hidden="true"
               />
               <Square size={13} className="fill-current" aria-hidden="true" />

@@ -94,7 +94,7 @@ function guideClass(corner: PipCorner, winner: PipCorner | null): string {
           : "right-6 bottom-6 border-r-2 border-b-2";
   // The winning snap target is a true selected state (accent); the other
   // guides stay neutral so drag feedback reads as instrument-like, not festive.
-  const strength = winner === corner ? "border-[var(--blue)]" : "border-[var(--border-strong)]";
+  const strength = winner === corner ? "border-[var(--primary)]" : "border-[var(--border-strong)]";
   return `absolute h-6 w-6 ${bars} ${strength} pointer-events-none`;
 }
 

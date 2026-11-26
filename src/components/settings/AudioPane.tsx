@@ -91,7 +91,7 @@ export default function AudioPane() {
                 onChange={(e) => {
                   void setChannelLevel("mic", Number(e.target.value));
                 }}
-                className="w-full h-1.5 bg-[var(--bg-track)] accent-[var(--blue)] rounded-xs appearance-none cursor-pointer
+                className="w-full h-1.5 bg-[var(--bg-track)] accent-[var(--primary)] rounded-xs appearance-none cursor-pointer
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !mic.enabled}
               />
@@ -160,7 +160,7 @@ export default function AudioPane() {
                 onChange={(e) => {
                   void setChannelLevel("desktop", Number(e.target.value));
                 }}
-                className="w-full h-1.5 bg-[var(--bg-track)] accent-[var(--blue)] rounded-xs appearance-none cursor-pointer
+                className="w-full h-1.5 bg-[var(--bg-track)] accent-[var(--primary)] rounded-xs appearance-none cursor-pointer
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={toggling || !desktop.enabled}
               />

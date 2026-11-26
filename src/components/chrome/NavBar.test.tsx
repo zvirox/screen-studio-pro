@@ -280,7 +280,7 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       expect(ctaBtn).toHaveClass("min-h-10");
       expect(ctaBtn).toHaveClass("rounded-sm");
       expect(ctaBtn).not.toHaveClass("rounded-full");
-      expect(ctaBtn).toHaveClass("bg-record");
+      expect(ctaBtn).toHaveClass("bg-primary");
     });
 
     it("triggers startRecording when clicked in idle state", async () => {
@@ -313,7 +313,7 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       render(<NavBar />);
       const stopBtn = screen.getByRole("button", { name: "Stop recording" });
       expect(stopBtn).toBeInTheDocument();
-      expect(stopBtn).toHaveClass("bg-record");
+      expect(stopBtn).toHaveClass("bg-primary");
       const pulse = stopBtn.querySelector(".animate-pulse-rec");
       expect(pulse).toBeInTheDocument();
       expect(pulse).toHaveClass("motion-reduce:animate-none");

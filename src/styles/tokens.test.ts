@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 /* src/styles/tokens.test.ts — Feature 1: Design Tokens & Linear Palette
-   Provenance: DESIGN.md v6.0 (Unified Linear-Style Design System — Final & Locked)
+   Provenance: DESIGN.md v6.1 (Unified Linear-Style Design System — Final & Locked)
    Verifies:
-   - Tier 1: Core dark/light palette tokens, recording-only colors, minimal rounding scale,
-     one card shadow, and approved alpha token roles
+   - Tier 1: Core dark/light palette tokens, the per-app Burgundy accent, recording-only
+     red, minimal rounding scale, one card shadow, and approved alpha token roles
    - Tier 2: WCAG contrast floors, reduced-motion overrides, solid utilities, z-level scale */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +26,7 @@ function hasToken(cssText: string, name: string): boolean {
 
 const css = readCss("src/tailwind.css");
 const themeCss = readCss("src/styles/linear-theme.css");
+const accentCss = readCss("src/styles/app-accent.css");
 const recordingCss = readCss("src/styles/recording-tokens.css");
 
 function getRelativeLuminance(hex: string): number {
@@ -47,7 +48,7 @@ function getContrastRatio(hex1: string, hex2: string): number {
 }
 
 describe("Feature 1: Linear Design Tokens & Surface System (Tier 1)", () => {
-  it("F1-T1-01: declares the new dark palette roles", () => {
+  it("F1-T1-01: declares the dark palette roles", () => {
     const dark = themeCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
     expect(
       [
@@ -64,19 +65,29 @@ describe("Feature 1: Linear Design Tokens & Surface System (Tier 1)", () => {
     ).toBe(true);
   });
 
-  it("F1-T1-02: defines the new chart palette and recording-only colors", () => {
-    expect(["--blue", "--blue-text", "--green", "--green-text", "--red"].every((name) => hasToken(themeCss, name))).toBe(true);
+  it("F1-T1-02: defines the shared series palette, the Burgundy accent and the recording red", () => {
     expect(
-      ["--rec-burgundy", "--rec-burgundy-border", "--rec-red", "--rec-burgundy-text"].every((name) =>
-        hasToken(recordingCss, name),
+      ["--blue", "--sky", "--sky-text", "--amber", "--red", "--red-text", "--chip-sky", "--chip-red"].every(
+        (name) => hasToken(themeCss, name),
       ),
     ).toBe(true);
+    // Green and teal are removed from the shared palette.
+    expect(hasToken(themeCss, "--green")).toBe(false);
+    expect(hasToken(themeCss, "--teal")).toBe(false);
+    expect(
+      ["--primary", "--primary-hover", "--primary-fg", "--primary-text", "--primary-tint", "--primary-border"].every(
+        (name) => hasToken(accentCss, name),
+      ),
+    ).toBe(true);
+    expect(hasToken(recordingCss, "--rec-red")).toBe(true);
   });
 
-  it("F1-T1-02a: matches the byte-identical shared theme reference", () => {
+  it("F1-T1-02a: matches the byte-identical shared theme and accent references", () => {
     const crypto = require("crypto");
-    const digest = crypto.createHash("sha256").update(themeCss).digest("hex") as string;
-    expect(digest).toBe("8f939da3eb48b2f04a80b5bc2f85c45a8ed2794cfc267744c32e8e5fae47d0f4");
+    const themeDigest = crypto.createHash("sha256").update(themeCss).digest("hex") as string;
+    const accentDigest = crypto.createHash("sha256").update(accentCss).digest("hex") as string;
+    expect(themeDigest).toBe("90d28b21ec7d9964400bddfed725802585a51499a9f37ea4d3a4899dd3da4695");
+    expect(accentDigest).toBe("93c397ac30645e1f62dc8b5bf37af9c6ca5fba38cd8f3552d1217988e61f6ecf");
   });
 
   it("F1-T1-03: defines minimal Linear rounding scale in @theme inline (4px/6px/8px)", () => {
@@ -112,9 +123,9 @@ describe("Feature 1: Linear Design Tokens & Surface System (Tier 1)", () => {
     ).toBe(true);
   });
 
-  it("F1-T1-06: carries DESIGN.md v6.0 provenance and self-hosted Inter font face", () => {
-    expect(css).toMatch(/\/\*\s*DESIGN\.md v6\.0\s*\*\//);
-    expect(css).toContain("Provenance: DESIGN.md v6.0");
+  it("F1-T1-06: carries DESIGN.md v6.1 provenance and self-hosted Inter font face", () => {
+    expect(css).toMatch(/\/\*\s*DESIGN\.md v6\.1\s*\*\//);
+    expect(css).toContain("Provenance: DESIGN.md v6.1");
     expect(css).toContain('font-family: "Inter";');
     expect(css).toContain("--font-sans: \"Inter\", system-ui, -apple-system, sans-serif;");
   });
@@ -124,13 +135,15 @@ describe("Feature 1: Linear Design Tokens & Accessibility (Tier 2 Boundary & Edg
   it("F1-T1-07: keeps Inter type scale and outline focus indicators theme-aware", () => {
     expect(css).toContain("--text-body-md: 0.875rem;");
     expect(css).toContain("--text-body-sm: 0.8125rem;");
-    expect(css).toContain("--color-focus: var(--blue-text);");
-    expect(css).toContain("outline: 2px solid var(--blue-text);");
+    expect(css).toContain("--color-focus: var(--primary-text);");
+    expect(css).toContain("outline: 2px solid var(--primary-text);");
   });
 
-  it("F1-T2-01: enforces WCAG AAA contrast ratio floor (> 7.0:1) for primary copy in dark and light modes", () => {
+  it("F1-T2-01: enforces WCAG contrast floors for copy, accent and status in dark and light modes", () => {
     const dark = themeCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
     const light = themeCss.match(/:root,\s*\[data-theme="light"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    const darkAccent = accentCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    const lightAccent = accentCss.match(/:root,\s*\[data-theme="light"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
     const darkRecording = recordingCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
     const lightRecording = recordingCss.match(/:root,\s*\[data-theme="light"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
     const token = (block: string, name: string) =>
@@ -140,31 +153,62 @@ describe("Feature 1: Linear Design Tokens & Accessibility (Tier 2 Boundary & Edg
     const darkText = token(dark, "--text")!;
     const lightBg = token(light, "--bg-app")!;
     const lightText = token(light, "--text")!;
-    const darkPrimaryBg = token(dark, "--btn-primary-bg")!;
-    const darkPrimaryText = token(dark, "--btn-primary-text")!;
-    const lightPrimaryBg = token(light, "--btn-primary-bg")!;
-    const lightPrimaryText = token(light, "--btn-primary-text")!;
-    const darkBurgundy = token(darkRecording, "--rec-burgundy")!;
-    const lightBurgundy = token(lightRecording, "--rec-burgundy")!;
+
+    const darkPrimary = token(darkAccent, "--primary")!;
+    const darkPrimaryFg = token(darkAccent, "--primary-fg")!;
+    const darkPrimaryHover = token(darkAccent, "--primary-hover")!;
+    const darkPrimaryText = token(darkAccent, "--primary-text")!;
+    const darkPrimaryTint = token(darkAccent, "--primary-tint")!;
+    const lightPrimary = token(lightAccent, "--primary")!;
+    const lightPrimaryFg = token(lightAccent, "--primary-fg")!;
+    const lightPrimaryHover = token(lightAccent, "--primary-hover")!;
+    const lightPrimaryText = token(lightAccent, "--primary-text")!;
+    const lightPrimaryTint = token(lightAccent, "--primary-tint")!;
+
+    const darkSurface = token(dark, "--bg-surface")!;
+    const lightSurface = token(light, "--bg-surface")!;
+    const darkChipSky = token(dark, "--chip-sky")!;
+    const lightChipSky = token(light, "--chip-sky")!;
     const darkChipRed = token(dark, "--chip-red")!;
     const lightChipRed = token(light, "--chip-red")!;
-    const darkChipGreen = token(dark, "--chip-green")!;
-    const lightChipGreen = token(light, "--chip-green")!;
 
+    // Copy
     expect(getContrastRatio(darkText, darkBg)).toBeGreaterThanOrEqual(17.0);
     expect(getContrastRatio(lightText, lightBg)).toBeGreaterThanOrEqual(15.0);
-    expect(getContrastRatio(darkPrimaryText, darkPrimaryBg)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(lightPrimaryText, lightPrimaryBg)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(darkRecording, "--rec-burgundy-text")!, darkBurgundy)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(lightRecording, "--rec-burgundy-text")!, lightBurgundy)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(darkRecording, "--rec-red")!, darkBg)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(lightRecording, "--rec-red")!, lightBg)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      getContrastRatio(token(dark, "--text-muted")!, token(dark, "--bg-surface-2")!),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      getContrastRatio(token(light, "--text-muted")!, token(light, "--bg-surface-2")!),
+    ).toBeGreaterThanOrEqual(4.5);
+
+    // Primary button text
+    expect(getContrastRatio(darkPrimaryFg, darkPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(lightPrimaryFg, lightPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(darkPrimaryFg, darkPrimaryHover)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(lightPrimaryFg, lightPrimaryHover)).toBeGreaterThanOrEqual(4.5);
+
+    // Primary text (links, focus) and assigned chip
+    expect(getContrastRatio(darkPrimaryText, darkSurface)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(lightPrimaryText, lightSurface)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(darkPrimaryText, darkPrimaryTint)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(lightPrimaryText, lightPrimaryTint)).toBeGreaterThanOrEqual(4.5);
+
+    // Primary graphic (switch, fill) on surface
+    expect(getContrastRatio(darkPrimary, darkSurface)).toBeGreaterThanOrEqual(3.0);
+    expect(getContrastRatio(lightPrimary, lightSurface)).toBeGreaterThanOrEqual(3.0);
+
+    // Status chips
+    expect(getContrastRatio(token(dark, "--sky-text")!, darkChipSky)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(light, "--sky-text")!, lightChipSky)).toBeGreaterThanOrEqual(4.5);
     expect(getContrastRatio(token(dark, "--red-text")!, darkChipRed)).toBeGreaterThanOrEqual(4.5);
     expect(getContrastRatio(token(light, "--red-text")!, lightChipRed)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(dark, "--green-text")!, darkChipGreen)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(light, "--green-text")!, lightChipGreen)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(dark, "--text-muted")!, token(dark, "--bg-surface-2")!)).toBeGreaterThanOrEqual(4.5);
-    expect(getContrastRatio(token(light, "--text-muted")!, token(light, "--bg-surface-2")!)).toBeGreaterThanOrEqual(4.5);
+
+    // Recording red (live dot / timer)
+    expect(getContrastRatio(token(darkRecording, "--rec-red")!, darkBg)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(lightRecording, "--rec-red")!, lightBg)).toBeGreaterThanOrEqual(4.5);
+
+    // Close button hover
     expect(getContrastRatio(darkText, token(dark, "--close-hover")!)).toBeGreaterThanOrEqual(3.0);
     expect(getContrastRatio(lightText, token(light, "--close-hover")!)).toBeGreaterThanOrEqual(3.0);
   });
@@ -208,12 +252,15 @@ describe("Feature 1: Linear Design Tokens & Accessibility (Tier 2 Boundary & Edg
 
     expect(themeBody).toContain("--color-canvas: var(--bg-app);");
     expect(themeBody).toContain("--color-app: var(--bg-app);");
-    expect(themeBody).toContain("--color-btn: var(--btn-primary-bg);");
+    expect(themeBody).toContain("--color-primary: var(--primary);");
+    expect(themeBody).toContain("--color-primary-fg: var(--primary-fg);");
     expect(themeBody).toContain("--color-raised: var(--bg-surface);");
-    expect(themeBody).toContain("--color-accent: var(--blue-text);");
+    expect(themeBody).toContain("--color-accent: var(--primary-text);");
     expect(themeBody).toContain("--color-signal: var(--rec-red);");
+    expect(themeBody).toContain("--color-success: var(--sky);");
     expect(themeBody).toContain("--color-ink: var(--text);");
-    expect(themeBody).toContain("--color-record: var(--rec-burgundy);");
+    expect(themeBody).not.toContain("--color-record");
+    expect(themeBody).not.toContain("--color-green");
 
     const hexInColorToken = /--color-[a-z-]+:\s*#[0-9a-fA-F]{3,8}/.test(themeBody);
     expect(hexInColorToken).toBe(false);

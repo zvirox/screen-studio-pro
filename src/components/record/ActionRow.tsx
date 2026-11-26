@@ -113,11 +113,11 @@ export default function ActionRow() {
           className={
             idle && fault
               ? // retry after a failure is still the primary action
-                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-record-border bg-record text-body-sm font-medium text-record-text hover:bg-record transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-record disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-primary-border bg-primary text-body-sm font-medium text-primary-fg hover:bg-primary-hover transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-primary-hover disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
               : busy
-                ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-record-border bg-record text-body-sm font-medium text-record-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-primary-border bg-primary text-body-sm font-medium text-primary-fg disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
                 : recording
-                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-record-border bg-record text-body-sm font-medium text-record-text hover:bg-record transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-record"
+                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-primary-border bg-primary text-body-sm font-medium text-primary-fg hover:bg-primary-hover transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-primary-hover"
                   : "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-subtle bg-subtle text-body-sm font-medium text-ink-disabled"
           }
         >

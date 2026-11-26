@@ -1,0 +1,17 @@
+/* src/styles/app-accent.css : ScreenStudio Pro (Burgundy). The only styling file that differs between apps. */
+:root, [data-theme="light"] {
+  --primary: #9F1239;
+  --primary-hover: #8C1032;
+  --primary-fg: #FFFFFF;
+  --primary-text: #9F1239;
+  --primary-tint: #F8EEF1;
+  --primary-border: #9F1239;
+}
+[data-theme="dark"] {
+  --primary: #D01846;
+  --primary-hover: #B7153E;
+  --primary-fg: #FFFFFF;
+  --primary-text: #FB7185;
+  --primary-tint: #351B22;
+  --primary-border: #E11D48;
+}

@@ -8,15 +8,15 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "border-primary bg-primary text-primary-text hover:bg-primary-hover active:bg-primary-active",
+          "border-primary bg-primary text-primary-fg hover:bg-primary-hover active:bg-primary-active",
         brand:
-          "border-record-border bg-record text-record-text hover:bg-record active:bg-record",
+          "border-primary-border bg-primary text-primary-fg hover:bg-primary-hover active:bg-primary-active",
         secondary:
           "border-subtle bg-solid text-ink hover:border-border-strong hover:bg-surface-hover",
         ghost:
           "border-transparent text-ink-secondary hover:bg-surface-hover hover:text-ink",
         danger:
-          "border-error bg-tint-red text-error hover:bg-error hover:text-[var(--btn-primary-text)]",
+          "border-error bg-tint-red text-error hover:bg-error hover:text-[var(--primary-fg)]",
       },
       size: {
         sm: "min-h-9 px-3",

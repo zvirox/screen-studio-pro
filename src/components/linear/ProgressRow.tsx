@@ -4,7 +4,7 @@ export interface ProgressRowProps {
   label: string;
   value: number; // 0 - 100
   displayValue?: string;
-  color?: string; // CSS token such as 'var(--blue)' or 'var(--green)'
+  color?: string; // CSS token such as 'var(--primary)' or 'var(--sky)'
   className?: string;
 }
 
@@ -12,7 +12,7 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({
   label,
   value,
   displayValue,
-  color = "var(--blue)",
+  color = "var(--primary)",
   className = "",
 }) => {
   const clamped = Math.min(100, Math.max(0, value));
