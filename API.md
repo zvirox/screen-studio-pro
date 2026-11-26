@@ -417,6 +417,7 @@ Purge is a **V2 nicety** (empty-trash) and is deliberately absent: with soft del
 
 - **9.3 `files` fields (additive, validated by the same merge law):** `autoSplitEnabled` (bool, default `false`), `autoSplitDurationMin` (1–240, default `30`), `autoSplitSizeMb` (64–16384, default `4096`). Pre-9.3 TOML files load with these defaults; out-of-range values are `settings.invalid_value`.
 - **11.1 `capture.audioTracks` (additive, default `[]`):** output audio track assignment — `[{ "sourceId": "mic" | "desktop", "trackIndex": 0..N }]`. Empty = the default single pre-mixed stereo track (plan 2.1); distinct `trackIndex` values become separate AAC streams (video is stream 0, audio tracks are 1..=N). Pre-11.1 TOML files load with `[]` (unchanged single-track behaviour).
+- **11.2 `audio.noiseSuppression` (additive, default `true`):** RNNoise voice isolation on the mic (48 kHz, 10 ms frames, <15 ms latency). Off = raw mic. Desktop is never denoised (RNNoise is speech-tuned). Pre-11.2 TOML files load with `true`.
 - **200:** full merged settings · **Errors:** `settings.invalid_value`, `settings.schema_mismatch`, `disk.path_unwritable` (persist fail)
 
 #### `cmd://prefs_get` / `cmd://prefs_set`

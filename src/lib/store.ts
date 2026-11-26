@@ -152,6 +152,8 @@ export interface AudioSlice {
   error: IpcError | null;
   mic: AudioChannelState;
   desktop: AudioChannelState;
+  /** 11.2: RNNoise voice isolation on the mic. */
+  noiseSuppression: boolean;
   /** Latest `recording/meters` payload (≤30 Hz); null until a take
       emits. Keys are ALWAYS present (API §3): a channel not in the take
       reads rms/peak 0 — the strip renders that as its idle bar. */
@@ -167,6 +169,7 @@ export const INITIAL_AUDIO: AudioSlice = {
   error: null,
   mic: { enabled: false, muted: false, deviceId: null, level: 100 },
   desktop: { enabled: false, muted: false, deviceId: null, level: 100 },
+  noiseSuppression: true,
   meters: null,
   devices: null,
   devicesLoading: false,
@@ -422,6 +425,7 @@ interface SspState {
   setChannelDevice: (channel: "mic" | "desktop", deviceId: string | null) => Promise<void>;
   setChannelMuted: (channel: "mic" | "desktop", muted: boolean) => Promise<void>;
   setChannelLevel: (channel: "mic" | "desktop", level: number) => Promise<void>;
+  setNoiseSuppression: (value: boolean) => Promise<void>;
   onMeters: (evt: RecordingMetersEvt) => void;
 
   /** `cmd://source_select("monitor")` — portal consent (§2.1). */
@@ -550,6 +554,7 @@ export const useSspStore = create<SspState>((set, get) => ({
         audio: {
           ...get().audio,
           status: "ready",
+          noiseSuppression: settings.noiseSuppression,
           mic: {
             enabled: settings.micEnabled,
             muted: settings.micMuted,
@@ -657,6 +662,24 @@ export const useSspStore = create<SspState>((set, get) => ({
         audio[channel] = current;
         return { audio };
       });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setNoiseSuppression(value) {
+    const prior = get().audio;
+    if (prior.noiseSuppression === value) return;
+    set({ audio: { ...prior, noiseSuppression: value } });
+    try {
+      await settingsSet({ audio: { noiseSuppression: value } });
+    } catch (err) {
+      set({ audio: prior });
       set((s) =>
         pushToast(s, {
           kind: "error",

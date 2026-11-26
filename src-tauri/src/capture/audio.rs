@@ -76,6 +76,9 @@ pub struct ChannelConfig {
     /// `None` = the system default device for this channel.
     pub device_id: Option<String>,
     pub level: u8,
+    /// 11.2: RNNoise voice isolation on the mic (default on). Ignored for
+    /// desktop (RNNoise is tuned for speech).
+    pub noise_suppression: bool,
 }
 
 impl ChannelConfig {
@@ -573,12 +576,28 @@ pub fn start_mic(
     let ring_for_err = ring.clone();
     let channels = stream_config.channels as usize;
     let src_rate = stream_config.sample_rate;
+    // 11.2: RNNoise denoise state for the mic (opt-in via settings; default
+    // on). Created on the caller thread, moved into the audio callback.
+    #[cfg(feature = "encode")]
+    let mut denoise = config
+        .noise_suppression
+        .then(crate::capture::denoise::Denoise::new);
 
     let thread = std::thread::Builder::new()
         .name("cpal-mic".into())
         .spawn(move || {
             // Real-time path: convert + ONE try, never block (§6).
             let data_cb = move |data: &[f32], _info: &cpal::InputCallbackInfo| {
+                #[cfg(feature = "encode")]
+                if let Some(dn) = denoise.as_mut() {
+                    let folded = fold_to_stereo(data, channels);
+                    let converted = resample_linear(&folded, src_rate);
+                    let denoised = dn.process(&converted);
+                    if !denoised.is_empty() {
+                        let _ = ring_for_data.try_push(&denoised);
+                    }
+                    return;
+                }
                 convert_and_push(&ring_for_data, data, channels, src_rate);
             };
             let err_cb = move |err: cpal::Error| {

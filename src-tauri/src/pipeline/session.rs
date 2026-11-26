@@ -3855,6 +3855,7 @@ mod tests {
                     muted: false,
                     device_id: None,
                     level: 100,
+                    noise_suppression: false,
                 },
                 desk_ring.clone(),
                 lost(),

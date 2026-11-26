@@ -19,6 +19,7 @@ pub fn default_settings() -> Settings {
             mic_device_id: None, // system default; M4 lists real devices
             desktop_audio: true,
             echo_cancel: false,
+            noise_suppression: true,
             mic_enabled: true,
             mic_muted: false,
             mic_level: 100,

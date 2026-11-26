@@ -62,6 +62,7 @@ function readyStrip(meters?: { rms: number; peak: number } | null) {
         ? { mic: meters, desktop: { rms: 0.1, peak: 0.1 } }
         : null,
       devices: null,
+      noiseSuppression: true,
       devicesLoading: false,
     },
   });
@@ -74,6 +75,7 @@ describe("AudioStrip (§6.1 #3)", () => {
       micDeviceId: null,
       desktopAudio: true,
       echoCancel: false,
+  noiseSuppression: true,
       micEnabled: true,
       micMuted: false,
       micLevel: 80,
@@ -91,6 +93,7 @@ describe("AudioStrip (§6.1 #3)", () => {
         desktop: { enabled: false, muted: false, deviceId: null, level: 100 },
         meters: null,
         devices: null,
+        noiseSuppression: true,
         devicesLoading: false,
       },
       toasts: [],

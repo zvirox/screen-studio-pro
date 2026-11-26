@@ -113,6 +113,8 @@ export interface AudioSettings {
   micDeviceId: string | null;
   desktopAudio: boolean;
   echoCancel: boolean;
+  /** 11.2: RNNoise voice isolation on the mic (default true). */
+  noiseSuppression: boolean;
   /* 2.1: per-channel enable/mute/level (API §2.2 audio_set_channel).
      Rust mirror — src-tauri/src/settings/mod.rs `Audio` (camelCase). */
   micEnabled: boolean;

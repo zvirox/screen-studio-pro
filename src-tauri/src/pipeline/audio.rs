@@ -38,6 +38,7 @@ pub fn build_audio_plan(
             muted: audio.mic_muted,
             device_id: audio.mic_device_id.clone(),
             level: audio.mic_level,
+            noise_suppression: audio.noise_suppression,
         };
         let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
         producers.push(start_mic(&config, ring.clone(), on_lost())?);
@@ -58,6 +59,7 @@ pub fn build_audio_plan(
             muted: audio.desktop_muted,
             device_id: audio.desktop_device_id.clone(),
             level: audio.desktop_level,
+            noise_suppression: false,
         };
         let ring = std::sync::Arc::new(AudioRing::new(DEFAULT_RING_CAPACITY));
         producers.push(start_desktop(&config, ring.clone(), on_lost())?);

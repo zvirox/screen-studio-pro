@@ -513,6 +513,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - Integrate native RNNoise recurrent neural network (GRU) into microphone capture pipeline (`pipeline/audio.rs`).
   - Suppress keyboard clatter, laptop fans, and room reverberation in real time with <15ms latency.
   - *Verify:* Audio listen A/B test with mechanical typing shows clean speech isolation with >30 dB hum attenuation.
+  - ◐ **Implemented (2026-11-26):** `nnnoiseless` (pure-Rust RNNoise port, no system lib, behind the `encode` feature) in `capture/denoise.rs` — downmix→480-sample (10 ms) mono frames→denoise→stereo, tail carried (<15 ms latency); wired into `start_mic` before the ring; `audio.noise_suppression` (default true) + `AudioPane` toggle + `AudioSettings`/`AudioSlice` mirrors + API. **Verify:** `cargo test` (178, +2 denoise) + `npm test` (320) green, clippy/typecheck/lint/check:linear/build green. **Open (human gate):** the live A/B listen with mechanical typing (>30 dB hum attenuation) on a real mic.
 - [ ] **11.3 Sidechain Ducking Compressor & Anti-Feedback Loop Protection**
   - Implement sidechain compressor: desktop audio automatically ducks by -12 dB when voice is detected on mic.
   - Implement device ID collision detection in PipeWire graph to prevent acoustic feedback squeals when monitoring.
