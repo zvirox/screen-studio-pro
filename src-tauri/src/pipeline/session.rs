@@ -336,11 +336,17 @@ fn run_audio_worker(
             let pts = chunk_pts(i128::from(chunk_index[ti]), anchor.unwrap_or(0));
             accum[ti].resize(chunk_samples, 0.0);
             let padded = std::mem::take(&mut accum[ti]);
-            if let Ok(packets) = encoders[ti].encode(pts, &padded) {
+            if let Ok(mut packets) = encoders[ti].encode(pts, &padded) {
+                for p in &mut packets {
+                    p.stream = (ti + 1) as u8;
+                }
                 let _ = send_packets(&tx, packets);
             }
         }
-        if let Ok(tail) = encoders[ti].finish() {
+        if let Ok(mut tail) = encoders[ti].finish() {
+            for p in &mut tail {
+                p.stream = (ti + 1) as u8;
+            }
             let _ = send_packets(&tx, tail);
         }
     }
@@ -2949,7 +2955,6 @@ mod tests {
     // ordering edge in the multi-track drain. The default single-track path
     // is unaffected. Fixing the residual is the remaining 11.1 step.
     #[test]
-    #[ignore = "ssp-mux: residual non-monotonic dts across N audio tracks"]
     fn audio_take_two_tracks_probes_three_streams() {
         let handle = RecordingHandle::new();
         let bus = Arc::new(FrameBus::new(8));
