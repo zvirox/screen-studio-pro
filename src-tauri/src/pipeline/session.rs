@@ -293,6 +293,12 @@ fn run_audio_worker(
                 _ => 0,
             });
         }
+        // Encode every ready chunk across all tracks, then emit the pass's
+        // packets in ONE batch sorted by pts. All tracks share the anchor
+        // and chunk clock, so a global pts sort interleaves them correctly
+        // and keeps each stream's dts monotonic (Phase 11.1: per-track
+        // bursts sent back-to-back made libavformat see non-monotonic dts).
+        let mut batch: Vec<EncodedPacket> = Vec::new();
         for ti in 0..track_count {
             while accum[ti].len() >= chunk_samples {
                 let chunk: Vec<f32> = accum[ti].drain(..chunk_samples).collect();
@@ -303,9 +309,7 @@ fn run_audio_worker(
                         for p in &mut packets {
                             p.stream = (ti + 1) as u8;
                         }
-                        if !send_packets(&tx, packets)? {
-                            return Ok(());
-                        }
+                        batch.extend(packets);
                     }
                     Err(err) => {
                         let _ = tx.try_send(AudioMsg::Fault(err));
@@ -316,6 +320,12 @@ fn run_audio_worker(
                         ));
                     }
                 }
+            }
+        }
+        if !batch.is_empty() {
+            batch.sort_by_key(|p| p.pts_us);
+            if !send_packets(&tx, batch)? {
+                return Ok(());
             }
         }
     }

@@ -87,17 +87,18 @@ impl SwAac {
             match self.audio.receive_packet(&mut packet) {
                 Ok(()) => {
                     let pts_samples = packet.pts().unwrap_or(0);
+                    // AAC priming makes the FIRST packet's pts negative; a
+                    // per-stream negative-pts shift across N tracks made
+                    // libavformat see non-monotonic dts (Phase 11.1). Clamp
+                    // to 0 — the take's audio starts at the anchor, never
+                    // before it. dts == pts (no B-frames).
+                    let pts_us = samples_to_pts_us(pts_samples, self.sample_rate).max(0);
                     packets.push(EncodedPacket {
                         // The audio stream is index 1 in the two-stream take
                         // (the muxer builder adds video first).
                         stream: 1,
-                        pts_us: samples_to_pts_us(pts_samples, self.sample_rate),
-                        // AAC has no B-frames: dts == pts. The codec's own
-                        // first dts is negative (encoder delay); a per-stream
-                        // negative offset across N tracks made libavformat see
-                        // non-monotonic dts (Phase 11.1). Use the monotonic,
-                        // non-negative pts for dts.
-                        dts_us: Some(samples_to_pts_us(pts_samples, self.sample_rate)),
+                        pts_us,
+                        dts_us: Some(pts_us),
                         key: packet.is_key(),
                         data: packet
                             .data()

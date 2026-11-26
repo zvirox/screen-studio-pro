@@ -241,8 +241,8 @@ fn spec_to_parameters(spec: &wire::StreamSpec) -> Result<ff::codec::Parameters, 
 
 /// Write one packet into the child's muxer, rescaling from the wire's µs
 /// base onto the stream's container time base — the same law as the old
-/// in-process `Muxer::write` (including KEY flag restoration and
-/// `av_interleaved_write_frame`, which buffers to keep N streams monotonic).
+/// in-process `Muxer::write` (including KEY flag restoration and in-order
+/// `av_write_frame`; the parent pre-sorts each batch by pts for N streams).
 fn write_packet(
     ctx: &mut ff::format::context::Output,
     tbs: &[ff::Rational],
@@ -261,12 +261,11 @@ fn write_packet(
         wire.set_flags(ff::codec::packet::Flags::KEY);
     }
     wire.rescale_ts(ff::Rational(1, 1_000_000), stream_tb);
-    // av_interleaved_write_frame (not av_write_frame): libavformat buffers
-    // and interleaves packets by dts, so N audio/video streams stay
-    // per-stream monotonic. av_write_frame wrote in receive order and a
-    // multi-track take hit "non-monotonic dts" on the first cross-stream
-    // packets after the negative-pts offset (Phase 11.1).
-    wire.write_interleaved(ctx)
+    // The parent emits each pass's packets globally sorted by pts, so
+    // in-order av_write_frame stays per-stream monotonic across N tracks
+    // (Phase 11.1). av_interleaved_write_frame reordered equal-dts
+    // cross-stream packets and tripped libavformat's per-stream check.
+    wire.write(ctx)
         .map_err(|err| io::Error::other(format!("ssp-mux: packet write failed: {err}")))?;
     Ok(())
 }
