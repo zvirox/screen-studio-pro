@@ -54,7 +54,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
       onClick={handleToggle}
       aria-label="Toggle theme"
       title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      className={`${compact ? "size-6 rounded-xs" : "size-7 rounded-sm"} inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface-2)] transition-colors duration-150 cursor-pointer ${className}`}
+      className={`${compact ? "size-6 rounded-xs" : "size-7 rounded-sm"} inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors duration-150 cursor-pointer ${className}`}
     >
       {theme === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
     </button>
@@ -147,7 +147,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             type="button"
             onClick={() => void handleClose()}
             aria-label="Close window"
-            className="size-6 inline-flex items-center justify-center rounded-xs text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-white transition-colors duration-150 cursor-pointer"
+            className="size-6 inline-flex items-center justify-center rounded-xs text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-[var(--text)] transition-colors duration-150 cursor-pointer"
           >
             <X className="size-3.5" />
           </button>
@@ -198,7 +198,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           onClick={() => void handleMinimize()}
           aria-label="Minimize window"
           title="Minimize"
-          className="size-7 inline-flex items-center justify-center rounded-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface-2)] transition-colors duration-150 cursor-pointer"
+          className="size-7 inline-flex items-center justify-center rounded-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors duration-150 cursor-pointer"
         >
           <Minus className="size-3.5" />
         </button>
@@ -209,7 +209,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           onClick={() => void handleToggleMaximize()}
           aria-label={isMaximized ? "Restore window" : "Maximize window"}
           title={isMaximized ? "Restore" : "Maximize"}
-          className="size-7 inline-flex items-center justify-center rounded-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-surface-2)] transition-colors duration-150 cursor-pointer"
+          className="size-7 inline-flex items-center justify-center rounded-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] transition-colors duration-150 cursor-pointer"
         >
           {isMaximized ? <Copy className="size-3" /> : <Square className="size-3" />}
         </button>
@@ -220,7 +220,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           onClick={() => void handleClose()}
           aria-label="Close window"
           title="Close"
-          className="size-7 inline-flex items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-white transition-colors duration-150 cursor-pointer"
+          className="size-7 inline-flex items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-[var(--text)] transition-colors duration-150 cursor-pointer"
         >
           <X className="size-3.5" />
         </button>

@@ -58,11 +58,11 @@ export default function HudBar() {
           className="h-2.5 w-2.5 animate-pulse-rec rounded-full bg-signal" /* linear-exception: dot */
         />
       )}
-      <div role="timer" className="font-mono text-mono-md tabular-nums text-ink">
+      <div role="timer" className="font-mono text-mono-md tabular-nums text-signal">
         {formatElapsed(session.elapsedMs)}
       </div>
       {session.paused ? (
-        <span className="rounded-xs bg-signal-muted px-2 py-1 text-label font-medium text-signal">
+        <span className="rounded-xs bg-signal-muted px-2 py-1 text-label font-medium text-red-text">
           Paused
         </span>
       ) : null}

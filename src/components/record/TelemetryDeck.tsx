@@ -13,7 +13,7 @@ import {
   getLinearEChartsOption,
 } from "../linear";
 
-/* DESIGN.md v5.0 — Linear Telemetry Strip & ECharts Diagnostics Deck.
+/* DESIGN.md v6.0 — Linear Telemetry Strip & ECharts Diagnostics Deck.
    Feeds strictly from live session.stats samples + capabilities (zero fabricated data). */
 
 interface SamplePoint {
@@ -79,10 +79,9 @@ export default function TelemetryDeck() {
   useEffect(() => {
     const el = lineRef.current;
     if (!el || el.clientWidth === 0 || typeof window === "undefined") return;
-    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
     const c = getLinearChartColors();
     const chart = echarts.init(el);
-    const base = getLinearEChartsOption(isDark);
+    const base = getLinearEChartsOption();
 
     const xs = visibleSamples.length > 0 ? visibleSamples.map((s) => s.label) : ["0:00"];
     const fpsData = visibleSamples.length > 0 ? visibleSamples.map((s) => s.fps) : [0];
@@ -90,7 +89,7 @@ export default function TelemetryDeck() {
 
     chart.setOption({
       ...base,
-      grid: { top: 16, right: 12, bottom: 20, left: 36 },
+      grid: { top: 16, right: 12, bottom: 20, left: 36, borderColor: c.chartGrid },
       xAxis: { ...base.xAxis, type: "category", data: xs },
       yAxis: { ...base.yAxis, type: "value", minInterval: 1 },
       series: [
@@ -101,6 +100,7 @@ export default function TelemetryDeck() {
           showSymbol: false,
           lineStyle: { color: c.green, width: 2 },
           itemStyle: { color: c.green },
+          areaStyle: { color: c.chartFadeUp },
           data: fpsData,
         },
         {
@@ -110,6 +110,7 @@ export default function TelemetryDeck() {
           showSymbol: false,
           lineStyle: { color: c.red, width: 2 },
           itemStyle: { color: c.red },
+          areaStyle: { color: c.chartFadeDown },
           data: dropData,
         },
       ],
@@ -126,10 +127,9 @@ export default function TelemetryDeck() {
   useEffect(() => {
     const el = donutRef.current;
     if (!el || el.clientWidth === 0 || typeof window === "undefined") return;
-    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
     const c = getLinearChartColors();
     const chart = echarts.init(el);
-    const base = getLinearEChartsOption(isDark);
+    const base = getLinearEChartsOption();
 
     const hwShare = isHw ? 85 : 0;
     const swShare = isHw ? 15 : 100;
@@ -146,7 +146,7 @@ export default function TelemetryDeck() {
           label: { show: false },
           data: [
             { value: hwShare, name: "GPU Encode", itemStyle: { color: c.blue } },
-            { value: swShare, name: "CPU Encode", itemStyle: { color: c.teal } },
+            { value: swShare, name: "CPU Encode", itemStyle: { color: c.sky } },
           ],
         },
       ],
@@ -174,24 +174,24 @@ export default function TelemetryDeck() {
           value={fpsVal}
           unit={session.stats ? "fps" : undefined}
           icon={<Gauge size={16} aria-hidden="true" />}
-          iconBgColor="bg-[var(--tint-green)]"
-          iconColor="text-[var(--accent-green)]"
+          iconBgColor="bg-[var(--chip-green)]"
+          iconColor="text-[var(--green)]"
         />
         <StatCard
           title="Bitrate"
           value={bitrateVal}
           unit={session.stats ? "kbps" : undefined}
           icon={<Activity size={16} aria-hidden="true" />}
-          iconBgColor="bg-[var(--tint-blue)]"
-          iconColor="text-[var(--accent-blue)]"
+          iconBgColor="bg-[var(--chip-blue)]"
+          iconColor="text-[var(--blue)]"
         />
         <StatCard
           title="Dropped"
           value={droppedVal}
           unit="frames"
           icon={<Film size={16} aria-hidden="true" />}
-          iconBgColor={droppedVal > 0 ? "bg-[var(--tint-red)]" : "bg-[var(--tint-amber)]"}
-          iconColor={droppedVal > 0 ? "text-[var(--accent-red)]" : "text-[var(--accent-amber)]"}
+          iconBgColor={droppedVal > 0 ? "bg-[var(--chip-red)]" : "bg-[var(--bg-surface-2)]"}
+          iconColor={droppedVal > 0 ? "text-[var(--red)]" : "text-[var(--amber)]"}
         />
       </div>
 
@@ -220,8 +220,8 @@ export default function TelemetryDeck() {
             <div ref={donutRef} className="h-20 w-20 shrink-0" aria-hidden="true" />
             <DonutLegend
               items={[
-                { label: isHw ? activeEncoder : "GPU HW", value: isHw ? "85%" : "0%", color: "var(--accent-blue)" },
-                { label: "CPU x264", value: isHw ? "15%" : "100%", color: "var(--accent-teal)" },
+                { label: isHw ? activeEncoder : "GPU HW", value: isHw ? "85%" : "0%", color: "var(--blue)" },
+                { label: "CPU x264", value: isHw ? "15%" : "100%", color: "var(--sky)" },
               ]}
             />
           </div>
@@ -229,7 +229,7 @@ export default function TelemetryDeck() {
             label="Frame time (16.6 ms budget)"
             value={encodeLoad}
             displayValue={encodeMs}
-            color={encodeLoad > 85 ? "var(--accent-red)" : "var(--accent-blue)"}
+            color={encodeLoad > 85 ? "var(--red)" : "var(--blue)"}
           />
         </LinearCard>
       </div>

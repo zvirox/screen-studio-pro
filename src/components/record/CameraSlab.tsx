@@ -155,7 +155,7 @@ export default function CameraSlab() {
             aria-pressed="true"
             title="Remove camera"
             onClick={() => void closeCamera()}
-            className="flex h-10 items-center gap-2 rounded-sm border border-subtle bg-surface-hover pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="flex h-10 items-center gap-2 rounded-sm border border-subtle bg-active pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <VideoOff size={16} strokeWidth={1.5} aria-hidden="true" />
             {camera.label ?? "Camera"}

@@ -29,7 +29,7 @@ function MeterBar({ channel, reading }: { channel: Channel; reading: { rms: numb
   const calm = peak - hot;
   return (
     <div
-      className="h-1 w-full overflow-hidden rounded-xs border border-subtle bg-[var(--bg-bar-idle)]"
+      className="h-1 w-full overflow-hidden rounded-xs border border-subtle bg-[var(--bg-track)]"
       role="meter"
       aria-valuemin={0}
       aria-valuemax={100}
@@ -41,10 +41,10 @@ function MeterBar({ channel, reading }: { channel: Channel; reading: { rms: numb
         className="flex h-full"
         style={{ width: `${peak * 100}%` }}
       >
-        <div className="h-full bg-[var(--accent-green)]" style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }} />
+        <div className="h-full bg-[var(--green)]" style={{ width: `${((calm / (peak || 1)) * 100).toFixed(3)}%` }} />
         <div
           data-testid={`${channel}-meter-hot`}
-          className="h-full bg-[var(--accent-red)]"
+          className="h-full bg-[var(--red)]"
           style={{ width: `${((hot / (peak || 1)) * 100).toFixed(3)}%` }}
         />
       </div>

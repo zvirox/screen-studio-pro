@@ -28,8 +28,8 @@ export const RangeTabs: React.FC<RangeTabsProps> = ({
             onClick={() => onChange(tab)}
             className={`px-2.5 py-1 text-xs rounded-xs font-medium transition-colors duration-150 ease-out cursor-pointer ${
               isActive
-                ? "bg-[var(--bg-surface)] text-[var(--text)] border border-[var(--border)] shadow-card"
-                : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-bar-idle)] border border-transparent"
+                ? "bg-[var(--bg-active)] text-[var(--text)] border border-[var(--border)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-hover)] border border-transparent"
             }`}
           >
             {tab}

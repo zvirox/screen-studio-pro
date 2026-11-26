@@ -6,7 +6,7 @@
 
 ## 1. Overview & Vision
 
-ScreenStudio Pro is an open-source screen recording application for Linux, written largely in Rust, with a **finalized, locked Linear-Style flat matte UI** (`DESIGN.md v5.0`) designed for today's Wayland desktop environments (Hyprland, niri, MangoWC, KDE Plasma Wayland, GNOME) and X11 portals.
+ScreenStudio Pro is an open-source screen recording application for Linux, written largely in Rust, with a **finalized, locked Linear-Style flat matte UI** (`DESIGN.md v6.0`) designed for today's Wayland desktop environments (Hyprland, niri, MangoWC, KDE Plasma Wayland, GNOME) and X11 portals.
 
 **Vision:** OBS without the 2009 dashboard. Capture software that feels crisp, structured, and instrument-grade — solid matte surfaces, 1px hairline borders, high-contrast Inter + tabular monospace typography, and fast dark/light parity — while the recording core beneath it is native Rust and PipeWire-first.
 
@@ -48,7 +48,7 @@ Builds on both above, currently on OBS or terminal-based GPU Screen Recorder, bu
 ### Goals
 
 - **G1.** Shippable recording MVP: monitor / window / region capture, mic + desktop audio, software x264 baseline and hardware-accelerated VAAPI/NVENC path — on Wayland, through portals.
-- **G2.** A crisp, readable **Linear-Style flat matte UI** (`DESIGN.md v5.0`, locked): opaque solid panels, 1px hairline borders, 150ms ease-out motion, full dark/light parity — built on Tauri 2 + React 19.
+- **G2.** A crisp, readable **Linear-Style flat matte UI** (`DESIGN.md v6.0`, locked): opaque solid panels, 1px hairline borders, 150ms ease-out motion, full dark/light parity — built on Tauri 2 + React 19.
 - **G3.** Time-to-first-recording under 60 seconds from install, with zero manual portal/permission ceremony beyond the OS prompt.
 - **G4.** Recording core is pure Rust: PipeWire capture, VAAPI/NVENC when implemented/available, x264 active fallback.
 - **G5.** Ship exclusively uniform native Linux packages built via `nfpm`: `.deb`, `.rpm`, and `.pkg.tar.zst` plus `SHA256SUMS` (+ `.sig`) via GitHub Releases. AppImage, Flatpak, tarballs, and AUR are permanently retired.
@@ -274,7 +274,7 @@ Development and release progression follow three strict lifecycle tiers:
 
 ### 10.1 Alpha Foundation (Phases 0 – 9)
 
-- **Focus:** Vertical recording foundation, Wayland portal capture (`ashpd`), lock-free SPSC frame ring, x264 software encoder, floating HUD window, Camera PiP, Library with thumbnails, **final locked Linear UI (`DESIGN.md v5.0`)**, Starship Control UDS bridge runtime wiring (Phase 8), and container crash-resilience with native hybrid MP4 (`hybrid_mp4`) and isolated subprocess muxing (`ssp-mux`) (Phase 9).
+- **Focus:** Vertical recording foundation, Wayland portal capture (`ashpd`), lock-free SPSC frame ring, x264 software encoder, floating HUD window, Camera PiP, Library with thumbnails, **final locked Linear UI (`DESIGN.md v6.0`)**, Starship Control UDS bridge runtime wiring (Phase 8), and container crash-resilience with native hybrid MP4 (`hybrid_mp4`) and isolated subprocess muxing (`ssp-mux`) (Phase 9).
 - **Current App Version:** `0.1.0-beta.1` (Phases 0–7 core recording & Linear UI finalized; Phase 8 runtime UDS daemon + CET export and Phase 9 hybrid MP4/subprocess muxer remain pending before Beta hardening exits).
 - **Exit Criteria:** Zero corrupted recordings under force-kill stress testing; automated release artifacts (exclusively `.deb`, `.rpm`, `.pkg.tar.zst` via `nfpm`, plus `SHA256SUMS`) pass clean-container CI smoke tests.
 

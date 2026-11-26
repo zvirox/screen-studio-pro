@@ -23,8 +23,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   unit,
   delta,
   icon,
-  iconBgColor = "bg-[var(--tint-blue)]",
-  iconColor = "text-[var(--accent-blue)]",
+  iconBgColor = "bg-[var(--chip-blue)]",
+  iconColor = "text-[var(--blue)]",
   className = "",
 }) => {
   return (
@@ -61,8 +61,8 @@ export const StatCard: React.FC<StatCardProps> = ({
           <span
             className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-xs text-[11px] font-medium tabular-nums ${
               delta.positive
-                ? "bg-[var(--tint-green)] text-[var(--accent-green)]"
-                : "bg-[var(--tint-red)] text-[var(--accent-red)]"
+                ? "bg-[var(--chip-green)] text-[var(--green-text)]"
+                : "bg-[var(--chip-red)] text-[var(--red-text)]"
             }`}
           >
             {delta.positive ? (

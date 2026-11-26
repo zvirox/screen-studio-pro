@@ -128,7 +128,7 @@ export default function SettingsView() {
       <nav
         aria-label="Settings sections"
         role="tablist"
-        className="flex min-w-0 max-w-full shrink-0 gap-1 overflow-x-auto border-b border-subtle px-3 py-2
+        className="flex min-w-0 max-w-full shrink-0 gap-1 overflow-x-auto border-b border-subtle bg-[var(--bg-sidebar)] px-3 py-2
           min-[720px]:w-52 min-[720px]:flex-col min-[720px]:overflow-y-auto min-[720px]:border-b-0 min-[720px]:border-r min-[720px]:py-4"
       >
         {RAIL_ITEMS.map((item, index) => {
@@ -151,7 +151,7 @@ export default function SettingsView() {
               className={`flex h-10 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-sm border px-3 py-1.5 text-body-sm transition-colors duration-fast ease-fast focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent
                 ${
                   active
-                    ? "border-subtle bg-surface-solid text-ink"
+                    ? "border-subtle bg-active text-ink"
                     : "border-transparent text-ink-secondary hover:bg-surface-hover hover:text-ink"
                 }`}
             >

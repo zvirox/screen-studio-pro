@@ -7,25 +7,30 @@ function readCssToken(name: string): string {
 
 export function getLinearChartColors() {
   return {
-    blue: readCssToken("--accent-blue"),
-    sky: readCssToken("--accent-sky"),
-    green: readCssToken("--accent-green"),
-    red: readCssToken("--accent-red"),
-    amber: readCssToken("--accent-amber"),
-    teal: readCssToken("--accent-teal"),
-    pink: readCssToken("--accent-pink"),
-    purple: readCssToken("--accent-purple"),
-    orange: readCssToken("--accent-orange"),
-    bgApp: readCssToken("--bg-app"),
+    blue: readCssToken("--blue"),
+    sky: readCssToken("--sky"),
+    green: readCssToken("--green"),
+    greenText: readCssToken("--green-text"),
+    red: readCssToken("--red"),
+    redText: readCssToken("--red-text"),
+    amber: readCssToken("--amber"),
+    teal: readCssToken("--teal"),
+    pink: readCssToken("--pink"),
+    purple: readCssToken("--purple"),
+    orange: readCssToken("--orange"),
+    gray: readCssToken("--gray"),
     bgSurface: readCssToken("--bg-surface"),
     bgBarIdle: readCssToken("--bg-bar-idle"),
     border: readCssToken("--border"),
+    chartGrid: readCssToken("--chart-grid"),
+    chartFadeUp: readCssToken("--chart-fade-up"),
+    chartFadeDown: readCssToken("--chart-fade-down"),
     text: readCssToken("--text"),
     textMuted: readCssToken("--text-muted"),
   };
 }
 
-export const getLinearEChartsOption = (isDark: boolean = true) => {
+export const getLinearEChartsOption = () => {
   const c = getLinearChartColors();
   const font = "Inter, system-ui, -apple-system, sans-serif";
 
@@ -41,7 +46,7 @@ export const getLinearEChartsOption = (isDark: boolean = true) => {
       right: 16,
       bottom: 24,
       left: 44,
-      borderColor: c.border,
+      borderColor: c.chartGrid,
     },
     tooltip: {
       backgroundColor: c.bgSurface,
@@ -53,9 +58,7 @@ export const getLinearEChartsOption = (isDark: boolean = true) => {
         fontSize: 12,
         fontFamily: font,
       },
-      extraCssText: isDark
-        ? "border-radius: 6px;"
-        : "box-shadow: 0 1px 2px rgb(16 24 40 / 5%); border-radius: 6px;",
+      extraCssText: "box-shadow: var(--shadow-card); border-radius: 6px;",
     },
     xAxis: {
       axisLine: { lineStyle: { color: c.border } },
@@ -69,7 +72,7 @@ export const getLinearEChartsOption = (isDark: boolean = true) => {
       splitLine: {
         lineStyle: {
           type: "dotted" as const,
-          color: c.border,
+          color: c.chartGrid,
         },
       },
     },
@@ -82,7 +85,7 @@ export const getLinearEChartsOption = (isDark: boolean = true) => {
       c.pink,
       c.purple,
       c.orange,
-      c.red,
+      c.gray,
     ],
   };
 };

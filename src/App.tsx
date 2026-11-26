@@ -13,7 +13,7 @@ import { formatElapsed } from "./lib/format";
 import { MOTION } from "./lib/motion";
 import { useSspStore, type ViewId } from "./lib/store";
 
-/* App shell — TitleBar + NavBar + view router (ARCHITECTURE §2; DESIGN.md v5.0).
+/* App shell — TitleBar + NavBar + view router (ARCHITECTURE §2; DESIGN.md v6.0).
    One scroll owner per surface: Record owns its scroll in <main>;
    Library and Settings own theirs inside their view root. */
 
@@ -36,10 +36,10 @@ function RecordingTitleIndicator() {
     <span
       role="status"
       aria-label={paused ? "Recording paused" : "Recording live"}
-      className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--border)] bg-[var(--ssp-signal-muted)] px-1.5 py-0.5 text-[11px] font-mono tabular-nums text-[var(--ssp-signal)]"
+      className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--border)] bg-raised px-1.5 py-0.5 text-[11px] font-mono tabular-nums text-signal"
     >
       <span
-        className={`size-1.5 rounded-full bg-[var(--ssp-signal)] ${paused ? "" : "animate-pulse-rec motion-reduce:animate-none"}`} /* linear-exception: dot */
+        className={`size-1.5 rounded-full bg-signal ${paused ? "" : "animate-pulse-rec motion-reduce:animate-none"}`} /* linear-exception: dot */
         aria-hidden="true"
       />
       <span>{paused ? "PAUSED" : "REC"}</span>

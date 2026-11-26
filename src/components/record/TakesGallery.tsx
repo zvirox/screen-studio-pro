@@ -236,8 +236,8 @@ export default function TakesGallery() {
               "flex min-h-9 items-center gap-1 rounded-xs border border-transparent px-2.5 py-1 text-body-sm font-medium transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
               mode === "takes"
-                ? "border-subtle bg-surface-hover text-ink"
-                : "text-ink-secondary hover:text-ink",
+                ? "border-subtle bg-active text-ink"
+                : "text-ink-secondary hover:bg-surface-hover hover:text-ink",
             )}
           >
             <Film size={14} className="shrink-0" aria-hidden="true" />
@@ -264,8 +264,8 @@ export default function TakesGallery() {
               "flex min-h-9 items-center gap-1 rounded-xs border border-transparent px-2.5 py-1 text-body-sm font-medium transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
               mode === "presets"
-                ? "border-subtle bg-surface-hover text-ink"
-                : "text-ink-secondary hover:text-ink",
+                ? "border-subtle bg-active text-ink"
+                : "text-ink-secondary hover:bg-surface-hover hover:text-ink",
             )}
           >
             <Sliders size={14} className="shrink-0" aria-hidden="true" />

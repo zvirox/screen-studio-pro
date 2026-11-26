@@ -1,11 +1,11 @@
-/* src/tailwind.css — ScreenStudio Pro Linear-Style design tokens + fonts
-   Provenance: DESIGN.md v5.0 (Unified Linear-Style Design System — Final & Locked).
-   Tailwind v4 @theme mapped onto a runtime variable layer so dark (default) and
-   light swap cleanly via html[data-theme="dark|light"].
+/* src/tailwind.css — ScreenStudio Pro Linear-Style utilities + fonts
+   Provenance: DESIGN.md v6.0 (Unified Linear-Style Design System — Final & Locked).
+   Tailwind v4 @theme maps the shared and recording-only CSS variables onto utilities.
+   Dark/light colors resolve through html[data-theme="dark|light"].
 
-   GOVERNANCE (DESIGN §8): the closed token set lives here and only here.
-   Components reference tokens by name — raw hex literals, blur, translucency,
-   dark-mode shadows, and macOS CSD dots outside this file fail check:linear. */
+   GOVERNANCE (DESIGN §2): palette values live in src/styles/linear-theme.css and
+   src/styles/recording-tokens.css. Components reference token names only; raw colors
+   outside those token files fail check:linear. */
 
 /* ---------- Fonts (self-hosted, DESIGN §3 — never a CDN) ---------- */
 @font-face {
@@ -52,80 +52,14 @@
 }
 
 @import "tailwindcss";
+@import "./styles/linear-theme.css";
+@import "./styles/recording-tokens.css";
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-/* ---------- Runtime palette layer (DESIGN.md v5.0 — Linear Dark Default) ---------- */
+/* ---------- Runtime semantic aliases (DESIGN.md v6.0) ---------- */
 :root {
   color-scheme: dark;
-  --bg-app: #050505;
-  --bg-surface: #111213;
-  --bg-surface-2: #1A1B1E;
-  --bg-bar-idle: #202128;
-  --border: #1F2125;
-  --border-strong: #2C2E33;
-  --text: #F5F5F6;
-  --text-muted: #8A8B91;
-  --text-faint: #5A5B62;
-
-  /* Linear Accent Palette */
-  --accent-blue: #3355FF;
-  --accent-blue-hover: #2944CC;
-  --accent-blue-active: #1F3399;
-  --accent-sky: #38B6F0;
-  --accent-green: #22C55E;
-  --accent-red: #F43F5E;
-  --accent-amber: #EAB308;
-  --accent-teal: #1FB5A5;
-  --accent-pink: #EC4899;
-  --accent-purple: #7C5CE6;
-  --accent-orange: #F97316;
-  --close-hover: #E5484D;
-
-  /* Precomputed opaque icon-chip & badge tints (never translucent overlays) */
-  --tint-blue: #15192B;
-  --tint-sky: #152229;
-  --tint-green: #13241B;
-  --tint-red: #28171B;
-  --tint-amber: #272212;
-  --tint-teal: #132222;
-  --tint-pink: #281622;
-  --tint-purple: #1C1A28;
-  --tint-orange: #281C13;
-  --bg-scrim: #08090B;
-  --hero-canvas-bg: #050505;
-
-  /* Semantic aliases onto Linear surface tokens */
-  --ssp-bg-canvas: var(--bg-app);
-  --ssp-bg-raised: var(--bg-surface);
-  --ssp-surface-solid: var(--bg-surface-2);
-  --ssp-surface-hover: var(--bg-bar-idle);
-  --ssp-border-subtle: var(--border);
-  --ssp-border-strong: var(--border-strong);
-  --ssp-border-focus: var(--accent-blue);
-  --ssp-text-primary: var(--text);
-  --ssp-text-secondary: var(--text-muted);
-  --ssp-text-on-canvas: var(--text);
-  --ssp-text-disabled: var(--text-faint);
-
-  /* Studio Burgundy & Broadcast Signal Red — recording button & live indicator only */
-  --ssp-accent: #A3284E;
-  --ssp-accent-hover: #BA335D;
-  --ssp-accent-active: #8C1E40;
-  --ssp-accent-text: #FFFFFF;
-  --ssp-accent-muted: #211419;
-  --ssp-signal: #C92A2A;
-  --ssp-signal-muted: #261415;
-
-  --ssp-primary: var(--accent-blue);
-  --ssp-primary-hover: var(--accent-blue-hover);
-  --ssp-primary-active: var(--accent-blue-active);
-  --ssp-primary-text: #FFFFFF;
-
-  --ssp-success: var(--accent-green);
-  --ssp-warning: var(--accent-amber);
-  --ssp-error: var(--accent-red);
-  --ssp-error-muted: var(--tint-red);
-  --ssp-shadow-card: none;
-  --ssp-input-hover-border: var(--border-strong);
+  --hero-canvas-bg: var(--bg-app);
 
   --ssp-z-base: 0;
   --ssp-z-sticky: 10;
@@ -135,92 +69,100 @@
   --ssp-z-hud: 70;
 }
 
-/* ---------- Light mode (DESIGN.md v5.0 — Linear Light Mode) ---------- */
+/* ---------- Light mode non-color settings ---------- */
 :root[data-theme="light"],
 .light {
   color-scheme: light;
-  --bg-app: #F3F4F6;
-  --bg-surface: #FFFFFF;
-  --bg-surface-2: #F4F5F7;
-  --bg-bar-idle: #EAF0FF;
-  --border: #E5E7EB;
-  --border-strong: #D1D5DB;
-  --text: #0F1115;
-  --text-muted: #6B7280;
-  --text-faint: #9CA3AF;
-
-  --tint-blue: #EBEEFF;
-  --tint-sky: #EBF7FD;
-  --tint-green: #E9F9EF;
-  --tint-red: #FEECEF;
-  --tint-amber: #FDF7E6;
-  --tint-teal: #E8F8F6;
-  --tint-pink: #FDECF5;
-  --tint-purple: #F2EEFC;
-  --tint-orange: #FFF1E7;
-  --bg-scrim: #E2E5EB;
-  --hero-canvas-bg: #111213;
-
-  --ssp-accent: #8B1E3F;
-  --ssp-accent-hover: #751834;
-  --ssp-accent-active: #5C1B30;
-  --ssp-accent-text: #FFFFFF;
-  --ssp-accent-muted: #F3E5EA;
-  --ssp-signal: #D32F2F;
-  --ssp-signal-muted: #FDECEC;
-
-  --ssp-shadow-card: 0 1px 2px rgb(16 24 40 / 5%);
 }
 
 /* ---------- Tailwind theme bridge ---------- */
-/* DESIGN.md v5.0 */
+/* DESIGN.md v6.0 */
 @theme inline {
-  --color-canvas: var(--ssp-bg-canvas);
-  --color-raised: var(--ssp-bg-raised);
-  --color-solid: var(--ssp-surface-solid);
-  --color-surface-solid: var(--ssp-surface-solid);
-  --color-surface-hover: var(--ssp-surface-hover);
-  --color-scrim: var(--bg-scrim);
+  --color-app: var(--bg-app);
+  --color-sidebar: var(--bg-sidebar);
+  --color-surface: var(--bg-surface);
+  --color-surface-2: var(--bg-surface-2);
+  --color-active: var(--bg-active);
+  --color-hover: var(--bg-hover);
+  --color-track: var(--bg-track);
+  --color-bar-idle: var(--bg-bar-idle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-grid: var(--chart-grid);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-blue: var(--blue);
+  --color-blue-text: var(--blue-text);
+  --color-sky: var(--sky);
+  --color-green: var(--green);
+  --color-green-text: var(--green-text);
+  --color-amber: var(--amber);
+  --color-teal: var(--teal);
+  --color-pink: var(--pink);
+  --color-purple: var(--purple);
+  --color-orange: var(--orange);
+  --color-red: var(--red);
+  --color-red-text: var(--red-text);
+  --color-gray: var(--gray);
+  --color-chip-green: var(--chip-green);
+  --color-chip-red: var(--chip-red);
+  --color-chip-blue: var(--chip-blue);
+  --color-btn: var(--btn-primary-bg);
+  --color-btn-fg: var(--btn-primary-text);
+  --color-close-hover: var(--close-hover);
+  --color-scrim: var(--scrim);
+  --color-chart-fade-up: var(--chart-fade-up);
+  --color-chart-fade-down: var(--chart-fade-down);
 
-  --color-subtle: var(--ssp-border-subtle);
-  --color-border-subtle: var(--ssp-border-subtle);
-  --color-line-glass: var(--ssp-border-strong);
-  --color-border-strong: var(--ssp-border-strong);
-  --color-border-focus: var(--ssp-border-focus);
-  --color-focus: var(--ssp-border-focus);
+  --color-canvas: var(--bg-app);
+  --color-raised: var(--bg-surface);
+  --color-solid: var(--bg-surface-2);
+  --color-surface-solid: var(--bg-surface-2);
+  --color-surface-hover: var(--bg-hover);
 
-  --color-ink: var(--ssp-text-primary);
-  --color-ink-secondary: var(--ssp-text-secondary);
-  --color-ink-disabled: var(--ssp-text-disabled);
-  --color-text-primary: var(--ssp-text-primary);
-  --color-text-secondary: var(--ssp-text-secondary);
-  --color-text-on-canvas: var(--ssp-text-on-canvas);
-  --color-on-canvas: var(--ssp-text-on-canvas);
-  --color-text-disabled: var(--ssp-text-disabled);
+  --color-subtle: var(--border);
+  --color-border-subtle: var(--border);
+  --color-line-glass: var(--border-strong);
+  --color-border-focus: var(--blue-text);
+  --color-focus: var(--blue-text);
 
-  --color-primary: var(--ssp-primary);
-  --color-primary-hover: var(--ssp-primary-hover);
-  --color-primary-active: var(--ssp-primary-active);
-  --color-primary-text: var(--ssp-primary-text);
+  --color-ink: var(--text);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-disabled: var(--text-faint);
+  --color-text-primary: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-on-canvas: var(--text);
+  --color-on-canvas: var(--text);
+  --color-text-disabled: var(--text-faint);
 
-  --color-accent: var(--ssp-accent);
-  --color-accent-hover: var(--ssp-accent-hover);
-  --color-accent-active: var(--ssp-accent-active);
-  --color-accent-text: var(--ssp-accent-text);
-  --color-accent-muted: var(--ssp-accent-muted);
+  --color-primary: var(--btn-primary-bg);
+  --color-primary-hover: var(--btn-primary-bg);
+  --color-primary-active: var(--btn-primary-bg);
+  --color-primary-text: var(--btn-primary-text);
 
-  --color-signal: var(--ssp-signal);
-  --color-signal-muted: var(--ssp-signal-muted);
+  --color-accent: var(--blue-text);
+  --color-accent-hover: var(--blue-text);
+  --color-accent-active: var(--blue-text);
+  --color-accent-text: var(--text);
+  --color-accent-muted: var(--chip-blue);
 
-  --color-success: var(--ssp-success);
-  --color-warning: var(--ssp-warning);
-  --color-error: var(--ssp-error);
-  --color-error-muted: var(--ssp-error-muted);
+  --color-signal: var(--rec-red);
+  --color-signal-muted: var(--chip-red);
+  --color-record: var(--rec-burgundy);
+  --color-record-border: var(--rec-burgundy-border);
+  --color-record-text: var(--rec-burgundy-text);
 
-  --color-tint-blue: var(--tint-blue);
-  --color-tint-green: var(--tint-green);
-  --color-tint-red: var(--tint-red);
-  --color-tint-amber: var(--tint-amber);
+  --color-success: var(--green);
+  --color-warning: var(--amber);
+  --color-error: var(--red);
+  --color-error-muted: var(--chip-red);
+
+  --color-tint-blue: var(--chip-blue);
+  --color-tint-green: var(--chip-green);
+  --color-tint-red: var(--chip-red);
+  --color-tint-amber: var(--bg-surface-2);
 
   --z-base: var(--ssp-z-base);
   --z-sticky: var(--ssp-z-sticky);
@@ -263,9 +205,6 @@
   --radius-xl: 8px;
   --radius-full: 999px;
 
-  /* Shadows: none in dark mode, 1px hairline elevation in light mode */
-  --shadow-card: var(--ssp-shadow-card);
-
   /* Motion: 150ms ease-out */
   --duration-fast: 150ms;
   --duration-base: 150ms;
@@ -302,29 +241,29 @@
   }
 }
 
-/* ---------- Solid Flat Linear Recipes (Zero Blur, Zero Dark Shadow) ---------- */
+/* ---------- Flat Linear Recipes (one tokenized card shadow) ---------- */
 @utility pane {
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
-  box-shadow: var(--ssp-shadow-card);
+  box-shadow: var(--shadow-card);
 }
 
 @utility float {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-strong);
-  box-shadow: var(--ssp-shadow-card);
+  box-shadow: var(--shadow-card);
 }
 
 @utility modal {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-strong);
-  box-shadow: var(--ssp-shadow-card);
+  box-shadow: var(--shadow-card);
 }
 
 @utility studio-deck {
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
-  box-shadow: var(--ssp-shadow-card);
+  box-shadow: var(--shadow-card);
 }
 
 @utility hero-canvas {
@@ -358,7 +297,7 @@
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    background: var(--ssp-accent-muted);
+    background: var(--chip-blue);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -369,7 +308,7 @@
     width: 6px;
     height: 6px;
     border-radius: 4px;
-    background: var(--ssp-accent);
+    background: var(--blue);
   }
 }
 
@@ -397,7 +336,7 @@
   }
 
   :where(button, input, select, [tabindex]):focus-visible {
-    outline: 2px solid var(--ssp-border-focus);
+    outline: 2px solid var(--blue-text);
     outline-offset: 2px;
   }
 }

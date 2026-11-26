@@ -1,7 +1,7 @@
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { cn } from "../../lib/cn";
 
-/* DESIGN.md v5.0 — solid Linear popover surface on 1px border, 8px radius, max-h-80. */
+/* DESIGN.md v6.0 — solid Linear popover surface on 1px border, 8px radius, max-h-80. */
 export const Popover = PopoverPrimitive.Root;
 export const PopoverTrigger = PopoverPrimitive.Trigger;
 export const PopoverAnchor = PopoverPrimitive.Anchor;

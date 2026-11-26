@@ -1,8 +1,9 @@
 # DESIGN.md — ScreenStudio Pro Design System
 
-**Version:** 5.0 · **Date:** 2026-11-25 · **Status:** **FINAL & LOCKED**  
+**Version:** 6.0 · **Date:** 2026-11-26 · **Status:** **FINAL & LOCKED**
+
 **Authority:** PRD.md (product scope) → PRODUCT.md (brand feel) → **this file (visual law)**  
-**Lock Rule:** The **Unified Linear-Style Design System** is finalized and permanently locked. No UI style redesigns or alternate themes (frosted glass, translucency, pill buttons, dark-mode shadows, or macOS traffic lights) are permitted. Automated enforcement runs on every check via `npm run check:linear` (`scripts/check-linear.mjs`).
+**Lock Rule:** The **Unified Linear-Style Design System** is finalized and locked to the palette and token exceptions in this version. Layout, typography, component geometry, and interactions remain unchanged. No frosted glass, translucent surfaces, pill buttons, extra shadows, or macOS traffic lights are permitted. Automated enforcement runs on every check via `npm run check:linear` (`scripts/check-linear.mjs`).
 
 ---
 
@@ -11,73 +12,84 @@
 **Feel:** High-density, crisp, flat-matte Linux desktop engineering studio inspired by Linear. Built for clarity, low cognitive overhead, and effortless contrast across **Dark** (default) and **Light** modes (`html[data-theme="dark|light"]`, persisted under `localStorage["ui-theme"]` and applied before first paint in `index.html`).
 
 ### Non-Negotiable Principles
-1. **Solid Flat Opaque Surfaces Only:** All chrome, decks, cards, drawers, modals, popovers, and HUDs use solid hex surface tokens separated by `1px` structural borders (`--border`, `--border-strong`). `backdrop-filter: blur(...)`, `rgba()`/`hsla()`, Tailwind `/opacity` modifiers on surfaces/text/borders, glow effects, and box-shadows in dark mode are forbidden.
+1. **Flat Opaque Surfaces:** All chrome, decks, cards, drawers, modals, popovers, and HUDs use opaque surface tokens separated by `1px` structural borders (`--border`, `--border-strong`). `backdrop-filter: blur(...)`, translucent surface fills, Tailwind `/opacity` modifiers on surfaces/text/borders, and glow effects are forbidden. Only the scrim, chart-fade, and card-shadow tokens listed in §2 may use alpha colors.
 2. **Dark Default, Light Parity:**
-   - Dark mode: **zero** shadows on cards, buttons, popovers, or drawers (`--ssp-shadow-card: none`). Focus rings use crisp `outline: 2px solid var(--accent-blue)`.
-   - Light mode: subtle hairline card elevation **only** (`--ssp-shadow-card: 0 1px 2px rgb(16 24 40 / 5%)`).
-3. **Hero 16:9 Canvas:** Screen preview uses a native 16:9 container on `--hero-canvas-bg` (`--bg-app` dark `#050505` / crisp `#111213` light frame) with `1px` `--border`, `8px` corners, zero blur, and zero shadow. Overlays (webcam PiP, region drag-rect) render directly inside this frame.
+   - Dark mode uses the single card elevation token `--shadow-card`; no other shadows are permitted. Focus rings use crisp `outline: 2px solid var(--blue-text)`.
+   - Light mode uses the same token for subtle hairline card elevation.
+3. **Hero 16:9 Canvas:** Screen preview uses a native 16:9 container on `--hero-canvas-bg` (an alias of `--bg-app`) with `1px` `--border`, `8px` corners, zero blur, and zero shadow. Overlays (webcam PiP, region drag-rect) render directly inside this frame.
 4. **Minimal Structural Rounding & Zero Pills:**
    - Cards & containers: `8px` (`rounded-md` / `--radius-md`)
    - Buttons, inputs, tabs, select menus, switches: `6px` (`rounded-sm` / `--radius-sm`)
    - Chips, tags, badges, progress bars, tooltips: `4px` (`rounded-xs` / `--radius-xs`)
    - Pill shapes (`rounded-full`) are forbidden everywhere except tiny circular status dots (`<= 10px`, marked `linear-exception: dot`), ECharts donut ends, and the optional circular webcam PiP mask (`CameraPip`).
 5. **Recording-Only Burgundy / Signal Red Exception:**
-   - Primary UI actions, interactive focus, switch active states, telemetry accents, and gain sliders use **Linear Blue** (`#3355FF`).
-   - **Studio Burgundy** (`#A3284E` / `#8B1E3F`) and **Broadcast Signal Red** (`#C92A2A` / `#D32F2F`) are permitted **strictly and exclusively** on the primary Record/Stop CTA button and active recording indicators (titlebar `REC` badge/timer, HUD live pulse dot, active PiP recording border).
+   - Blue is the general interactive accent and telemetry series color; the primary button uses the theme-specific `--btn-primary-bg` / `--btn-primary-text` pair.
+   - The Studio Burgundy and Broadcast Signal Red values in `src/styles/recording-tokens.css` are permitted only on the Record CTA and active recording indicators (titlebar `REC` badge/timer, HUD live pulse dot, active PiP `2px` border).
 
 ---
 
-## 2. Closed Color Token Set (`src/tailwind.css`)
+## 2. Color Token Set (`src/styles/linear-theme.css`)
 
-All color values live **exclusively** inside `src/tailwind.css`. Raw `#hex` literals in `.ts`/`.tsx` components fail `npm run check:linear`.
+Shared semantic color values live in `src/styles/linear-theme.css`; the recording-only values live in `src/styles/recording-tokens.css`. `src/tailwind.css` maps these tokens to Tailwind utilities and keeps non-color design tokens. Raw CSS colors are forbidden elsewhere in app source, enforced by `npm run check:linear`. The fixed brand image and unreferenced starter SVG assets are not theme sources and remain unchanged.
 
-### 2.1 Dark Mode (`:root`, Default)
-
-| Token | Hex | Role |
-|---|---|---|
-| `--bg-app` | `#050505` | Deep matte window chrome and workspace ground |
-| `--bg-surface` | `#111213` | Primary elevated deck, card, drawer, and nav strip |
-| `--bg-surface-2` | `#1A1B1E` | Nested cards, audio strips, input wells, raised tabs |
-| `--bg-bar-idle` | `#202128` | Idle meter/progress tracks and subtle hover fills |
-| `--border` | `#1F2125` | 1px primary divider and card border |
-| `--border-strong` | `#2C2E33` | Hovered card boundary, strong separator |
-| `--text` | `#F5F5F6` | Primary headings, labels, active values (>17:1 contrast) |
-| `--text-muted` | `#8A8B91` | Secondary copy, axis labels, muted chrome icons |
-| `--text-faint` | `#5A5B62` | Disabled states, placeholders, keyboard hints |
-| `--bg-scrim` | `#08090B` | Solid matte dimmed modal/drawer backdrop |
-
-### 2.2 Light Mode (`:root[data-theme="light"], .light`)
-
-| Token | Hex | Role |
-|---|---|---|
-| `--bg-app` | `#F3F4F6` | Workspace app ground and titlebar |
-| `--bg-surface` | `#FFFFFF` | Card, inspector, mixer deck, drawer, and nav ground |
-| `--bg-surface-2` | `#F4F5F7` | Nested containers, inset inputs, secondary buttons |
-| `--bg-bar-idle` | `#EAF0FF` | Idle meter/progress tracks and active hover fills |
-| `--border` | `#E5E7EB` | 1px light card delimiter and hairline |
-| `--border-strong` | `#D1D5DB` | Hovered control/card delimiter |
-| `--text` | `#0F1115` | Primary ink (>15:1 contrast on canvas & surface) |
-| `--text-muted` | `#6B7280` | Secondary labels and icons |
-| `--text-faint` | `#9CA3AF` | Disabled text |
-| `--bg-scrim` | `#E2E5EB` | Solid matte dimmed modal/drawer backdrop |
-
-### 2.3 Accents & Precomputed Solid Tints
+### 2.1 Dark Mode (default)
 
 | Token | Value | Role |
 |---|---|---|
-| `--accent-blue` | `#3355FF` | Primary brand actions, focus rings (`--border-focus`), switches, gain sliders (`hover: #2944CC`, `active: #1F3399`) |
-| `--accent-sky` | `#38B6F0` | Telemetry / ECharts secondary series |
-| `--accent-green` | `#22C55E` | Online status dots, safe meter zone, FPS chart trace |
-| `--accent-amber` | `#EAB308` | Compression zone (`-6 dB` warning), amber meter zone |
-| `--accent-red` | `#F43F5E` | Clipping (`>0 dBFS`), dropped frames trace, danger actions |
-| `--close-hover` | `#E5484D` | Window Close button hover background in `TitleBar` |
-| `--accent-teal` | `#1FB5A5` | CPU encode budget donut series |
-| `--accent-pink` | `#EC4899` | Auxiliary chart series |
-| `--accent-purple` | `#7C5CE6` | Auxiliary chart series |
-| `--accent-orange` | `#F97316` | Auxiliary chart series |
-| `--tint-*` | Precomputed per theme | Opaque blended icon-chip & delta backgrounds (e.g. Dark `#15192B`, Light `#EBEEFF` for blue; never translucent `rgba()`) |
-| `--ssp-accent` | Dark `#A3284E` / Light `#8B1E3F` | **Recording-only exception:** Idle Record CTA button & app mark |
-| `--ssp-signal` | Dark `#C92A2A` / Light `#D32F2F` | **Recording-only exception:** Live recording Stop CTA, TitleBar `REC` badge, HUD pulse dot, active PiP 2px border |
+| `--bg-app`, `--bg-sidebar`, `--bg-surface` | `#1C1C1C` | Window ground, sidebar, cards, panels, dialogs, HUD |
+| `--bg-surface-2`, `--bg-active` | `#292929` | Inputs/nested surfaces and selected states |
+| `--bg-hover` | `#232323` | Hover fill |
+| `--bg-track`, `--bg-bar-idle` | `#333333` | Switch/progress tracks and idle chart bars |
+| `--border`, `--chart-grid` | `#2E2E2E` | Hairline borders and chart gridlines |
+| `--border-strong` | `#363636` | Strong/selected boundaries |
+| `--text` | `#FFFFFF` | Headings, primary metrics, active text |
+| `--text-secondary` | `#CBCBCB` | Body text, labels and table rows |
+| `--text-muted` | `#B4B4B4` | Units, timestamps, table headers, inactive tabs |
+| `--text-faint` | `#939393` | Hints and disabled text |
+| `--blue`, `--blue-text` | `#346AFE`, `#3483FF` | Blue series/fills; links, focus and active state text |
+| `--sky`, `--green`, `--green-text` | `#2FADFF`, `#1A9942`, `#38C84F` | Series/healthy states and positive delta text |
+| `--amber`, `--teal`, `--pink`, `--purple`, `--orange` | `#F6940F`, `#0ACC8A`, `#FC669B`, `#6D59F9`, `#FB6801` | Telemetry/chart series and warning |
+| `--red`, `--red-text` | `#FC4232`, `#FF6B5E` | Error/critical fills and negative delta text |
+| `--gray` | `#4F4F4F` | Neutral chart series |
+| `--chip-green`, `--chip-red`, `--chip-blue` | `#1C261E`, `#2D1F1F`, `#1B2531` | Solid status/delta chip fills |
+| `--btn-primary-bg`, `--btn-primary-text` | `#FFFFFF`, `#1C1C1C` | Primary button fill and text |
+| `--close-hover` | `#E5484D` | Window close hover fill; icon uses theme-aware `--text` to preserve the shared palette checksum |
+| `--scrim`, `--chart-fade-up`, `--chart-fade-down` | `rgba(0,0,0,0.7)`, `rgba(26,153,66,0.15)`, `rgba(252,66,50,0.15)` | Modal scrim and chart-area fades; only these tokens may be translucent |
+| `--shadow-card` | `0 12px 28px -6px rgba(0,0,0,0.5)` | Sole card shadow in either theme |
+
+### 2.2 Light Mode
+
+| Token | Value | Role |
+|---|---|---|
+| `--bg-app` | `#F8F9FA` | Window, titlebar and workspace ground |
+| `--bg-sidebar`, `--bg-surface-2` | `#F3F4F6` | Sidebar/rail and nested surfaces |
+| `--bg-surface` | `#FFFFFF` | Cards, panels, dialogs and HUD |
+| `--bg-active`, `--bg-track`, `--bg-bar-idle` | `#E5E7EB` | Selected states, tracks and idle bars |
+| `--bg-hover` | `#EEF0F2` | Hover fill |
+| `--border` | `#E5E7EB` | Hairline borders |
+| `--border-strong`, `--chart-grid` | `#D1D5DB` | Strong boundaries and chart gridlines |
+| `--text`, `--text-secondary` | `#111827` | Headings, body text and labels |
+| `--text-muted`, `--text-faint` | `#5B6370`, `#868E9C` | Secondary and faint text |
+| `--blue`, `--blue-text` | `#2563EB` | Blue fills/series and links/focus text |
+| `--sky`, `--green`, `--green-text`, `--amber` | `#0284C7`, `#059669`, `#15803D`, `#D97706` | Series/healthy states and semantic text |
+| `--teal`, `--pink`, `--purple`, `--orange` | `#0D9488`, `#DB2777`, `#6D28D9`, `#EA580C` | Telemetry/chart series |
+| `--red`, `--red-text`, `--gray` | `#DC2626`, `#B91C1C`, `#868E9C` | Error/critical, negative delta text and neutral series |
+| `--chip-green`, `--chip-red`, `--chip-blue` | `#DCFCE7`, `#FEE2E2`, `#DBEAFE` | Solid status/delta chip fills |
+| `--btn-primary-bg`, `--btn-primary-text` | `#2563EB`, `#FFFFFF` | Primary button fill and text |
+| `--close-hover` | `#E5484D` | Window close hover fill; icon uses theme-aware `--text` to preserve the shared palette checksum |
+| `--scrim`, `--chart-fade-up`, `--chart-fade-down` | `rgba(0,0,0,0.4)`, `rgba(5,150,105,0.1)`, `rgba(220,38,38,0.1)` | Modal scrim and chart-area fades; only these tokens may be translucent |
+| `--shadow-card` | `0 1px 2px rgb(16 24 40 / 5%)` | Sole card shadow in either theme |
+
+### 2.3 Recording-Only Tokens
+
+| Token | Dark | Light | Role |
+|---|---|---|---|
+| `--rec-red` | `#EF4444` | `#DC2626` | Live recording indicator and timer |
+| `--rec-burgundy` | `#831843` | `#9F1239` | Record button fill |
+| `--rec-burgundy-border` | `#BE185D` | `#9F1239` | Record button border |
+| `--rec-burgundy-text` | `#FFFFFF` | `#FFFFFF` | Record button text; preserves the existing high-contrast foreground |
+
+Recording colors are strictly limited to the Record CTA and active recording indicators (titlebar `REC` badge/timer, HUD pulse dot and active PiP border). No other color may be hard-coded in components; all component colors reference semantic token names.
 
 ---
 
@@ -113,19 +125,19 @@ Both typefaces are self-hosted `.woff2` files in `src/fonts/` (SIL OFL 1.1; netw
 - **Record View (`RecordView.tsx`):**
   - `>= 1120px`: Tri-panel layout — Left `CaptureInspector` (`300px`), Center stack (`SourceDeck` 16:9 Hero Canvas + `AudioMixerDeck` + `ActionRow` fit above the `1280×800` fold + `TelemetryDeck` below), Right `TakesGallery` (`260px`).
   - `720px–1119px`: `280px` Inspector + fluid Center column; `TakesGallery` toggles cleanly without overflow.
-  - `AudioMixerDeck`: Peak meter bars step **Green → Amber → Red**; gain fader sliders use `--accent-blue`; mute toggles and device popovers use flat solid surfaces.
+  - `AudioMixerDeck`: Peak meter bars step **Green → Amber → Red**; gain fader sliders use `--blue`; mute toggles and device popovers use flat solid surfaces.
   - `TelemetryDeck`: Real-time `StatCard` metrics, ECharts FPS/dropped line trace with `RangeTabs`, CPU/GPU encode donut + `DonutLegend` styled through `echarts-linear-theme.ts` reading live CSS variables.
 
 ### 4.3 Library, Settings, Modals & Floating HUDs
-- **Library (`LibraryGrid.tsx`):** Search bar, sort bar, responsive card grid (`8px` cards), opaque dark thumbnail duration chips (`4px`), keyboard-accessible quick actions, right-slide `RecordingDrawer` (`420px`) & `DeleteConfirm` (`480px`) over solid matte `--bg-scrim`.
+- **Library (`LibraryGrid.tsx`):** Search bar, sort bar, responsive card grid (`8px` cards), theme-aware thumbnail duration chips (`4px`), keyboard-accessible quick actions, right-slide `RecordingDrawer` (`420px`) & `DeleteConfirm` (`480px`) over the themed `--scrim` token.
 - **Settings (`SettingsView.tsx`):** `208px` (`min-[720px]:w-52`) left section rail (horizontal scrollable tab bar on compact `<720px`) + centered `560px` reading pane across 7 sections (`First Run`, `Capture`, `Audio`, `Camera`, `Files`, `Shortcuts`, `About` reading `tauri.conf.json` version dynamically).
-- **Floating HUD (`HudBar.tsx`) & Camera PiP (`CameraPip.tsx`):** Dedicated transparent HUD window renders solid `--bg-surface` bar (`--border-strong`), live pulse dot, `tabular-nums` timer, Pause/Stop/Flag buttons. `CameraPip` supports optional `circle` or `rounded` frame mask and switches to a `2px` `--ssp-signal` border while recording.
+- **Floating HUD (`HudBar.tsx`) & Camera PiP (`CameraPip.tsx`):** The native HUD window backing remains transparent; the HUD bar itself is solid `--bg-surface` with `--border-strong`, live pulse dot, `tabular-nums` timer, Pause/Stop/Flag buttons. `CameraPip` supports optional `circle` or `rounded` frame mask and switches to a `2px` `--rec-red` border while recording.
 
 ---
 
 ## 5. Accessibility, Motion & Verification Law
 
 - **Motion:** `150ms ease-out` (`cubic-bezier(0, 0, 0.2, 1)`) everywhere; reduced to `0.01ms` via `@media (prefers-reduced-motion: reduce)` and `<MotionConfig reducedMotion="user">`.
-- **Focus:** `2px solid var(--ssp-border-focus)` outline with `2px` offset (`box-shadow` focus glows removed).
+- **Focus:** `2px solid var(--blue-text)` outline with `2px` offset (`box-shadow` focus glows removed).
 - **Hit Targets:** Primary controls maintain `>= 36px` (`h-9` / `min-h-9`) touch/pointer targets; Primary Record CTA is `40px`/`48px`.
-- **Governance Gate (`npm run check:linear`):** Any `blur`, `rgba`/`hsla`, Tailwind opacity modifier, dark-mode shadow, macOS CSD dot, disallowed pill shape, or raw `#hex` outside `src/tailwind.css` fails CI immediately.
+- **Governance Gate (`npm run check:linear`):** Blur, Tailwind opacity modifiers, palette utility classes, retired palette values, non-token shadows, macOS CSD dots, disallowed pills, or raw colors outside the two palette files fail CI. Alpha functions are allowed only on `--scrim`, `--chart-fade-up`, `--chart-fade-down`, and `--shadow-card`; the HUD window backing stays natively transparent while its visible bar remains opaque.

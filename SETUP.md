@@ -1,6 +1,6 @@
 # SETUP.md — Running ScreenStudio Pro Locally
 
-**Version:** 2.0 · **Current State:** Active Tauri 2 + Rust + React codebase (`0.1.0-beta.1`, Unified Linear UI v5.0). Builds, tests, and packages natively via `nfpm`.
+**Version:** 2.0 · **Current State:** Active Tauri 2 + Rust + React codebase (`0.1.0-beta.1`, Unified Linear UI v6.0). Builds, tests, and packages natively via `nfpm`.
 
 ---
 

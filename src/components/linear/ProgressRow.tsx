@@ -4,7 +4,7 @@ export interface ProgressRowProps {
   label: string;
   value: number; // 0 - 100
   displayValue?: string;
-  color?: string; // CSS token e.g. 'var(--accent-blue)', 'var(--accent-green)'
+  color?: string; // CSS token such as 'var(--blue)' or 'var(--green)'
   className?: string;
 }
 
@@ -12,7 +12,7 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({
   label,
   value,
   displayValue,
-  color = "var(--accent-blue)",
+  color = "var(--blue)",
   className = "",
 }) => {
   const clamped = Math.min(100, Math.max(0, value));
@@ -25,7 +25,7 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({
           {displayValue ?? `${clamped}%`}
         </span>
       </div>
-      <div className="h-1.5 w-full rounded-xs bg-[var(--bg-bar-idle)] overflow-hidden">
+      <div className="h-1.5 w-full rounded-xs bg-[var(--bg-track)] overflow-hidden">
         <div
           className="h-full rounded-xs transition-[width] duration-150 ease-out"
           style={{ width: `${clamped}%`, backgroundColor: color }}

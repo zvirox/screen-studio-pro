@@ -1,4 +1,4 @@
-/* JS mirror of DESIGN.md v5.0 motion tokens (150ms ease-out).
+/* JS mirror of DESIGN.md v6.0 motion tokens (150ms ease-out).
    framer-motion cannot read CSS custom properties in transition props,
    so the numbers live here. Reduced-motion is handled once by
    <MotionConfig reducedMotion="user"> at each webview root. */

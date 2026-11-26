@@ -268,7 +268,7 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       const dot = badge.querySelector("span[aria-hidden='true']");
       expect(dot).toBeInTheDocument();
       expect(dot).toHaveClass("bg-success");
-      expect(dot).not.toHaveClass("bg-emerald-400");
+      expect(dot?.className).not.toMatch(/\bbg-(?:emerald|green|teal)-\d{2,3}\b/);
     });
   });
 
@@ -280,7 +280,7 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       expect(ctaBtn).toHaveClass("min-h-10");
       expect(ctaBtn).toHaveClass("rounded-sm");
       expect(ctaBtn).not.toHaveClass("rounded-full");
-      expect(ctaBtn).toHaveClass("bg-accent");
+      expect(ctaBtn).toHaveClass("bg-record");
     });
 
     it("triggers startRecording when clicked in idle state", async () => {
@@ -313,7 +313,7 @@ describe("Integrated Studio Titlebar (NavBar CSD)", () => {
       render(<NavBar />);
       const stopBtn = screen.getByRole("button", { name: "Stop recording" });
       expect(stopBtn).toBeInTheDocument();
-      expect(stopBtn).toHaveClass("bg-signal");
+      expect(stopBtn).toHaveClass("bg-record");
       const pulse = stopBtn.querySelector(".animate-pulse-rec");
       expect(pulse).toBeInTheDocument();
       expect(pulse).toHaveClass("motion-reduce:animate-none");

@@ -17,7 +17,7 @@ import { formatElapsed } from "../../lib/format";
 import { MOTION } from "../../lib/motion";
 import Button from "../ui/Button";
 
-/* DESIGN.md v5.0 — Linear Navigation Strip (flat opaque surface, 1px hairline border).
+/* DESIGN.md v6.0 — Linear Navigation Strip (flat opaque surface, 1px hairline border).
    - Center: 3-tab view switcher (Record | Library | Settings) with keyboard roving, 6px radius.
    - Right: crisp status chip (resolution/fps/encoder) + primary Record CTA button. */
 
@@ -162,7 +162,7 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
               aria-label="Minimize window"
               title="Minimize"
               onClick={() => void handleMinimize()}
-              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
             >
               <Minus size={14} aria-hidden="true" />
             </button>
@@ -171,7 +171,7 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
               aria-label="Maximize window"
               title="Maximize"
               onClick={() => void handleMaximize()}
-              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
             >
               <Maximize2 size={12} aria-hidden="true" />
             </button>
@@ -180,7 +180,7 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
               aria-label="Close window"
               title="Close"
               onClick={() => void handleClose()}
-              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-white transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
+              className="flex h-9 w-9 items-center justify-center rounded-sm text-[var(--text-muted)] hover:bg-[var(--close-hover)] hover:text-[var(--text)] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-focus"
             >
               <X size={14} aria-hidden="true" />
             </button>
@@ -216,14 +216,14 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
                 className={`relative flex h-8 items-center gap-1.5 rounded-xs px-2.5 text-body-sm font-medium outline-none transition-colors duration-150 ease-out min-[720px]:gap-2 min-[720px]:px-3 ${
                   active
                     ? "text-[var(--text)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--bg-bar-idle)] hover:text-[var(--text)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
                 }`}
               >
                 {active ? (
                   <motion.span
                     layoutId="active-view-tab"
                     aria-hidden="true"
-                    className="absolute inset-0 z-base rounded-xs border border-[var(--border)] bg-[var(--bg-surface)] shadow-card"
+                    className="absolute inset-0 z-base rounded-xs border border-[var(--border)] bg-[var(--bg-active)]"
                     transition={{ duration: MOTION.base, ease: MOTION.easeBase }}
                   />
                 ) : null}
@@ -256,20 +256,18 @@ export default function NavBar({ showWindowControls = true }: { showWindowContro
 
         {/* Record / Stop CTA (Studio Burgundy / Broadcast Signal Red recording-only exception) */}
         <Button
-          variant="primary"
+          variant="brand"
           size="md"
           aria-label={isRecording ? "Stop recording" : "Record"}
           title={isRecording ? "Stop recording" : "Start recording"}
           disabled={isBusy}
           onClick={() => void handleRecordCta()}
-          className={`shrink-0 rounded-sm px-3 min-[720px]:px-3.5 ${
-            isRecording ? "border-signal bg-signal text-white hover:bg-[var(--accent-red)]" : ""
-          }`}
+          className="shrink-0 rounded-sm px-3 min-[720px]:px-3.5"
         >
           {isRecording ? (
             <>
               <span
-                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-white motion-reduce:animate-none" /* linear-exception: dot */
+                className="h-1.5 w-1.5 animate-pulse-rec rounded-full bg-record-text motion-reduce:animate-none" /* linear-exception: dot */
                 aria-hidden="true"
               />
               <Square size={13} className="fill-current" aria-hidden="true" />

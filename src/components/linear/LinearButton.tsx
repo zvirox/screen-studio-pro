@@ -21,13 +21,13 @@ export const LinearButton: React.FC<LinearButtonProps> = ({
 
   const variantStyles = {
     primary:
-      "bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] active:bg-[var(--accent-blue-active)] text-white font-medium border border-[var(--accent-blue)]",
+      "bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-bg)] active:bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] font-medium border border-[var(--btn-primary-bg)]",
     secondary:
-      "bg-[var(--bg-surface-2)] hover:bg-[var(--bg-bar-idle)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-strong)] shadow-card",
+      "bg-[var(--bg-surface-2)] hover:bg-[var(--bg-hover)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--border-strong)]",
     ghost:
-      "bg-transparent hover:bg-[var(--bg-surface-2)] text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent",
+      "bg-transparent hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent",
     danger:
-      "bg-tint-red hover:bg-error text-error hover:text-white border border-error",
+      "bg-tint-red hover:bg-error text-error hover:text-[var(--btn-primary-text)] border border-error",
   }[variant];
 
   return (

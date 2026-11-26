@@ -57,7 +57,7 @@ function SourceChip({
       onClick={() => void selectAction()}
       className={
         isActive
-          ? "flex h-10 items-center gap-2 rounded-sm border border-subtle bg-surface-hover pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors"
+          ? "flex h-10 items-center gap-2 rounded-sm border border-subtle bg-active pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors"
           : "flex h-10 items-center gap-2 rounded-sm border border-subtle bg-solid pl-2.5 pr-3 text-body-sm font-medium text-ink transition-colors enabled:hover:bg-surface-hover disabled:border-subtle disabled:bg-solid disabled:text-ink-disabled"
       }
     >
@@ -196,7 +196,7 @@ function RegionDragRect({
         height: `${(rect.h / previewHeight) * 100}%`,
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
         border: "2px solid",
-        borderColor: "var(--accent-blue)",
+        borderColor: "var(--blue)",
         borderRadius: "var(--radius-sm)",
         cursor: "move",
         zIndex: "var(--ssp-z-sticky)",

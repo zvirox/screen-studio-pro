@@ -4,8 +4,8 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { LinearButton } from "../linear/LinearButton";
 import { useSspStore } from "../../lib/store";
 
-/* DESIGN.md v5.0 — right-slide drawer (420px) on solid `--bg-surface`,
-   1px `--border` left divider, opaque dimmed `bg-scrim`, Esc closes,
+/* DESIGN.md v6.0 — right-slide drawer (420px) on solid `--bg-surface`,
+   1px `--border` left divider, themed `bg-scrim`, Esc closes,
    focus trap + restore. Implemented with `<dialog>` portaled cleanly. */
 
 interface RecordingDrawerProps {

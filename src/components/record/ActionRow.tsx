@@ -87,7 +87,7 @@ export default function ActionRow() {
             {session.paused ? (
               <div
                 role="status"
-                className="rounded-xs bg-signal-muted px-2 py-1.5 text-label font-medium text-signal"
+                className="rounded-xs bg-signal-muted px-2 py-1.5 text-label font-medium text-red-text"
               >
                 Paused
               </div>
@@ -113,11 +113,11 @@ export default function ActionRow() {
           className={
             idle && fault
               ? // retry after a failure is still the primary action
-                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-accent-active disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-record-border bg-record text-body-sm font-medium text-record-text hover:bg-record transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-record disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
               : busy
-                ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
+                ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-record-border bg-record text-body-sm font-medium text-record-text disabled:border disabled:border-subtle disabled:bg-subtle disabled:text-ink-disabled"
                 : recording
-                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm bg-accent text-body-sm font-medium text-accent-text hover:bg-accent-hover transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-accent-active"
+                  ? "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-record-border bg-record text-body-sm font-medium text-record-text hover:bg-record transition-colors duration-fast motion-reduce:scale-none enabled:active:scale-[0.98] active:bg-record"
                   : "h-12 min-w-0 max-w-full flex-1 basis-full min-[640px]:basis-40 rounded-sm border border-subtle bg-subtle text-body-sm font-medium text-ink-disabled"
           }
         >

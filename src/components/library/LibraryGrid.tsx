@@ -18,10 +18,10 @@ import { cn } from "../../lib/cn";
 import { Reveal } from "../ui/Reveal";
 import Button from "../ui/Button";
 
-/* DESIGN.md v5.0 — Library grid (task 5.2).
-   Card: solid surface, 8px radius, 1px `--border`, `shadow-card` (none dark / hairline light).
+/* DESIGN.md v6.0 — Library grid (task 5.2).
+   Card: solid surface, 8px radius, 1px `--border`, tokenized `shadow-card`.
    Loading: skeleton grid — shimmer on solid shapes. Recording item: 16:9 thumbnail
-   (6px radius), opaque dark duration chip bottom-right, visible quick actions. */
+   (6px radius), theme-aware duration chip bottom-right, visible quick actions. */
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -88,8 +88,8 @@ function LibraryCard({
           onClick={() => onOpen(item.id)}
           className="absolute inset-0 rounded-sm focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
         />
-        {/* Duration chip bottom-right (opaque dark ground and white text). */}
-        <span className="pointer-events-none absolute bottom-1 right-1 flex items-center gap-1 rounded-xs bg-[var(--hero-canvas-bg)] px-1.5 py-0.5 font-mono text-mono-sm text-white">
+        {/* Duration chip bottom-right uses the canvas ground and theme text. */}
+        <span className="pointer-events-none absolute bottom-1 right-1 flex items-center gap-1 rounded-xs bg-[var(--hero-canvas-bg)] px-1.5 py-0.5 font-mono text-mono-sm text-ink">
           {formatDuration(item.durationMs)}
         </span>
         {/* Missing-file overlay (§5.5): thumbnail persists + error chip. */}
@@ -239,7 +239,7 @@ export default function LibraryGrid() {
               aria-pressed={sortField === "created_at"}
               className={cn(
                 "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm border border-transparent px-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                sortField === "created_at" && "border-subtle bg-surface-solid text-ink",
+                sortField === "created_at" && "border-subtle bg-active text-ink",
               )}
             >
               Date
@@ -256,7 +256,7 @@ export default function LibraryGrid() {
               aria-pressed={sortField === "duration"}
               className={cn(
                 "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm border border-transparent px-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                sortField === "duration" && "border-subtle bg-surface-solid text-ink",
+                sortField === "duration" && "border-subtle bg-active text-ink",
               )}
             >
               Duration
@@ -273,7 +273,7 @@ export default function LibraryGrid() {
               aria-pressed={sortField === "size"}
               className={cn(
                 "flex min-h-9 items-center gap-1 whitespace-nowrap rounded-sm border border-transparent px-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
-                sortField === "size" && "border-subtle bg-surface-solid text-ink",
+                sortField === "size" && "border-subtle bg-active text-ink",
               )}
             >
               Size

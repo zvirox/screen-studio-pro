@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import tauriConf from "../../src-tauri/tauri.conf.json";
 
 /* src/test/windowConfig.test.ts — Feature 2: Linear Window Configuration & Proportions
-   Provenance: DESIGN.md v5.0 (Final & Locked Linear UI)
+   Provenance: DESIGN.md v6.0 (Final & Locked Linear UI)
    Verifies:
    - Tier 1: Window config in `src-tauri/tauri.conf.json` (decorations false, transparent false, 1280x800 default, 1024x640 min)
    - Tier 2: Boundary invariants & valid build metadata */

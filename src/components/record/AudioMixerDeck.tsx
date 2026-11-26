@@ -51,10 +51,10 @@ export function MeterBar({
         <span>-60</span>
         <span className="text-ink-secondary">-18</span>
         <span className="text-ink-secondary">-6</span>
-        <span className={cn(hot > 0 ? "font-semibold text-[var(--accent-red)]" : "text-ink")}>{dbText}</span>
+        <span className={cn(hot > 0 ? "font-semibold text-[var(--red-text)]" : "text-ink")}>{dbText}</span>
       </div>
       <div
-        className="h-2 w-full overflow-hidden rounded-xs border border-subtle bg-[var(--bg-bar-idle)]"
+        className="h-2 w-full overflow-hidden rounded-xs border border-subtle bg-[var(--bg-track)]"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -67,16 +67,16 @@ export function MeterBar({
           style={{ width: `${peak * 100}%` }}
         >
           <div
-            className="h-full bg-[var(--accent-green)]"
+            className="h-full bg-[var(--green)]"
             style={{ width: `${((safe / (peak || 1)) * 100).toFixed(3)}%` }}
           />
           <div
-            className="h-full bg-[var(--accent-amber)]"
+            className="h-full bg-[var(--amber)]"
             style={{ width: `${((warm / (peak || 1)) * 100).toFixed(3)}%` }}
           />
           <div
             data-testid={`${channel}-meter-hot`}
-            className="h-full bg-[var(--accent-red)]"
+            className="h-full bg-[var(--red)]"
             style={{ width: `${((hot / (peak || 1)) * 100).toFixed(3)}%` }}
           />
         </div>
@@ -308,7 +308,7 @@ export default function AudioMixerDeck() {
                   className={cn(
                     "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
-                      ? "bg-error text-white hover:bg-[var(--accent-red)]"
+                      ? "bg-error text-[var(--btn-primary-text)] hover:bg-[var(--red)]"
                       : "border border-subtle bg-canvas text-ink hover:bg-surface-hover",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     "disabled:cursor-not-allowed disabled:opacity-50",
@@ -338,7 +338,7 @@ export default function AudioMixerDeck() {
                   aria-label="Mic input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("mic", Number(e.target.value))}
-                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-xs bg-[var(--bg-bar-idle)] accent-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-xs bg-[var(--bg-track)] accent-[var(--blue)] focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 80}%
@@ -419,7 +419,7 @@ export default function AudioMixerDeck() {
                   className={cn(
                     "flex h-9 shrink-0 items-center gap-1.5 rounded-sm px-2.5 text-label font-medium transition-colors",
                     isMuted
-                      ? "bg-error text-white hover:bg-[var(--accent-red)]"
+                      ? "bg-error text-[var(--btn-primary-text)] hover:bg-[var(--red)]"
                       : "border border-subtle bg-canvas text-ink hover:bg-surface-hover",
                     "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent",
                     "disabled:cursor-not-allowed disabled:opacity-50",
@@ -449,7 +449,7 @@ export default function AudioMixerDeck() {
                   aria-label="Desktop input gain"
                   disabled={!state.enabled}
                   onChange={(e) => void setChannelLevel("desktop", Number(e.target.value))}
-                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-xs bg-[var(--bg-bar-idle)] accent-[var(--accent-blue)] focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50"
+                  className="h-1.5 w-full min-w-0 cursor-pointer appearance-none rounded-xs bg-[var(--bg-track)] accent-[var(--blue)] focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-50"
                 />
                 <span className="w-10 text-right font-mono text-mono-sm text-ink font-medium">
                   {state.level ?? 70}%

@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — ScreenStudio Pro
 
-**Version:** 1.2 · **Authority chain:** PRD.md (scope) → ARCHITECTURE.md (structure) → DESIGN.md (UI law v5.0, Final & Locked)
+**Version:** 1.2 · **Authority chain:** PRD.md (scope) → ARCHITECTURE.md (structure) → DESIGN.md (UI law v6.0, Final & Locked)
 **Rules applied:** simple, popular, well-documented tools only. No code in this file. MVP scope only (recording), with named seams for V2 streaming and the scene compositor — seams, not scaffolding.
 
 ---
@@ -11,7 +11,7 @@
 | -------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | App shell                  | **Tauri 2**                                                                             | Small native Linux binaries, frameless flat titlebar, and a clean Rust↔webview IPC — decided in stack selection                                                        |
 | Frontend                   | **React 19 + TypeScript + Vite**                                                        | Fast HMR dev loop, TS types the IPC contract end-to-end, Vite is the standard bundler for Tauri                                                                        |
-| Styling                    | **Tailwind CSS v4**                                                                     | `@theme` block generates directly from DESIGN.md v5.0 Linear tokens; enforced by `scripts/check-linear.mjs`                                                            |
+| Styling                    | **Tailwind CSS v4**                                                                     | `@theme` maps DESIGN.md v6.0 tokens from `src/styles/`; enforced by `scripts/check-linear.mjs`                                                                         |
 | UI kit & Charts            | **Radix primitives (Popover/Switch) + custom `components/linear/*` + Apache ECharts 6** | Accessible primitives restyled to flat Linear specs (`8px`/`6px`/`4px` radii) plus real-time telemetry charts                                                          |
 | Motion                     | **framer-motion**                                                                       | 150ms ease-out motion tokens with `<MotionConfig reducedMotion="user">`                                                                                                |
 | State (TS)                 | **Zustand**                                                                             | Async-heavy state syncing with Tauri events fits its vanilla-store model; smallest API surface                                                                         |
@@ -129,7 +129,11 @@ screen-studio-pro/
             └── error.rs            # CoreError enum → serializable IPC errors
 └── src/                            # React frontend (Tauri webview)
     ├── package.json / vite.config.ts / tsconfig.json / index.html (`ui-theme` pre-paint)
-    ├── tailwind.css                # DESIGN.md v5.0 Linear palette, Inter + JetBrains Mono fonts
+    ├── tailwind.css                # Tailwind utility bridge, Inter + JetBrains Mono fonts
+    ├── styles/                     # Shared palette, SSP recording tokens, token tests
+    │   ├── linear-theme.css        # Shared v6.0 palette (byte-identical across apps)
+    │   ├── recording-tokens.css    # SSP-only Record/recording colors
+    │   └── tokens.test.ts          # Palette values and contrast tests
     ├── main.tsx / hud-main.tsx
     ├── App.tsx                     # TitleBar + NavBar + view router (Record/Library/Settings)
     ├── lib/
@@ -290,14 +294,14 @@ Phase 8 adds `starship_bridge.rs` as a _client_ of this same `AppState`: at boot
 - Rust: `snake_case` modules/functions, `UpperCamelCase` types, `SCREAMING_SNAKE` consts. Modules named by domain (`capture/portal.rs` not `portal_capture.rs`).
 - TS: `PascalCase` components, `camelCase` functions/vars, `kebab-case` CSS/token files. Types end in plain nouns; no `I` prefixes.
 - IPC contract: commands `snake_case` verbs (`start_recording`), events `domain/verb` (`recording/tick`, `library/updated`).
-- Design tokens: exact DESIGN.md v5.0 names in Tailwind `@theme inline` (`--bg-app`, `--bg-surface`, `--bg-surface-2`, `--border`, `--accent-blue`, `--shadow-card`…).
+- Design tokens: DESIGN.md v6.0 semantic roles live in `src/styles/linear-theme.css` and `src/styles/recording-tokens.css`, then map to Tailwind `@theme inline` (`--bg-app`, `--bg-surface`, `--bg-active`, `--blue`, `--blue-text`, `--shadow-card`…).
 - Files: one primary type per file; test files `name.rs` + `#[cfg(test)] mod tests` (Rust), `*.test.{ts,tsx}` (TS).
 
 ### 5.2 Code style
 
 - Rust: rustfmt + clippy `-D warnings`; edition 2024. TS: tsc strict, eslint, prettier; no `any` in the ipc contract.
 - Comments explain _why_, never restate _what_; exported contracts carry doc comments.
-- All UI work must obey DESIGN.md v5.0 (verified automatically by `npm run check:linear` + `/* DESIGN.md v5.0 */` provenance).
+- All UI work must obey DESIGN.md v6.0 (verified automatically by `npm run check:linear` + `/* DESIGN.md v6.0 */` provenance).
 
 ### 5.3 Environment variables list (dev/runtime only — none in production UI)
 

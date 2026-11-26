@@ -11,7 +11,7 @@ import Button from "../ui/Button";
 import { cn } from "../../lib/cn";
 import { MOTION } from "../../lib/motion";
 
-/* DESIGN.md v5.0 — canonical tri-panel Linear studio layout at 1120px;
+/* DESIGN.md v6.0 — canonical tri-panel Linear studio layout at 1120px;
    compact layouts stack vertically while preserving reading order. */
 export default function RecordView() {
   const [showTakesOnMobile, setShowTakesOnMobile] = useState(false);

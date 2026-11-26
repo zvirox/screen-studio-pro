@@ -4,8 +4,8 @@ import { LinearCard } from "../linear/LinearCard";
 import { LinearButton } from "../linear/LinearButton";
 import { useSspStore } from "../../lib/store";
 
-/* DESIGN.md v5.0 — centered `<dialog>` confirmation modal on solid `--bg-surface`,
-   1px `--border-strong`, `8px` radius, max-width 480px, opaque dimmed `bg-scrim`,
+/* DESIGN.md v6.0 — centered `<dialog>` confirmation modal on solid `--bg-surface`,
+   1px `--border-strong`, `8px` radius, max-width 480px, themed `bg-scrim`,
    Esc closes, focus trap via native `<dialog>` semantics, restore focus on close. */
 
 interface DeleteConfirmProps {

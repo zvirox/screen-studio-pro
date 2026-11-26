@@ -12,13 +12,7 @@ vi.mock("../../lib/ipc", async (importOriginal) => ({
 import { libraryDelete } from "../../lib/ipc";
 const mockLibraryDelete = vi.mocked(libraryDelete);
 
-/* §5.1 Buttons: danger (destructive only — delete recording; `error`
-   border + text on hover fills `error.muted`). §5.7 Modal & Drawer:
-   centered `<dialog>` portaled to document.body (overlaps escape clipping
-   containers), Modal recipe (`surface.glass-strong`, `blur(32px)`,
-   `border.subtle` 1px, `elev.2`, `r.lg`, max-width 480px), scrim
-   `rgba(0,0,0,0.4)` + `blur(4px)`, Esc closes, mandatory focus trap via
-   native `<dialog>` semantics, restore focus on close. */
+/* Covers destructive confirmation, close behavior, and dialog semantics. */
 describe("DeleteConfirm (§5.1 / §5.7 / §5.4)", () => {
   beforeEach(() => {
     vi.clearAllMocks();

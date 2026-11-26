@@ -1,0 +1,13 @@
+/* ScreenStudio Pro recording-only color exceptions. */
+:root, [data-theme="light"] {
+  --rec-red: #DC2626;
+  --rec-burgundy: #9F1239;
+  --rec-burgundy-border: #9F1239;
+  --rec-burgundy-text: #FFFFFF;
+}
+[data-theme="dark"] {
+  --rec-red: #EF4444;
+  --rec-burgundy: #831843;
+  --rec-burgundy-border: #BE185D;
+  --rec-burgundy-text: #FFFFFF;
+}

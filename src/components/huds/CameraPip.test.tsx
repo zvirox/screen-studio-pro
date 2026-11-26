@@ -50,7 +50,7 @@ describe("CameraPip (§6.6)", () => {
     useSspStore.setState({ camera: { ...INITIAL_CAMERA, status: "open", cameraId: "cam_1" } as CameraSlice });
     const { container } = render(<CameraPip cameraId="cam_1" recording={true} />);
     const frame = container.querySelector('[data-camera-pip="frame"]');
-    expect(frame?.getAttribute("style")).toContain("var(--ssp-signal)");
+    expect(frame?.getAttribute("style")).toContain("var(--rec-red)");
   });
 
   it("toggles freeze button aria-pressed", () => {

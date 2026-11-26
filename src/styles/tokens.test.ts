@@ -1,26 +1,32 @@
 import { describe, expect, it } from "vitest";
 
 /* src/styles/tokens.test.ts — Feature 1: Design Tokens & Linear Palette
-   Provenance: DESIGN.md v5.0 (Unified Linear-Style Design System — Final & Locked)
+   Provenance: DESIGN.md v6.0 (Unified Linear-Style Design System — Final & Locked)
    Verifies:
-   - Tier 1: Core Linear dark & light palette tokens, recording-only Burgundy/Signal tokens,
-     minimal rounding scale (4/6/8px), zero dark-mode shadows, zero blur/rgba
-   - Tier 2: WCAG contrast floors, prefers-reduced-motion overrides, solid utilities, z-level scale */
+   - Tier 1: Core dark/light palette tokens, recording-only colors, minimal rounding scale,
+     one card shadow, and approved alpha token roles
+   - Tier 2: WCAG contrast floors, reduced-motion overrides, solid utilities, z-level scale */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const require: (mod: string) => any;
 
-function getTailwindCss(): string {
+function readCss(filePath: string): string {
   const fs = require("fs");
   const path = require("path");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const globalAny = globalThis as any;
   const cwd = globalAny.process ? globalAny.process.cwd() : ".";
-  const cssPath = path.resolve(cwd, "src/tailwind.css");
+  const cssPath = path.resolve(cwd, filePath);
   return fs.readFileSync(cssPath, "utf-8") as string;
 }
 
-const css = getTailwindCss();
+function hasToken(cssText: string, name: string): boolean {
+  return new RegExp(`${name}:\\s*[^;]+;`).test(cssText);
+}
+
+const css = readCss("src/tailwind.css");
+const themeCss = readCss("src/styles/linear-theme.css");
+const recordingCss = readCss("src/styles/recording-tokens.css");
 
 function getRelativeLuminance(hex: string): number {
   const sanitized = hex.replace("#", "");
@@ -41,32 +47,36 @@ function getContrastRatio(hex1: string, hex2: string): number {
 }
 
 describe("Feature 1: Linear Design Tokens & Surface System (Tier 1)", () => {
-  it("F1-T1-01: declares exact Linear dark palette root variables in :root", () => {
-    expect(css).toContain("--bg-app: #050505;");
-    expect(css).toContain("--bg-surface: #111213;");
-    expect(css).toContain("--bg-surface-2: #1A1B1E;");
-    expect(css).toContain("--bg-bar-idle: #202128;");
-    expect(css).toContain("--border: #1F2125;");
-    expect(css).toContain("--border-strong: #2C2E33;");
-    expect(css).toContain("--text: #F5F5F6;");
-    expect(css).toContain("--text-muted: #8A8B91;");
-    expect(css).toContain("--text-faint: #5A5B62;");
+  it("F1-T1-01: declares the new dark palette roles", () => {
+    const dark = themeCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    expect(
+      [
+        "--bg-app",
+        "--bg-surface-2",
+        "--bg-hover",
+        "--bg-track",
+        "--border",
+        "--text",
+        "--text-secondary",
+        "--text-muted",
+        "--text-faint",
+      ].every((name) => hasToken(dark, name)),
+    ).toBe(true);
   });
 
-  it("F1-T1-02: defines Linear accent tokens plus Studio Burgundy / Broadcast Signal Red recording-only tokens", () => {
-    expect(css).toContain("--accent-blue: #3355FF;");
-    expect(css).toContain("--accent-sky: #38B6F0;");
-    expect(css).toContain("--accent-green: #22C55E;");
-    expect(css).toContain("--accent-red: #F43F5E;");
-    expect(css).toContain("--accent-amber: #EAB308;");
-    expect(css).toContain("--accent-teal: #1FB5A5;");
-    expect(css).toContain("--accent-pink: #EC4899;");
-    expect(css).toContain("--accent-purple: #7C5CE6;");
-    expect(css).toContain("--accent-orange: #F97316;");
-    expect(css).toContain("--close-hover: #E5484D;");
+  it("F1-T1-02: defines the new chart palette and recording-only colors", () => {
+    expect(["--blue", "--blue-text", "--green", "--green-text", "--red"].every((name) => hasToken(themeCss, name))).toBe(true);
+    expect(
+      ["--rec-burgundy", "--rec-burgundy-border", "--rec-red", "--rec-burgundy-text"].every((name) =>
+        hasToken(recordingCss, name),
+      ),
+    ).toBe(true);
+  });
 
-    expect(css).toContain("--ssp-accent: #A3284E;");
-    expect(css).toContain("--ssp-signal: #C92A2A;");
+  it("F1-T1-02a: matches the byte-identical shared theme reference", () => {
+    const crypto = require("crypto");
+    const digest = crypto.createHash("sha256").update(themeCss).digest("hex") as string;
+    expect(digest).toBe("8f939da3eb48b2f04a80b5bc2f85c45a8ed2794cfc267744c32e8e5fae47d0f4");
   });
 
   it("F1-T1-03: defines minimal Linear rounding scale in @theme inline (4px/6px/8px)", () => {
@@ -77,31 +87,34 @@ describe("Feature 1: Linear Design Tokens & Surface System (Tier 1)", () => {
     expect(css).toContain("--radius-lg: 8px;");
   });
 
-  it("F1-T1-04: enforces zero shadows in dark mode and restrained card hairline shadow in light mode only", () => {
-    expect(css).toContain("--ssp-shadow-card: none;");
-    expect(css).toContain("--ssp-shadow-card: 0 1px 2px rgb(16 24 40 / 5%);");
-    expect(css).toContain("--shadow-card: var(--ssp-shadow-card);");
-    expect(css).not.toContain("rgba(");
-    expect(css).not.toContain("hsla(");
+  it("F1-T1-04: allows the card shadow and alpha only on approved tokens", () => {
+    expect(themeCss).toContain("--shadow-card:");
+    expect(themeCss).toContain("--scrim:");
+    expect(themeCss).toContain("--chart-fade-up:");
+    expect(themeCss).toContain("--chart-fade-down:");
+    expect(themeCss).toContain("box-shadow: var(--shadow-card);");
   });
 
-  it("F1-T1-05: provides complete Linear light mode face overrides in :root[data-theme=\"light\"]", () => {
-    expect(css).toContain(':root[data-theme="light"],');
-    expect(css).toContain(".light {");
-    expect(css).toContain("--bg-app: #F3F4F6;");
-    expect(css).toContain("--bg-surface: #FFFFFF;");
-    expect(css).toContain("--bg-surface-2: #F4F5F7;");
-    expect(css).toContain("--bg-bar-idle: #EAF0FF;");
-    expect(css).toContain("--border: #E5E7EB;");
-    expect(css).toContain("--border-strong: #D1D5DB;");
-    expect(css).toContain("--text: #0F1115;");
-    expect(css).toContain("--text-muted: #6B7280;");
-    expect(css).toContain("--text-faint: #9CA3AF;");
+  it("F1-T1-05: provides the light theme values", () => {
+    const light = themeCss.match(/:root,\s*\[data-theme="light"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    expect(
+      [
+        "--bg-app",
+        "--bg-surface",
+        "--bg-surface-2",
+        "--bg-hover",
+        "--border",
+        "--border-strong",
+        "--text",
+        "--text-muted",
+        "--text-faint",
+      ].every((name) => hasToken(light, name)),
+    ).toBe(true);
   });
 
-  it("F1-T1-06: carries DESIGN.md v5.0 provenance comment and self-hosted Inter font face", () => {
-    expect(css).toMatch(/\/\*\s*DESIGN\.md v5\.0\s*\*\//);
-    expect(css).toContain("Provenance: DESIGN.md v5.0");
+  it("F1-T1-06: carries DESIGN.md v6.0 provenance and self-hosted Inter font face", () => {
+    expect(css).toMatch(/\/\*\s*DESIGN\.md v6\.0\s*\*\//);
+    expect(css).toContain("Provenance: DESIGN.md v6.0");
     expect(css).toContain('font-family: "Inter";');
     expect(css).toContain("--font-sans: \"Inter\", system-ui, -apple-system, sans-serif;");
   });
@@ -111,38 +124,49 @@ describe("Feature 1: Linear Design Tokens & Accessibility (Tier 2 Boundary & Edg
   it("F1-T1-07: keeps Inter type scale and outline focus indicators theme-aware", () => {
     expect(css).toContain("--text-body-md: 0.875rem;");
     expect(css).toContain("--text-body-sm: 0.8125rem;");
-    expect(css).toContain("--color-focus: var(--ssp-border-focus);");
-    expect(css).toContain("outline: 2px solid var(--ssp-border-focus);");
+    expect(css).toContain("--color-focus: var(--blue-text);");
+    expect(css).toContain("outline: 2px solid var(--blue-text);");
   });
 
   it("F1-T2-01: enforces WCAG AAA contrast ratio floor (> 7.0:1) for primary copy in dark and light modes", () => {
-    const rootBlockMatch = css.match(/(?:^|\n):root\s*\{([\s\S]*?)\}/);
-    expect(rootBlockMatch).not.toBeNull();
-    const rootBlock = rootBlockMatch?.[1] ?? "";
+    const dark = themeCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    const light = themeCss.match(/:root,\s*\[data-theme="light"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    const darkRecording = recordingCss.match(/\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    const lightRecording = recordingCss.match(/:root,\s*\[data-theme="light"\]\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+    const token = (block: string, name: string) =>
+      block.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6});`))?.[1];
 
-    const darkBgApp = rootBlock.match(/--bg-app:\s*(#[0-9a-fA-F]{6});/)?.[1];
-    const darkText = rootBlock.match(/--text:\s*(#[0-9a-fA-F]{6});/)?.[1];
-    const darkAccent = rootBlock.match(/--ssp-accent:\s*(#[0-9a-fA-F]{6});/)?.[1];
-    const darkAccentText = rootBlock.match(/--ssp-accent-text:\s*(#[0-9a-fA-F]{6});/)?.[1];
+    const darkBg = token(dark, "--bg-app")!;
+    const darkText = token(dark, "--text")!;
+    const lightBg = token(light, "--bg-app")!;
+    const lightText = token(light, "--text")!;
+    const darkPrimaryBg = token(dark, "--btn-primary-bg")!;
+    const darkPrimaryText = token(dark, "--btn-primary-text")!;
+    const lightPrimaryBg = token(light, "--btn-primary-bg")!;
+    const lightPrimaryText = token(light, "--btn-primary-text")!;
+    const darkBurgundy = token(darkRecording, "--rec-burgundy")!;
+    const lightBurgundy = token(lightRecording, "--rec-burgundy")!;
+    const darkChipRed = token(dark, "--chip-red")!;
+    const lightChipRed = token(light, "--chip-red")!;
+    const darkChipGreen = token(dark, "--chip-green")!;
+    const lightChipGreen = token(light, "--chip-green")!;
 
-    expect(darkBgApp).toBeDefined();
-    expect(darkText).toBeDefined();
-    expect(darkAccent).toBeDefined();
-    expect(darkAccentText).toBeDefined();
-
-    const lightBlockMatch = css.match(/(?:^|\n)\s*:root\[data-theme="light"\][^{]*\{([\s\S]*?)\}/);
-    expect(lightBlockMatch).not.toBeNull();
-    const lightBlock = lightBlockMatch?.[1] ?? "";
-
-    const lightBgApp = lightBlock.match(/--bg-app:\s*(#[0-9a-fA-F]{6});/)?.[1];
-    const lightText = lightBlock.match(/--text:\s*(#[0-9a-fA-F]{6});/)?.[1];
-
-    expect(lightBgApp).toBeDefined();
-    expect(lightText).toBeDefined();
-
-    expect(getContrastRatio(darkText!, darkBgApp!)).toBeGreaterThanOrEqual(17.0);
-    expect(getContrastRatio(lightText!, lightBgApp!)).toBeGreaterThanOrEqual(15.0);
-    expect(getContrastRatio(darkAccentText!, darkAccent!)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(darkText, darkBg)).toBeGreaterThanOrEqual(17.0);
+    expect(getContrastRatio(lightText, lightBg)).toBeGreaterThanOrEqual(15.0);
+    expect(getContrastRatio(darkPrimaryText, darkPrimaryBg)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(lightPrimaryText, lightPrimaryBg)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(darkRecording, "--rec-burgundy-text")!, darkBurgundy)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(lightRecording, "--rec-burgundy-text")!, lightBurgundy)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(darkRecording, "--rec-red")!, darkBg)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(lightRecording, "--rec-red")!, lightBg)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(dark, "--red-text")!, darkChipRed)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(light, "--red-text")!, lightChipRed)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(dark, "--green-text")!, darkChipGreen)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(light, "--green-text")!, lightChipGreen)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(dark, "--text-muted")!, token(dark, "--bg-surface-2")!)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(token(light, "--text-muted")!, token(light, "--bg-surface-2")!)).toBeGreaterThanOrEqual(4.5);
+    expect(getContrastRatio(darkText, token(dark, "--close-hover")!)).toBeGreaterThanOrEqual(3.0);
+    expect(getContrastRatio(lightText, token(light, "--close-hover")!)).toBeGreaterThanOrEqual(3.0);
   });
 
   it("F1-T2-02: enforces prefers-reduced-motion override", () => {
@@ -152,11 +176,11 @@ describe("Feature 1: Linear Design Tokens & Accessibility (Tier 2 Boundary & Edg
     expect(css).toContain("animation-iteration-count: 1 !important;");
   });
 
-  it("F1-T2-03: implements solid flat Linear surface utilities (zero blur, zero dark shadow)", () => {
+  it("F1-T2-03: implements flat Linear surface utilities with the tokenized card shadow", () => {
     expect(css).toContain("@utility studio-deck {");
     expect(css).toContain("background-color: var(--bg-surface);");
     expect(css).toContain("border: 1px solid var(--border);");
-    expect(css).toContain("box-shadow: var(--ssp-shadow-card);");
+    expect(css).toContain("box-shadow: var(--shadow-card);");
     expect(css).toContain("@utility hero-canvas {");
     expect(css).not.toContain("csd-dot-");
   });
@@ -182,11 +206,14 @@ describe("Feature 1: Linear Design Tokens & Accessibility (Tier 2 Boundary & Edg
     expect(themeMatch).not.toBeNull();
     const themeBody = themeMatch![1];
 
-    expect(themeBody).toContain("--color-canvas: var(--ssp-bg-canvas);");
-    expect(themeBody).toContain("--color-raised: var(--ssp-bg-raised);");
-    expect(themeBody).toContain("--color-accent: var(--ssp-accent);");
-    expect(themeBody).toContain("--color-signal: var(--ssp-signal);");
-    expect(themeBody).toContain("--color-ink: var(--ssp-text-primary);");
+    expect(themeBody).toContain("--color-canvas: var(--bg-app);");
+    expect(themeBody).toContain("--color-app: var(--bg-app);");
+    expect(themeBody).toContain("--color-btn: var(--btn-primary-bg);");
+    expect(themeBody).toContain("--color-raised: var(--bg-surface);");
+    expect(themeBody).toContain("--color-accent: var(--blue-text);");
+    expect(themeBody).toContain("--color-signal: var(--rec-red);");
+    expect(themeBody).toContain("--color-ink: var(--text);");
+    expect(themeBody).toContain("--color-record: var(--rec-burgundy);");
 
     const hexInColorToken = /--color-[a-z-]+:\s*#[0-9a-fA-F]{3,8}/.test(themeBody);
     expect(hexInColorToken).toBe(false);
