@@ -20,5 +20,16 @@ export function formatElapsed(ms: number): string {
     kbps→Mbps keeps the line human-scale (DESIGN §7.9 plain language). */
 export function formatStats(stats: RecordingStatsEvt): string {
   const mbps = (stats.bitrateKbps / 1000).toFixed(1);
-  return `${stats.fps.toFixed(1)} fps · ${stats.droppedFrames} dropped · ${mbps} Mbps · ${stats.encodeTimeMs.toFixed(1)} ms`;
+  const parts = [
+    `${stats.fps.toFixed(1)} fps`,
+    `${stats.droppedFrames} dropped`,
+    `${mbps} Mbps`,
+    `${stats.encodeTimeMs.toFixed(1)} ms`,
+  ];
+  // 11.4: loudness + true-peak (dBFS) when the meter has gated.
+  if (stats.lufs != null) parts.push(`${stats.lufs.toFixed(1)} LUFS`);
+  if (stats.truePeak > 0) {
+    parts.push(`${(20 * Math.log10(stats.truePeak)).toFixed(1)} dBFS TP`);
+  }
+  return parts.join(" · ");
 }

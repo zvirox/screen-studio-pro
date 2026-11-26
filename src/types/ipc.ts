@@ -301,6 +301,10 @@ export interface RecordingStatsEvt {
   droppedFrames: number;
   bitrateKbps: number;
   encodeTimeMs: number;
+  /** 11.4: gated integrated loudness (LUFS), null until a block gates. */
+  lufs: number | null;
+  /** 11.4: 4× oversampled true-peak (linear). */
+  truePeak: number;
 }
 
 export interface Chapter {

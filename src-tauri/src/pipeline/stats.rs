@@ -59,6 +59,11 @@ pub struct StatsSnapshot {
     pub bitrate_kbps: u64,
     /// Mean encode time per frame over the window, milliseconds.
     pub encode_time_ms: f64,
+    /// 11.4: gated integrated loudness of the mix (LUFS), if any block
+    /// passed the gate. Filled from the audio worker's shared meter.
+    pub lufs: Option<f32>,
+    /// 11.4: 4× oversampled true-peak of the last window (linear scale).
+    pub true_peak: f32,
 }
 
 /// The fps/drop/bitrate meters (ARCHITECTURE §2 tree: "fps/drop/bitrate
@@ -110,6 +115,8 @@ impl StatsMeter {
             dropped_frames,
             bitrate_kbps,
             encode_time_ms,
+            lufs: None,
+            true_peak: 0.0,
         }
     }
 

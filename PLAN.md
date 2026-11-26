@@ -522,7 +522,8 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
 - [ ] **11.4 True Peak Metering & Broadcast Faders**
   - ITU-R BS.1770-4 4x oversampling True Peak meter calculation to detect inter-sample clipping; `IEC_60_268_18` fader scaling.
   - *Verify:* High-frequency near-0dBFS signal correctly detects inter-sample peaks in UI meters.
-  - ◐ **Metering core landed (2026-11-26, pure Rust, no dep):** `pipeline/loudness.rs` — K-weighting (BS.1770 48 kHz biquads) → 400 ms 75%-overlap gated blocks → integrated LUFS (`LoudnessMeter`), and 4× windowed-sinc oversampled `true_peak` (catches inter-sample peaks). **Verify:** `cargo test` (187, +3) + clippy -D warnings + --no-default green. **Remaining:** wire LUFS/true-peak into `RecordingStats` → HUD/telemetry + the `IEC_60_268_18` fader taper, then the live near-0 dBFS inter-sample UI check.
+  - ◐ **Metering core landed (2026-11-26, pure Rust, no dep):** `pipeline/loudness.rs` — K-weighting (BS.1770 48 kHz biquads) → 400 ms 75%-overlap gated blocks → integrated LUFS (`LoudnessMeter`), and 4× windowed-sinc oversampled `true_peak` (catches inter-sample peaks). **Verify:** `cargo test` (187, +3) + clippy -D warnings + --no-default green. **Remaining:** the `IEC_60_268_18` fader taper (UI nicety) and the live near-0 dBFS inter-sample UI check.
+  - ◐ **Wired (2026-11-26):** `StatsSnapshot`/`RecordingStatsEvt` carry `lufs`/`truePeak`; the audio worker feeds a shared `LoudnessShare` (throttled ~10 Hz) and the video stats emit reads it; `formatStats` renders LUFS + dBFS true-peak. **Verify:** `cargo test` (185) + `npm test` (320) + typecheck/lint/check:linear/build green. **Remaining:** IEC fader taper + live inter-sample UI gate.
 
 ---
 

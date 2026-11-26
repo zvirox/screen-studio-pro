@@ -157,6 +157,10 @@ fn effective_meter(
     }
 }
 
+/// Phase 11.4 shared loudness slot (integrated LUFS, true-peak) written by
+/// the audio worker and read by the video worker's stats emit.
+type LoudnessShare = Arc<std::sync::Mutex<(Option<f32>, f32)>>;
+
 /// The audio worker: rings → 10 ms mix windows → AAC chunks → the video
 /// worker's mux loop. Laws implemented:
 /// - One PRE-MIXED stereo track (plan 2.1): fold happens here, before
@@ -177,6 +181,7 @@ fn run_audio_worker(
     opened: Vec<ff::encoder::Audio>,
     tracks: Vec<Vec<MixSource>>,
     ducking: bool,
+    loudness: LoudnessShare,
     video_base: Arc<AtomicU64>,
     video_anchored: Arc<AtomicBool>,
     tx: mpsc::SyncSender<AudioMsg>,
@@ -206,6 +211,9 @@ fn run_audio_worker(
     let mut limiters: Vec<crate::pipeline::ducking::FeedbackLimiter> = (0..track_count)
         .map(|_| crate::pipeline::ducking::FeedbackLimiter::new())
         .collect();
+    // 11.4: loudness/true-peak of the program (all tracks' mono downmix).
+    let mut loudness_meter = crate::pipeline::loudness::LoudnessMeter::new();
+    let mut loudness_tick: u32 = 0;
     let mut anchor: Option<i64> = None;
     let mut reported_gone = [false; 2];
     let mut meter_gate = Throttle::new(METERS_PERIOD);
@@ -273,6 +281,29 @@ fn run_audio_worker(
             };
             if ducking {
                 limiters[ti].process(&mut pass.samples);
+            }
+            // 11.4: feed the program loudness meter + track the true-peak.
+            // Throttled (~10 Hz) — true-peak is O(taps) and the audio thread
+            // must never fall behind the capture clock.
+            loudness_tick = loudness_tick.wrapping_add(1);
+            if loudness_tick.is_multiple_of(10) {
+                let mono: Vec<f32> = pass
+                    .samples
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|c| (c[0] + c[1]) * 0.5)
+                    .collect();
+                for &s in &mono {
+                    loudness_meter.push(s);
+                }
+                let tp = crate::pipeline::loudness::true_peak(&mono);
+                if let Ok(mut share) = loudness.lock() {
+                    share.0 = loudness_meter.integrated_lufs();
+                    if tp > share.1 {
+                        share.1 = tp;
+                    }
+                }
             }
             if pass.samples.is_empty() {
                 continue;
@@ -1033,10 +1064,13 @@ impl RecordingHandle {
         // The audio worker starts FIRST: it may begin folding the moment
         // producers push; until the video worker stamps video_base it
         // parks on the bounded anchor wait (by design).
+        // 11.4: shared loudness/true-peak (audio worker writes, video stats reads).
+        let loudness: LoudnessShare = Arc::new(std::sync::Mutex::new((None, 0.0)));
         let audio_leg = if audio_opened.is_empty() {
             None
         } else {
             let opened = audio_opened;
+            let loudness_for_audio = loudness.clone();
             // Clone BEFORE the move-closure: the closure takes these
             // by value and the slot below still needs its own copies.
             let base_for_audio = video_base.clone();
@@ -1051,6 +1085,7 @@ impl RecordingHandle {
                         opened,
                         tracks,
                         ducking,
+                        loudness_for_audio,
                         base_for_audio,
                         anchored_for_audio,
                         audio_tx,
@@ -1082,6 +1117,7 @@ impl RecordingHandle {
         let worker_pause = pause.clone();
         let worker_region_rect = region_rect;
         let worker_preset = preset;
+        let worker_loudness = loudness.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
@@ -1104,6 +1140,7 @@ impl RecordingHandle {
                     worker_pause,
                     worker_region_rect,
                     worker_preset,
+                    worker_loudness,
                     camera_overlay.unwrap_or_default(),
                 )
             })
@@ -1394,6 +1431,7 @@ fn run_session(
     pause: PauseState,
     region_rect: Option<crate::capture::RegionRect>,
     preset: crate::pipeline::presets::Preset,
+    loudness: LoudnessShare,
     camera_overlay: CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
@@ -1409,6 +1447,7 @@ fn run_session(
         &pause,
         region_rect,
         preset,
+        &loudness,
         &camera_overlay,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
@@ -1446,6 +1485,7 @@ fn capture_take(
     pause: &PauseState,
     region_rect: Option<crate::capture::RegionRect>,
     preset: crate::pipeline::presets::Preset,
+    loudness: &LoudnessShare,
     camera_overlay: &CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
@@ -1505,7 +1545,11 @@ fn capture_take(
             });
         }
         if stats_gate.due(now) {
-            let snapshot = meter.snapshot(bus.dropped(), stats_window.elapsed());
+            let mut snapshot = meter.snapshot(bus.dropped(), stats_window.elapsed());
+            if let Ok(share) = loudness.lock() {
+                snapshot.lufs = share.0;
+                snapshot.true_peak = share.1;
+            }
             meter.reset();
             stats_window = Instant::now();
             ctx.events.emit(SessionEvent::Stats(snapshot));

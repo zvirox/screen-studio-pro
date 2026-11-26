@@ -90,7 +90,7 @@ describe("Stats line (§6.1 #6, 3.5)", () => {
       ...INITIAL_SESSION,
       status: "recording",
       recordingId: "rec_1",
-      stats: { fps: 59.8, droppedFrames: 0, bitrateKbps: 12_100, encodeTimeMs: 5.2 },
+      stats: { fps: 59.8, droppedFrames: 0, bitrateKbps: 12_100, encodeTimeMs: 5.2, lufs: null, truePeak: 0 },
     });
     render(<ActionRow />);
     const line = screen.getByText("59.8 fps · 0 dropped · 12.1 Mbps · 5.2 ms");
@@ -100,7 +100,7 @@ describe("Stats line (§6.1 #6, 3.5)", () => {
   it("idle: no stats line even if a stale payload sits in the slice", () => {
     setState(LIVE, {
       ...INITIAL_SESSION,
-      stats: { fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1 },
+      stats: { fps: 60, droppedFrames: 0, bitrateKbps: 1000, encodeTimeMs: 1, lufs: null, truePeak: 0 },
     });
     render(<ActionRow />);
     expect(screen.queryByText(/fps ·/)).toBeNull();

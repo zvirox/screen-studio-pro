@@ -336,6 +336,8 @@ describe("Studio Store Integration: 7 UI v3 Features (Tier 1 & Tier 2)", () => {
         bitrateKbps: 6200,
         droppedFrames: 0,
         encodeTimeMs: 4.2,
+        lufs: null,
+        truePeak: 0,
       };
       useSspStore.getState().onStats(statsEvt);
 
