@@ -9,6 +9,7 @@ pub mod cet;
 #[cfg(feature = "encode")]
 pub mod composite;
 pub mod ducking;
+pub mod loudness;
 #[cfg(feature = "encode")]
 pub mod muxer;
 #[cfg(feature = "encode")]
