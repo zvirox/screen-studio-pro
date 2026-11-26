@@ -20,6 +20,7 @@ pub fn default_settings() -> Settings {
             desktop_audio: true,
             echo_cancel: false,
             noise_suppression: true,
+            ducking: true,
             mic_enabled: true,
             mic_muted: false,
             mic_level: 100,

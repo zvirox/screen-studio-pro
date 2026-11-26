@@ -155,6 +155,7 @@ const DUMMY_SETTINGS: Settings = {
     desktopAudio: true,
     echoCancel: false,
   noiseSuppression: true,
+  ducking: true,
     micEnabled: true,
     micMuted: false,
     micLevel: 100,

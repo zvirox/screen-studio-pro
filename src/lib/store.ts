@@ -154,6 +154,8 @@ export interface AudioSlice {
   desktop: AudioChannelState;
   /** 11.2: RNNoise voice isolation on the mic. */
   noiseSuppression: boolean;
+  /** 11.3: sidechain ducking + feedback limiter. */
+  ducking: boolean;
   /** Latest `recording/meters` payload (≤30 Hz); null until a take
       emits. Keys are ALWAYS present (API §3): a channel not in the take
       reads rms/peak 0 — the strip renders that as its idle bar. */
@@ -170,6 +172,7 @@ export const INITIAL_AUDIO: AudioSlice = {
   mic: { enabled: false, muted: false, deviceId: null, level: 100 },
   desktop: { enabled: false, muted: false, deviceId: null, level: 100 },
   noiseSuppression: true,
+  ducking: true,
   meters: null,
   devices: null,
   devicesLoading: false,
@@ -426,6 +429,7 @@ interface SspState {
   setChannelMuted: (channel: "mic" | "desktop", muted: boolean) => Promise<void>;
   setChannelLevel: (channel: "mic" | "desktop", level: number) => Promise<void>;
   setNoiseSuppression: (value: boolean) => Promise<void>;
+  setDucking: (value: boolean) => Promise<void>;
   onMeters: (evt: RecordingMetersEvt) => void;
 
   /** `cmd://source_select("monitor")` — portal consent (§2.1). */
@@ -555,6 +559,7 @@ export const useSspStore = create<SspState>((set, get) => ({
           ...get().audio,
           status: "ready",
           noiseSuppression: settings.noiseSuppression,
+          ducking: settings.ducking,
           mic: {
             enabled: settings.micEnabled,
             muted: settings.micMuted,
@@ -662,6 +667,24 @@ export const useSspStore = create<SspState>((set, get) => ({
         audio[channel] = current;
         return { audio };
       });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async setDucking(value) {
+    const prior = get().audio;
+    if (prior.ducking === value) return;
+    set({ audio: { ...prior, ducking: value } });
+    try {
+      await settingsSet({ audio: { ducking: value } });
+    } catch (err) {
+      set({ audio: prior });
       set((s) =>
         pushToast(s, {
           kind: "error",

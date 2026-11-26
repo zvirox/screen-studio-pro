@@ -95,6 +95,7 @@ pub fn build_audio_plan(
         channels,
         row_note: Some(row_note),
         audio_tracks: audio_tracks.to_vec(),
+        ducking: audio.ducking,
     }))
 }
 
@@ -483,6 +484,17 @@ use std::sync::Arc;
 /// contribute nothing — skipping the pop would let a muted ring fill
 /// and record mutes as §6 data loss in the dropped counter.
 pub fn mix_rings(sources: &[MixSource], window_samples: usize) -> MixPass {
+    mix_rings_ducked(sources, window_samples, None)
+}
+
+/// As [`mix_rings`], with an optional sidechain ducker (11.3): when a mic
+/// source is present, its post-gain RMS drives the duck gain applied to the
+/// desktop contribution before the fold. `None` = the legacy mix exactly.
+pub fn mix_rings_ducked(
+    sources: &[MixSource],
+    window_samples: usize,
+    ducker: Option<&mut crate::pipeline::ducking::Ducker>,
+) -> MixPass {
     let mut popped: Vec<Vec<f32>> = Vec::with_capacity(sources.len());
     let mut pop_lens: Vec<usize> = Vec::with_capacity(sources.len());
     let mut max_len = 0usize;
@@ -506,6 +518,22 @@ pub fn mix_rings(sources: &[MixSource], window_samples: usize) -> MixPass {
             popped: pop_lens,
         };
     }
+    // 11.3: duck the desktop under the mic (same-track only; a track with a
+    // single source has nothing to duck). Meters stay pre-duck (the input).
+    if let Some(ducker) = ducker {
+        let mic_rms = sources
+            .iter()
+            .zip(popped.iter())
+            .find(|(s, _)| matches!(s.channel, crate::capture::audio::AudioChannel::Mic))
+            .map(|(_, p)| root_mean_square(p));
+        if let Some(mic_rms) = mic_rms {
+            for (source, samples) in sources.iter().zip(popped.iter_mut()) {
+                if matches!(source.channel, crate::capture::audio::AudioChannel::Desktop) {
+                    ducker.process(mic_rms, samples);
+                }
+            }
+        }
+    }
     let contribs: Vec<crate::capture::audio::Contribution<'_>> = popped
         .iter()
         .zip(sources.iter())
@@ -516,6 +544,13 @@ pub fn mix_rings(sources: &[MixSource], window_samples: usize) -> MixPass {
         meters,
         popped: pop_lens,
     }
+}
+
+fn root_mean_square(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt()
 }
 
 #[cfg(test)]

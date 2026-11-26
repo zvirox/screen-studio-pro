@@ -71,6 +71,9 @@ pub struct Audio {
     pub echo_cancel: bool,
     /// 11.2: RNNoise voice isolation on the mic (default on).
     pub noise_suppression: bool,
+    /// 11.3: sidechain ducking (desktop dips under the mic) + feedback
+    /// limiter (default on).
+    pub ducking: bool,
     /* 2.1: per-channel enable/mute/level (API §2.2 `audio_set_channel`).
     Fields are Option-free booleans/levels so the TOML stays hand-editable;
     `#[serde(default)]` below keeps pre-2.1 files valid — the missing keys

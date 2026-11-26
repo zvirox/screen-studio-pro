@@ -53,6 +53,7 @@ function setupStore(meters?: { rms: number; peak: number } | null) {
         : null,
       devices: null,
       noiseSuppression: true,
+  ducking: true,
       devicesLoading: false,
     },
   });
@@ -66,6 +67,7 @@ describe("AudioMixerDeck (Stage v3.5 Sub-Canvas Floating Audio Mixer Deck)", () 
       desktopAudio: true,
       echoCancel: false,
   noiseSuppression: true,
+  ducking: true,
       micEnabled: true,
       micMuted: false,
       micLevel: 80,

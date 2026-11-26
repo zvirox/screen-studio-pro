@@ -105,6 +105,8 @@ pub struct AudioPlan {
     /// 11.1: source→track assignment from the settings snapshot. Empty =
     /// the default single stereo track (plan 2.1). The worker folds by this.
     pub audio_tracks: Vec<crate::settings::AudioChannelMap>,
+    /// 11.3: sidechain ducking + feedback limiter (settings snapshot).
+    pub ducking: bool,
 }
 
 /// One hop from the audio worker to the video worker: encoded AAC
@@ -174,6 +176,7 @@ fn effective_meter(
 fn run_audio_worker(
     opened: Vec<ff::encoder::Audio>,
     tracks: Vec<Vec<MixSource>>,
+    ducking: bool,
     video_base: Arc<AtomicU64>,
     video_anchored: Arc<AtomicBool>,
     tx: mpsc::SyncSender<AudioMsg>,
@@ -196,6 +199,13 @@ fn run_audio_worker(
     let track_count = encoders.len();
     let mut chunk_index: Vec<i64> = vec![0; track_count];
     let mut accum: Vec<Vec<f32>> = (0..track_count).map(|_| Vec::new()).collect();
+    // 11.3: one sidechain ducker per track (stateful; only used when enabled).
+    let mut duckers: Vec<crate::pipeline::ducking::Ducker> = (0..track_count)
+        .map(|_| crate::pipeline::ducking::Ducker::new())
+        .collect();
+    let mut limiters: Vec<crate::pipeline::ducking::FeedbackLimiter> = (0..track_count)
+        .map(|_| crate::pipeline::ducking::FeedbackLimiter::new())
+        .collect();
     let mut anchor: Option<i64> = None;
     let mut reported_gone = [false; 2];
     let mut meter_gate = Throttle::new(METERS_PERIOD);
@@ -256,7 +266,14 @@ fn run_audio_worker(
         // this pass is skipped (its accum holds).
         let mut produced = false;
         for (ti, track) in tracks.iter().enumerate() {
-            let pass = super::audio::mix_rings(track, MIX_WINDOW_SAMPLES);
+            let mut pass = if ducking {
+                super::audio::mix_rings_ducked(track, MIX_WINDOW_SAMPLES, Some(&mut duckers[ti]))
+            } else {
+                super::audio::mix_rings(track, MIX_WINDOW_SAMPLES)
+            };
+            if ducking {
+                limiters[ti].process(&mut pass.samples);
+            }
             if pass.samples.is_empty() {
                 continue;
             }
@@ -910,11 +927,13 @@ impl RecordingHandle {
             channels,
             row_note,
             audio_tracks,
+            ducking,
         } = audio.unwrap_or(AudioPlan {
             producers: Vec::new(),
             channels: Vec::new(),
             row_note: None,
             audio_tracks: Vec::new(),
+            ducking: false,
         });
         let has_audio = !channels.is_empty();
         // 11.1: fold the flat sources into per-track buckets (empty map =
@@ -1031,6 +1050,7 @@ impl RecordingHandle {
                     run_audio_worker(
                         opened,
                         tracks,
+                        ducking,
                         base_for_audio,
                         anchored_for_audio,
                         audio_tx,
@@ -2401,6 +2421,7 @@ mod tests {
             }],
             row_note: None,
             audio_tracks: Vec::new(),
+            ducking: false,
         };
         let info = handle
             .start(
@@ -2851,6 +2872,7 @@ mod tests {
             ],
             row_note: Some(r#"{"source":"test","used":true}"#.into()),
             audio_tracks: Vec::new(),
+            ducking: false,
         };
         let info = handle
             .start(
@@ -2991,6 +3013,7 @@ mod tests {
                     track_index: 1,
                 },
             ],
+            ducking: false,
         };
         let info = handle
             .start(
@@ -3101,6 +3124,7 @@ mod tests {
             }],
             row_note: Some(r#"{"source":"mic","used":true}"#.into()),
             audio_tracks: Vec::new(),
+            ducking: false,
         };
         let info = handle
             .start(
@@ -3228,6 +3252,7 @@ mod tests {
             ],
             row_note: None,
             audio_tracks: Vec::new(),
+            ducking: false,
         };
         let started = Instant::now();
         let info = handle
@@ -3886,6 +3911,7 @@ mod tests {
                         .into(),
                 ),
                 audio_tracks: Vec::new(),
+            ducking: false,
             };
 
             let handle = RecordingHandle::new();
@@ -4212,6 +4238,7 @@ mod tests {
             ],
             row_note: None,
             audio_tracks: Vec::new(),
+            ducking: false,
         };
         let info = handle
             .start(
@@ -4627,6 +4654,7 @@ mod tests {
             ],
             row_note: None,
             audio_tracks: Vec::new(),
+            ducking: false,
         };
 
         let info = handle

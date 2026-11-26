@@ -17,6 +17,7 @@ export default function AudioPane() {
   const setChannelLevel = useSspStore((s) => s.setChannelLevel);
   const setCaptureSettings = useSspStore((s) => s.setCaptureSettings);
   const setNoiseSuppression = useSspStore((s) => s.setNoiseSuppression);
+  const setDucking = useSspStore((s) => s.setDucking);
 
   const mic = audio.mic;
   const desktop = audio.desktop;
@@ -142,6 +143,20 @@ export default function AudioPane() {
               onCheckedChange={(v) => {
                 setToggling(true);
                 void setNoiseSuppression(v).finally(() => setToggling(false));
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs text-label text-ink-secondary">
+              Duck desktop under mic
+            </label>
+            <Switch
+              aria-label="Sidechain ducking"
+              checked={audio.ducking}
+              disabled={toggling}
+              onCheckedChange={(v) => {
+                setToggling(true);
+                void setDucking(v).finally(() => setToggling(false));
               }}
             />
           </div>
