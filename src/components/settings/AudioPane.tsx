@@ -10,20 +10,38 @@ import { Switch } from "../ui/switch";
 
 export default function AudioPane() {
   const audio = useSspStore((s) => s.audio);
+  const capture = useSspStore((s) => s.settings.capture);
   const setChannelEnabled = useSspStore((s) => s.setChannelEnabled);
   const setChannelMuted = useSspStore((s) => s.setChannelMuted);
   const setChannelDevice = useSspStore((s) => s.setChannelDevice);
   const setChannelLevel = useSspStore((s) => s.setChannelLevel);
+  const setCaptureSettings = useSspStore((s) => s.setCaptureSettings);
 
   const mic = audio.mic;
   const desktop = audio.desktop;
   const [toggling, setToggling] = useState(false);
 
+  // 11.1: output track assignment (capture.audioTracks). Empty = the default
+  // single stereo mix (track 1). Each source maps to a 0-based trackIndex.
+  const tracks = capture?.audioTracks ?? [];
+  const trackOf = (sourceId: string): number =>
+    tracks.find((t) => t.sourceId === sourceId)?.trackIndex ?? 0;
+  const setTrack = (sourceId: string, trackIndex: number) => {
+    const next = [
+      ...tracks.filter((t) => t.sourceId !== sourceId),
+      { sourceId, trackIndex },
+    ];
+    setToggling(true);
+    void setCaptureSettings({ audioTracks: next }).finally(() => setToggling(false));
+  };
+
   return (
     <section>
       <p className="mt-2 max-w-md text-body-sm text-ink-secondary">
-        Choose which audio channels record and their devices/levels. Levels are post-gain — the
-        meter bar shows exactly what lands in the file.
+        Choose which audio channels record, their devices/levels, and the output track each lands
+        on. Levels are post-gain — the meter bar shows exactly what lands in the file. Put two
+        sources on the same track to fold them into one stream, or on different tracks for
+        discrete audio.
       </p>
 
       {audio.status === "error" && audio.error && (
@@ -52,7 +70,7 @@ export default function AudioPane() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Device</label>
               <select
@@ -97,6 +115,20 @@ export default function AudioPane() {
               />
               <span className="text-mono-sm text-ink-secondary text-right">{mic.level}%</span>
             </div>
+            <div>
+              <label className="text-xs text-label text-ink-secondary mb-1.5 block">Track</label>
+              <select
+                aria-label="Microphone output track"
+                value={trackOf("mic")}
+                onChange={(e) => setTrack("mic", Number(e.target.value))}
+                className="w-full h-9 rounded-sm border border-subtle bg-solid p-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                disabled={toggling || !mic.enabled}
+              >
+                <option value={0}>Track 1</option>
+                <option value={1}>Track 2</option>
+                <option value={2}>Track 3</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -121,7 +153,7 @@ export default function AudioPane() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Device</label>
               <select
@@ -165,6 +197,20 @@ export default function AudioPane() {
                 disabled={toggling || !desktop.enabled}
               />
               <span className="text-mono-sm text-ink-secondary text-right">{desktop.level}%</span>
+            </div>
+            <div>
+              <label className="text-xs text-label text-ink-secondary mb-1.5 block">Track</label>
+              <select
+                aria-label="Desktop audio output track"
+                value={trackOf("desktop")}
+                onChange={(e) => setTrack("desktop", Number(e.target.value))}
+                className="w-full h-9 rounded-sm border border-subtle bg-solid p-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                disabled={toggling || !desktop.enabled}
+              >
+                <option value={0}>Track 1</option>
+                <option value={1}>Track 2</option>
+                <option value={2}>Track 3</option>
+              </select>
             </div>
           </div>
         </div>

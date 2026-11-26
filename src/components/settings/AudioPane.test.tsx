@@ -68,8 +68,9 @@ describe("AudioPane (§6.4 / 6.1)", () => {
       desktop: { enabled: true, muted: false, deviceId: "sink_0", level: 100 },
     });
     render(<AudioPane />);
+    // Combobox order: mic device, mic track, desktop device, desktop track.
     const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[1], { target: { value: "default" } });
+    fireEvent.change(selects[2], { target: { value: "default" } });
     await waitFor(() =>
       expect(mockedAudioSetChannel).toHaveBeenCalledWith({
         channel: "desktop",

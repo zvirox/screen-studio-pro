@@ -74,10 +74,18 @@ pub fn build_audio_plan(
     if channels.is_empty() {
         return Ok(None);
     }
-    // DATABASE §2.1: metadata describes the same snapshot used above.
+    // DATABASE §2.1: metadata describes the same snapshot used above, with
+    // the 11.1 output track each source lands on (default 0 = the single mix).
+    let track_of = |source_id: &str| -> u16 {
+        audio_tracks
+            .iter()
+            .find(|m| m.source_id == source_id)
+            .map(|m| m.track_index)
+            .unwrap_or(0)
+    };
     let row_note = serde_json::json!([
-        { "source": "mic", "device": audio.mic_device_id, "used": audio.mic_enabled },
-        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio },
+        { "source": "mic", "device": audio.mic_device_id, "used": audio.mic_enabled, "track": track_of("mic") },
+        { "source": "desktop", "device": audio.desktop_device_id, "used": audio.desktop_audio, "track": track_of("desktop") },
     ])
     .to_string();
     Ok(Some(super::session::AudioPlan {
