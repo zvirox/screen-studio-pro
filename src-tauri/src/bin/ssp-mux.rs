@@ -194,6 +194,33 @@ pub fn codecpar_to_spec(
     }
 }
 
+/// 13.2: build a video-only stream spec from stored primitives (codec id,
+/// extradata, dims, pixel format) — the parent has no live encoder after the
+/// take. Used by the instant-replay save to mux a highlight clip.
+pub fn video_spec_from_raw(
+    codec_id: i32,
+    extradata: &[u8],
+    width: i32,
+    height: i32,
+    pix_fmt: i32,
+) -> wire::StreamSpec {
+    wire::StreamSpec {
+        codec_type: ff::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO as i32,
+        codec_id,
+        codec_tag: 0,
+        format: pix_fmt,
+        width,
+        height,
+        bit_rate: 0,
+        sample_rate: 0,
+        channels: 0,
+        channel_mask: 0,
+        profile: 0,
+        level: 0,
+        extradata: wire::b64(extradata),
+    }
+}
+
 /// ffmpeg-sys-next 9 binds AVCodecID/AVMediaType as `#[repr(i32)]` Rust
 /// enums, so the wire's i32 cannot be an `as` cast. Both sides produced the
 /// value from the same enum, so transmute_copy is sound here (size checked).

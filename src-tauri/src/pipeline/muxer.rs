@@ -550,6 +550,44 @@ impl SubprocessMuxer {
     ) -> Result<Self, CoreError> {
         crate::encode::ensure_init();
         ensure_output_dir(path)?;
+        let (child, stdin) = Self::spawn_child(path, helper)?;
+        // Stream order is fixed: video 0, audio 1 (API take shape).
+        let mut video_spec =
+            ssp_mux::codecpar_to_spec(video_encoder, &encoder_extradata(video_encoder));
+        if let Some(pix_fmt) = stream_pix_fmt {
+            // ARCHITECTURE §2: codecpar format is the container's decoded
+            // format, not the encoder's surface format (Phase 7.4).
+            let pixel: ff::ffi::AVPixelFormat = pix_fmt.into();
+            video_spec.format = pixel as i32;
+        }
+        let mut specs = vec![video_spec];
+        for encoder in audio_encoders {
+            specs.push(ssp_mux::codecpar_to_spec(
+                encoder,
+                &encoder_extradata(encoder),
+            ));
+        }
+        Self::finish_init(child, stdin, path, specs)
+    }
+
+    /// 13.2: spawn the child for a video-only clip from a pre-built spec
+    /// (the instant-replay save has no live encoder after the take).
+    pub fn spawn_video_only(
+        path: &Path,
+        spec: ssp_mux::wire::StreamSpec,
+        helper: Option<&Path>,
+    ) -> Result<Self, CoreError> {
+        crate::encode::ensure_init();
+        ensure_output_dir(path)?;
+        let (child, stdin) = Self::spawn_child(path, helper)?;
+        Self::finish_init(child, stdin, path, vec![spec])
+    }
+
+    /// Spawn the `ssp-mux` child (piped stdio, fd hygiene) and take its stdin.
+    fn spawn_child(
+        path: &Path,
+        helper: Option<&Path>,
+    ) -> Result<(std::process::Child, std::process::ChildStdin), CoreError> {
         let helper = helper_path(helper)?;
         let mut command = Command::new(&helper);
         command
@@ -558,11 +596,9 @@ impl SubprocessMuxer {
             .stderr(Stdio::inherit());
         // FD HYGIENE (Phase 9.2): libavdevice opens /dev/video* with raw
         // `open()` (no O_CLOEXEC), so a plain `Command::spawn` leaks the
-        // camera fd into the child. A live take then blocks the camera's
-        // close→reopen in another test (and in a real session, a camera
-        // restart) because the kernel still sees that fd. Close everything
-        // above stdio in the forked child — the pipe fds are already dup2'd
-        // onto 0/1/2 before pre_exec runs. `close` is async-signal-safe.
+        // camera fd into the child. Close everything above stdio in the
+        // forked child — the pipe fds are already dup2'd onto 0/1/2 before
+        // pre_exec runs. `close` is async-signal-safe.
         #[cfg(unix)]
         {
             use std::os::unix::process::CommandExt;
@@ -586,23 +622,18 @@ impl SubprocessMuxer {
                 "The muxer helper could not start. Check the installation.",
             )
         })?;
-        let mut stdin = child.stdin.take().expect("piped stdin");
-        // Stream order is fixed: video 0, audio 1 (API take shape).
-        let mut video_spec =
-            ssp_mux::codecpar_to_spec(video_encoder, &encoder_extradata(video_encoder));
-        if let Some(pix_fmt) = stream_pix_fmt {
-            // ARCHITECTURE §2: codecpar format is the container's decoded
-            // format, not the encoder's surface format (Phase 7.4).
-            let pixel: ff::ffi::AVPixelFormat = pix_fmt.into();
-            video_spec.format = pixel as i32;
-        }
-        let mut specs = vec![video_spec];
-        for encoder in audio_encoders {
-            specs.push(ssp_mux::codecpar_to_spec(
-                encoder,
-                &encoder_extradata(encoder),
-            ));
-        }
+        let stdin = child.stdin.take().expect("piped stdin");
+        let _ = path; // path is used by the caller for the Init
+        Ok((child, stdin))
+    }
+
+    /// Send the Init (stream specs) and wait for the post-header ack byte.
+    fn finish_init(
+        mut child: std::process::Child,
+        mut stdin: std::process::ChildStdin,
+        path: &Path,
+        specs: Vec<ssp_mux::wire::StreamSpec>,
+    ) -> Result<Self, CoreError> {
         let init = ssp_mux::wire::Init {
             path: path.to_string_lossy().into_owned(),
             streams: specs,

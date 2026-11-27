@@ -111,6 +111,7 @@ pub fn run() {
         ipc::commands::window_hide,
         ipc::commands::system_capabilities,
         ipc::commands::autoconfig_recommend,
+        ipc::commands::replay_save,
         ipc::commands::settings_get,
         ipc::commands::settings_set,
         ipc::commands::shortcuts_apply,

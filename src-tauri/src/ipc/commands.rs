@@ -213,6 +213,20 @@ pub fn autoconfig_recommend() -> AutoConfigRecommendation {
     }
 }
 
+/* ---------- replay_save (API §2.6, 13.2) ---------- */
+
+/// `cmd://replay_save` — drain the instant-replay buffer and mux a video-only
+/// highlight clip into `dir`; returns the clip path.
+#[cfg(feature = "encode")]
+#[tauri::command]
+pub fn replay_save(dir: String, app: tauri::AppHandle) -> Result<Value, IpcError> {
+    let handle = app.state::<crate::pipeline::session::RecordingHandle>();
+    let path = handle
+        .replay_save(std::path::Path::new(&dir))
+        .map_err(|err| err.to_ipc())?;
+    Ok(Value::String(path.to_string_lossy().into_owned()))
+}
+
 /* ---------- presets_list (API §2.5, M11) ---------- */
 
 // Presets resolve into the encode path (pipeline::presets is encode-gated),

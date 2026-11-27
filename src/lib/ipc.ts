@@ -86,6 +86,11 @@ export function autoconfigRecommend(): Promise<AutoConfigRecommendation> {
   return call<AutoConfigRecommendation>("autoconfig_recommend");
 }
 
+/** `cmd://replay_save` — drain the instant-replay buffer to a clip (13.2). */
+export function replaySave(dir: string): Promise<string> {
+  return call<string>("replay_save", { dir });
+}
+
 /** `cmd://presets_list` — the four static quality presets (API §2.5). */
 export function presetsList(): Promise<PresetsListReply> {
   return call<PresetsListReply>("presets_list");

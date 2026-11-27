@@ -790,6 +790,49 @@ impl RecordingHandle {
         self.replay.clone()
     }
 
+    /// 13.2: drain the replay buffer and mux a video-only highlight clip.
+    #[cfg(feature = "encode")]
+    pub fn replay_save(&self, dir: &std::path::Path) -> Result<std::path::PathBuf, CoreError> {
+        let mut buf = self.replay.lock().unwrap_or_else(|p| p.into_inner());
+        let video = buf.video().cloned().ok_or_else(|| {
+            CoreError::disk("disk.write_failed", false, "No replay is buffered yet.")
+        })?;
+        let packets = buf.drain();
+        drop(buf);
+        if packets.is_empty() {
+            return Err(CoreError::disk(
+                "disk.write_failed",
+                false,
+                "No replay is buffered yet.",
+            ));
+        }
+        let spec = crate::pipeline::muxer::ssp_mux::video_spec_from_raw(
+            video.codec_id,
+            &video.extradata,
+            video.width,
+            video.height,
+            video.pix_fmt,
+        );
+        let path = dir.join(format!(
+            "replay-{}.mkv",
+            crate::util::time::rfc3339_now().replace(':', "-")
+        ));
+        let mut mux = SubprocessMuxer::spawn_video_only(&path, spec, None)?;
+        for p in packets {
+            let pkt = EncodedPacket {
+                stream: 0,
+                pts_us: p.pts_us,
+                dts_us: Some(p.pts_us),
+                key: p.key,
+                data: p.data,
+                latency: Default::default(),
+            };
+            mux.write(&[pkt])?;
+        }
+        mux.finalize()?;
+        Ok(path)
+    }
+
     /// Pin this handle's backend (test-only) without touching the process
     /// environment, so parallel tests stay independent.
     #[cfg(test)]
@@ -992,6 +1035,24 @@ impl RecordingHandle {
         // (SPS/PPS up-front) is unchanged.
         let global_header = wants_global_header(container);
         let (video_opened, hw_ctx) = open_selected_video_encoder(&spec, &selection, global_header)?;
+        // 13.2: capture the video stream description for the replay save.
+        {
+            let vspec = crate::pipeline::muxer::ssp_mux::codecpar_to_spec(
+                &video_opened,
+                &crate::pipeline::muxer::encoder_extradata(&video_opened),
+            );
+            let extradata =
+                crate::pipeline::muxer::ssp_mux::wire::unb64(&vspec.extradata).unwrap_or_default();
+            if let Ok(mut buf) = self.replay.lock() {
+                buf.set_video(crate::pipeline::replay::ReplayVideo {
+                    codec_id: vspec.codec_id,
+                    width: vspec.width,
+                    height: vspec.height,
+                    pix_fmt: vspec.format,
+                    extradata,
+                });
+            }
+        }
         let audio_opened = if has_audio {
             let spec = composition_audio_spec();
             tracks

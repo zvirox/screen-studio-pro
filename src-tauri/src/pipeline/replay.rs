@@ -15,11 +15,23 @@ pub struct ReplayPacket {
     pub data: Vec<u8>,
 }
 
+/// The video stream description captured at take start (primitives, so the
+/// buffer compiles in every build); the save rebuilds the wire spec from it.
+#[derive(Debug, Clone)]
+pub struct ReplayVideo {
+    pub codec_id: i32,
+    pub width: i32,
+    pub height: i32,
+    pub pix_fmt: i32,
+    pub extradata: Vec<u8>,
+}
+
 /// The replay ring: packets within `max_age_us` of the newest.
 pub struct ReplayBuffer {
     packets: VecDeque<ReplayPacket>,
     max_age_us: u64,
     enabled: bool,
+    video: Option<ReplayVideo>,
 }
 
 impl ReplayBuffer {
@@ -31,11 +43,21 @@ impl ReplayBuffer {
             packets: VecDeque::new(),
             max_age_us,
             enabled,
+            video: None,
         }
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    /// 13.2: record the video stream description (for the save mux).
+    pub fn set_video(&mut self, video: ReplayVideo) {
+        self.video = Some(video);
+    }
+
+    pub fn video(&self) -> Option<&ReplayVideo> {
+        self.video.as_ref()
     }
 
     /// Push one packet, evicting anything older than the window (measured
