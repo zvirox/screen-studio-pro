@@ -573,6 +573,8 @@ pub struct RecordingHandle {
     /// on a machine where the auto chain now picks VAAPI (PLAN 7.4).
     #[cfg(test)]
     forced_encoder: Mutex<Option<String>>,
+    /// 13.2: the live instant-replay ring (encoded packets, last ~30 s).
+    replay: Arc<Mutex<crate::pipeline::replay::ReplayBuffer>>,
 }
 
 struct ActiveRecording {
@@ -777,7 +779,15 @@ impl RecordingHandle {
             meta: Mutex::new(None),
             #[cfg(test)]
             forced_encoder: Mutex::new(None),
+            replay: Arc::new(Mutex::new(crate::pipeline::replay::ReplayBuffer::new(
+                30_000_000, false,
+            ))),
         }
+    }
+
+    /// 13.2: the live replay buffer (for the save-replay hand-off).
+    pub fn replay(&self) -> Arc<Mutex<crate::pipeline::replay::ReplayBuffer>> {
+        self.replay.clone()
     }
 
     /// Pin this handle's backend (test-only) without touching the process
@@ -1122,6 +1132,7 @@ impl RecordingHandle {
         let worker_preset = preset;
         let worker_loudness = loudness.clone();
         let worker_capture_drops = capture_drops.clone();
+        let worker_replay = self.replay.clone();
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {
@@ -1146,6 +1157,7 @@ impl RecordingHandle {
                     worker_preset,
                     worker_loudness,
                     worker_capture_drops,
+                    worker_replay,
                     camera_overlay.unwrap_or_default(),
                 )
             })
@@ -1438,6 +1450,7 @@ fn run_session(
     preset: crate::pipeline::presets::Preset,
     loudness: LoudnessShare,
     capture_drops: Option<Arc<std::sync::atomic::AtomicU64>>,
+    replay: Arc<Mutex<crate::pipeline::replay::ReplayBuffer>>,
     camera_overlay: CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut audio_leg = audio_leg;
@@ -1455,6 +1468,7 @@ fn run_session(
         preset,
         &loudness,
         &capture_drops,
+        &replay,
         &camera_overlay,
     );
     // The take is over — mark it BEFORE the error event, so a UI that
@@ -1494,6 +1508,7 @@ fn capture_take(
     preset: crate::pipeline::presets::Preset,
     loudness: &LoudnessShare,
     capture_drops: &Option<Arc<std::sync::atomic::AtomicU64>>,
+    replay: &Arc<Mutex<crate::pipeline::replay::ReplayBuffer>>,
     camera_overlay: &CameraOverlayConfig,
 ) -> Result<TakeFacts, CoreError> {
     let mut first_pts: Option<u64> = None;
@@ -1739,6 +1754,17 @@ fn capture_take(
                     latency_meter.record(&packet.latency);
                 }
                 let encoded_bytes: usize = packets.iter().map(|packet| packet.data.len()).sum();
+                // 13.2: fill the instant-replay ring (video only).
+                if let Ok(mut buf) = replay.lock() {
+                    for p in packets.iter().filter(|p| p.stream == 0) {
+                        buf.push(crate::pipeline::replay::ReplayPacket {
+                            pts_us: p.pts_us,
+                            stream: p.stream,
+                            key: p.key,
+                            data: p.data.clone(),
+                        });
+                    }
+                }
                 segment_bytes += bytes_of(&packets);
                 mux.write(&packets)?;
                 meter.record_frame(encoded_bytes, encode_time);
