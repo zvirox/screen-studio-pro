@@ -39,6 +39,18 @@ pub fn recommend(vaapi: bool, nvenc: bool) -> Recommendation {
     }
 }
 
+/// 12.3: pick the fastest encoder from measured throughput samples
+/// `(encoder_name, fps)`. The 2 s first-run benchmark produces these; a
+/// zero/empty sample set (benchmark unavailable) returns None so the caller
+/// falls back to the capability recommendation.
+pub fn pick_fastest(candidates: &[(String, f64)]) -> Option<String> {
+    candidates
+        .iter()
+        .filter(|(_, fps)| *fps > 0.0)
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(encoder, _)| encoder.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,5 +85,25 @@ mod tests {
                 r.preset_id
             );
         }
+    }
+
+    #[test]
+    fn pick_fastest_selects_the_highest_fps() {
+        let c = vec![
+            ("x264".to_string(), 120.0),
+            ("vaapi".to_string(), 240.0),
+            ("nvenc".to_string(), 200.0),
+        ];
+        assert_eq!(pick_fastest(&c).as_deref(), Some("vaapi"));
+    }
+
+    #[test]
+    fn pick_fastest_ignores_zero_and_empty() {
+        assert_eq!(pick_fastest(&[]), None);
+        assert_eq!(
+            pick_fastest(&[("x264".to_string(), 0.0)]),
+            None,
+            "a failed benchmark falls back"
+        );
     }
 }
