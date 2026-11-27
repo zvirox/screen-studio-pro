@@ -48,6 +48,9 @@ pub struct Capture {
     /// `track_index` are folded together, different indices become separate
     /// AAC streams. `source_id` is `"mic"` or `"desktop"`.
     pub audio_tracks: Vec<AudioChannelMap>,
+    /// 13.2: arm the instant-replay buffer during takes (default off, so the
+    /// capture hot path is unchanged until the user enables it).
+    pub replay_enabled: bool,
 }
 
 /// 11.1: one source→track assignment (API §2.2 `audio_tracks`).

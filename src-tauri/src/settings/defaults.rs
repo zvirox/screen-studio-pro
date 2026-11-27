@@ -14,6 +14,7 @@ pub fn default_settings() -> Settings {
             quality_preset: "youtube".into(),
             camera_self_insert: false,
             audio_tracks: Vec::new(),
+            replay_enabled: false,
         },
         audio: Audio {
             mic_device_id: None, // system default; M4 lists real devices

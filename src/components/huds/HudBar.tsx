@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Flag, Pause, Play, Square } from "lucide-react";
+import { Flag, History, Pause, Play, Square } from "lucide-react";
 import { useSspStore } from "../../lib/store";
 import { formatElapsed } from "../../lib/format";
 import { recordingFlag } from "../../lib/ipc";
@@ -19,6 +19,8 @@ export default function HudBar() {
   const pauseRecording = useSspStore((s) => s.pauseRecording);
   const resumeRecording = useSspStore((s) => s.resumeRecording);
   const stopRecording = useSspStore((s) => s.stopRecording);
+  const saveReplay = useSspStore((s) => s.saveReplay);
+  const replayEnabled = useSspStore((s) => s.settings.capture?.replayEnabled ?? false);
   const [pinned, setPinned] = useState(false);
   const [flagged, setFlagged] = useState(false);
 
@@ -88,6 +90,17 @@ export default function HudBar() {
         >
           <Square size={14} strokeWidth={1.5} className="fill-current" aria-hidden="true" />
         </button>
+        {replayEnabled && session.status === "recording" && (
+          <button
+            type="button"
+            aria-label="Save replay clip"
+            title="Save replay"
+            onClick={() => void saveReplay()}
+            className="flex h-8 w-8 items-center justify-center rounded-xs text-ink transition-[color,background-color,scale] duration-fast ease-fast motion-reduce:scale-none enabled:active:scale-[0.98] hover:bg-surface-hover focus-visible:outline focus-visible:outline-accent"
+          >
+            <History size={16} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        )}
         <button
           type="button"
           aria-label="Flag a chapter marker"

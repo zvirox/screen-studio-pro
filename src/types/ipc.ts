@@ -107,6 +107,8 @@ export interface CaptureSettings {
       stereo mix (mic + desktop folded to track 0). Each entry maps a
       source ("mic" | "desktop") to a container track index. */
   audioTracks: AudioChannelMap[];
+  /** 13.2: arm the instant-replay buffer during takes (default false). */
+  replayEnabled: boolean;
 }
 
 /** 11.1: one source→track assignment (Rust `AudioChannelMap`). */

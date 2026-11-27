@@ -16,6 +16,7 @@ import {
   recordingPause,
   recordingResume,
   settingsGet,
+  replaySave,
   settingsSet,
   sourceSelect,
   sourceRegionSet,
@@ -472,6 +473,7 @@ interface SspState {
   presets: PresetsSlice;
   loadPresets: () => Promise<void>;
   setPreset: (id: PresetId) => Promise<void>;
+  saveReplay: () => Promise<void>;
 
   /* Toasts (§5.6) — ToastHost renders; dismissToast is the user's ✕. */
   toasts: Toast[];
@@ -521,6 +523,26 @@ export const useSspStore = create<SspState>((set, get) => ({
       });
     } catch (err) {
       set({ presets: { ...INITIAL_PRESETS, status: "error", error: err as IpcError } });
+      set((s) =>
+        pushToast(s, {
+          kind: "error",
+          title: (err as IpcError).userMessage,
+          code: (err as IpcError).code,
+        }),
+      );
+    }
+  },
+
+  async saveReplay() {
+    try {
+      const path = await replaySave("");
+      set((s) =>
+        pushToast(s, {
+          kind: "status",
+          title: path ? "Replay clip saved" : "Replay saved",
+        }),
+      );
+    } catch (err) {
       set((s) =>
         pushToast(s, {
           kind: "error",

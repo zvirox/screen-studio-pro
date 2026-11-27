@@ -149,6 +149,7 @@ const DUMMY_SETTINGS: Settings = {
     qualityPreset: "youtube",
     cameraSelfInsert: false,
     audioTracks: [],
+    replayEnabled: false,
   },
   audio: {
     micDeviceId: null,
@@ -659,6 +660,7 @@ describe("Studio Store Integration: 7 UI v3 Features (Tier 1 & Tier 2)", () => {
         qualityPreset: "discord",
         cameraSelfInsert: false,
     audioTracks: [],
+    replayEnabled: false,
       });
       await useSspStore.getState().loadPresets();
 

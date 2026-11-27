@@ -927,6 +927,14 @@ impl RecordingHandle {
         auto_split: AutoSplitConfig,
         split_emit: Option<Arc<dyn Fn(SplitInfo) + Send + Sync>>,
     ) -> Result<StartInfo, CoreError> {
+        // 13.2: arm the instant-replay buffer for this take if enabled.
+        let replay_enabled = settings
+            .as_ref()
+            .map(|s| s.capture.replay_enabled)
+            .unwrap_or(false);
+        if let Ok(mut buf) = self.replay.lock() {
+            buf.set_enabled(replay_enabled);
+        }
         let mut slot = self.locked();
         // A worker that ended on its own (a mid-take fault) must not
         // block the next take — reap it and free the slot.

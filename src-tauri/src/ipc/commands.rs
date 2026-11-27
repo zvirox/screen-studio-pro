@@ -221,9 +221,12 @@ pub fn autoconfig_recommend() -> AutoConfigRecommendation {
 #[tauri::command]
 pub fn replay_save(dir: String, app: tauri::AppHandle) -> Result<Value, IpcError> {
     let handle = app.state::<crate::pipeline::session::RecordingHandle>();
-    let path = handle
-        .replay_save(std::path::Path::new(&dir))
-        .map_err(|err| err.to_ipc())?;
+    let dir = if dir.trim().is_empty() {
+        crate::util::paths::videos_dir()
+    } else {
+        std::path::PathBuf::from(&dir)
+    };
+    let path = handle.replay_save(&dir).map_err(|err| err.to_ipc())?;
     Ok(Value::String(path.to_string_lossy().into_owned()))
 }
 
