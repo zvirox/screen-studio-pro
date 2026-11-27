@@ -567,6 +567,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - Circular RAM ring buffer caching the rolling last $N$ seconds of video/audio (e.g. 30 seconds / 512 MB).
   - Single hotkey or HUD button dumps the buffer asynchronously to disk as an independent highlight clip.
   - *Verify:* Triggering save replay generates a playable, gapless 30-second clip without interrupting ongoing capture.
+  - ◐ **Buffer core landed (2026-11-26, pure Rust, no dep, `encode`):** `pipeline/replay.rs` — `ReplayBuffer` (encoded-packet ring, evicts by age vs the newest pts, `drain()` for the save hand-off, `span_us`). +3 tests. **Verify:** `cargo test` (208) + clippy -D warnings + --no-default green. **Remaining (wiring):** push every encoded packet into the buffer in the session worker, a `replay_save` command that drains to a temp file and muxes a clip, the hotkey/HUD button, and the gapless-playable verify.
 - [ ] **13.3 Dual-Canvas Concurrent Rendering (16:9 + 9:16 Shorts)**
   - Simultaneous dual-canvas pipeline producing a standard landscape recording and an auto-cropped 9:16 vertical short.
   - *Verify:* Single recording session produces two synchronized output files (`.mp4` and `-vertical.mp4`).
