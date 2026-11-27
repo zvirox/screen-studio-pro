@@ -4,6 +4,25 @@ All notable changes to ScreenStudio Pro are documented here. Format follows Keep
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - 2026-11-27
+
+### Added
+- **Zero-copy DMA-BUF ingestion (10.1):** `capture/dmabuf.rs` imports PipeWire DMA-BUFs as EGLImages with a `memmap2` CPU-map fallback (opt-in `SSP_DMA_BUF`); default MemFd path unchanged.
+- **HEVC / AV1 hardware codecs (10.2):** `encode::Codec` + `select_encoder_codec` map backend×codec to `h264|hevc|av1_vaapi` / `_nvenc`; `EncodedPacket.latency` (CTS/FER/FERC/PIR) + `encodeLatencyUs` stat.
+- **Multitrack audio (11.1):** `AudioChannelMap` + per-track AAC emission (ffprobe: video + 2 discrete AAC); `AudioPane` track-assignment UI.
+- **RNNoise voice isolation (11.2):** `nnnoiseless` (pure Rust) on the mic, `audio.noiseSuppression` + toggle.
+- **Sidechain ducking + limiter (11.3):** `pipeline/ducking.rs` (desktop −12 dB under mic, look-ahead limiter) + device-ID collision auto-mute.
+- **Drop classification (12.1):** `DropClassifier` (capture vs encoder) + HUD overload banner.
+- **Auto-config wizard (12.3):** `autoconfig_recommend` + first-run `FirstRunWizard` (Burgundy/Linear).
+- **Output scaler (13.1):** Lanczos for downscale.
+- **Instant replay (13.2):** `ReplayBuffer` + `replay_save` (video-only clip) + HUD trigger (default-off).
+- **Dual 16:9 + 9:16 output (13.3):** producer fan-out + second encoder/muxer/worker + `CaptureInspector` toggle (opt-in).
+- **Dynamic module ABI (14.1):** `ssp-module.h` C-ABI + `libloading` `ModuleHandle` + `[modules]` registry.
+
+### Changed / fixed
+- `check:linear` hardened (no-green, no-foreign-primary, no-charts, token sync); `pipeline/composite` gated behind `encode` (fixes `--no-default-features`); `Cargo.toml` `default-run`.
+- **Known gated (not in this build):** 10.2 `PASS_TEXTURE` zero-copy map (DRM bindings absent — falls back to upload); 13.3 dual-output live sync; 14.1 module routing/UI; 14.2 WebSocket RPC.
+
 ## [0.1.0-beta.4] - 2026-11-26
 
 ### Changed
