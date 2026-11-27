@@ -34,11 +34,26 @@ typedef struct SspModuleFrame {
     size_t data_len;
 } SspModuleFrame;
 
+/* 14.1 dynamic property: a tunable the host renders as a Linear control.
+ * `type` is one of SspParamFloat / SspParamInt / SspParamBool. */
+#define SSP_PARAM_FLOAT 0u
+#define SSP_PARAM_INT   1u
+#define SSP_PARAM_BOOL  2u
+typedef struct SspModuleParam {
+    const char *name;
+    uint32_t type;
+    float min;
+    float max;
+    float def;
+} SspModuleParam;
+
 typedef struct SspModuleApi {
     uint32_t abi_version;                 /* == SSP_MODULE_ABI_VERSION */
     int32_t (*init)(void);                /* optional, 0 on success */
     int32_t (*process)(SspModuleFrame *); /* required, 0 on success */
     void (*deinit)(void);                 /* optional */
+    uint32_t param_count;                 /* number of entries in `params` */
+    const SspModuleParam *params;         /* dynamic-properties descriptors */
 } SspModuleApi;
 
 #endif /* SSP_MODULE_H */

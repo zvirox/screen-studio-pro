@@ -32,6 +32,56 @@ struct ModuleApi {
     init: Option<unsafe extern "C" fn() -> i32>,
     process: Option<unsafe extern "C" fn(*mut ModuleFrame) -> i32>,
     deinit: Option<unsafe extern "C" fn()>,
+    param_count: u32,
+    params: *const ModuleParam,
+}
+
+/// `#[repr(C)]` mirror of `SspModuleParam` (14.1 dynamic property).
+#[repr(C)]
+pub(crate) struct ModuleParam {
+    name: *const std::os::raw::c_char,
+    type_: u32,
+    min: f32,
+    max: f32,
+    def: f32,
+}
+
+/// A module parameter mapped to a host control (14.1 properties engine).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParamSpec {
+    pub name: String,
+    pub kind: ParamKind,
+    pub min: f32,
+    pub max: f32,
+    pub default: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParamKind {
+    Float,
+    Int,
+    Bool,
+}
+
+impl ParamSpec {
+    /// Map a C descriptor to a host spec (pure; the UI renders from this).
+    pub(crate) fn from_c(p: &ModuleParam) -> Self {
+        let name = unsafe { std::ffi::CStr::from_ptr(p.name) }
+            .to_string_lossy()
+            .into_owned();
+        let kind = match p.type_ {
+            1 => ParamKind::Int,
+            2 => ParamKind::Bool,
+            _ => ParamKind::Float,
+        };
+        Self {
+            name,
+            kind,
+            min: p.min,
+            max: p.max,
+            default: p.def,
+        }
+    }
 }
 
 /// A loaded module: the library handle + its resolved vtable.
@@ -88,6 +138,17 @@ impl ModuleHandle {
             }
         }
         Ok(Self { _lib: lib, api })
+    }
+
+    /// The module's dynamic-property descriptors (14.1), for the UI engine.
+    pub fn params(&self) -> Vec<ParamSpec> {
+        let n = self.api.param_count as usize;
+        if n == 0 || self.api.params.is_null() {
+            return Vec::new();
+        }
+        (0..n)
+            .map(|i| ParamSpec::from_c(unsafe { &*self.api.params.add(i) }))
+            .collect()
     }
 
     /// Process one frame in place (the module may transform it). Typed error
@@ -173,5 +234,21 @@ mod tests {
             enabled: false,
         }];
         assert!(load_enabled(&entries).is_empty());
+    }
+
+    #[test]
+    fn param_from_c_maps_kind_and_range() {
+        let name = std::ffi::CString::new("threshold").expect("cstr");
+        let p = ModuleParam {
+            name: name.as_ptr(),
+            type_: 1,
+            min: 0.0,
+            max: 1.0,
+            def: 0.5,
+        };
+        let spec = ParamSpec::from_c(&p);
+        assert_eq!(spec.name, "threshold");
+        assert_eq!(spec.kind, ParamKind::Int);
+        assert_eq!(spec.default, 0.5);
     }
 }
