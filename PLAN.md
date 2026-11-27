@@ -575,6 +575,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - Simultaneous dual-canvas pipeline producing a standard landscape recording and an auto-cropped 9:16 vertical short.
   - *Verify:* Single recording session produces two synchronized output files (`.mp4` and `-vertical.mp4`).
   - ◐ **Geometry core landed (2026-11-26, pure Rust, no dep):** `pipeline/dual.rs` — `horizontal(canvas)` (even-aligned 16:9 = the canvas) and `vertical(canvas)` (9:16 at canvas height, even-aligned, never zero). +3 tests. **Verify:** `cargo test` (206) + clippy -D warnings + --no-default green. **Remaining (plumbing):** a second `Encoder` + second `SubprocessMuxer` fed from the same canvas (centre-crop + scale to the vertical geometry), the dual-output start path, and the two-file synchronized verify.
+  - ◐ **Crop transform landed (2026-11-26):** `dual::crop_vertical(&Frame)` — centre-crops the horizontal frame to 9:16 at full height (even-aligned, pitch-respecting, drops the dmabuf handle), the vertical encoder's input. +1 test. **Verify:** `cargo test` (207) + clippy -D warnings + --no-default green. **Remaining:** the second `Encoder` + `SubprocessMuxer` + dual-output start path + two-file sync verify.
 
 ---
 
