@@ -4694,6 +4694,7 @@ dependencies = [
  "ffmpeg-sys-next",
  "image",
  "khronos-egl",
+ "libloading 0.8.9",
  "memmap2",
  "nnnoiseless",
  "pipewire",

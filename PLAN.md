@@ -591,6 +591,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - C-compatible dynamic library (`.so`) plugin loader for custom video filters and audio processors.
   - Dynamic properties UI engine automatically maps C module parameters to Linear React settings dialogs.
   - *Verify:* Sample third-party filter plugin loads, registers source node, and renders interactive sliders in UI.
+  - ◐ **ABI + loader landed (2026-11-26, `libloading`, `encode`):** `capture/ssp-module.h` (stable C-ABI: `SspModuleFrame` + `SspModuleApi` vtable, `abi_version`) and `capture/module.rs` — `ModuleHandle::load` (dlopen, resolve `ssp_module_api`, version check, `init`), `process` (in-place, typed error), `Drop`→`deinit`, `load_dir` (registry dir scan, bad modules skipped). +2 tests. **Verify:** `cargo test` (209) + clippy -D warnings + --no-default green. **Remaining:** the `[modules]` settings registry + capture-source routing through a module + the dynamic-properties UI + the live cdylib load/process gate.
 - [ ] **14.2 Remote Control WebSocket RPC & Companion Protocol**
   - Complete Starship Control UDS bridge and expose optional local WebSocket server for Stream Deck and mobile controllers.
   - Supports atomic request batching (`RequestBatch`) and real-time state event streaming.

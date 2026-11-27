@@ -5,6 +5,8 @@ pub mod camera_v4l2;
 pub mod denoise;
 #[cfg(feature = "encode")]
 pub mod dmabuf;
+#[cfg(feature = "encode")]
+pub mod module;
 pub mod pipewire;
 pub mod portal;
 pub mod preview;
