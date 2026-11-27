@@ -141,6 +141,15 @@ pub fn load_dir(dir: &Path) -> Vec<ModuleHandle> {
     out
 }
 
+/// Load every enabled registry directory (settings `[modules]`).
+pub fn load_enabled(entries: &[crate::settings::ModuleEntry]) -> Vec<ModuleHandle> {
+    let mut out = Vec::new();
+    for entry in entries.iter().filter(|e| e.enabled) {
+        out.extend(load_dir(Path::new(&entry.dir)));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,5 +164,14 @@ mod tests {
     fn empty_dir_loads_nothing() {
         let dir = tempfile::tempdir().expect("tmp");
         assert!(load_dir(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn disabled_entries_are_skipped() {
+        let entries = vec![crate::settings::ModuleEntry {
+            dir: "/nonexistent".into(),
+            enabled: false,
+        }];
+        assert!(load_enabled(&entries).is_empty());
     }
 }

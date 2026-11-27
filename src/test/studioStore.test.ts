@@ -175,6 +175,7 @@ const DUMMY_SETTINGS: Settings = {
     pause: "Ctrl+Shift+P",
     stop: "Ctrl+Shift+S",
   },
+  modules: [],
 };
 
 describe("Studio Store Integration: 7 UI v3 Features (Tier 1 & Tier 2)", () => {

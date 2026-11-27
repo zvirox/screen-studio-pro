@@ -45,6 +45,7 @@ pub fn default_settings() -> Settings {
             pause: "Super+Shift+P".into(),
             stop: "Super+Shift+S".into(),
         },
+        modules: Vec::new(),
     }
 }
 

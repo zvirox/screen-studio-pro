@@ -164,6 +164,14 @@ export interface Settings {
   audio: AudioSettings;
   files: FilesSettings;
   shortcuts: ShortcutsSettings;
+  /** 14.1: dynamic module registry (each dir scanned for *.so). */
+  modules: ModuleEntry[];
+}
+
+/** 14.1: one dynamic-module source directory (Rust `ModuleEntry`). */
+export interface ModuleEntry {
+  dir: string;
+  enabled: boolean;
 }
 
 /** Partial-merge payload for settings_set — any subset of sections. */

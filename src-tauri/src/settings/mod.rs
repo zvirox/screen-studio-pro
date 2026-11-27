@@ -26,6 +26,16 @@ pub struct Settings {
     pub audio: Audio,
     pub files: Files,
     pub shortcuts: Shortcuts,
+    /// 14.1: dynamic module registry (each `dir` is scanned for `*.so`).
+    pub modules: Vec<ModuleEntry>,
+}
+
+/// 14.1: one dynamic-module source directory (settings `[modules]]`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ModuleEntry {
+    pub dir: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
