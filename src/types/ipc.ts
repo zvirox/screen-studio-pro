@@ -109,6 +109,8 @@ export interface CaptureSettings {
   audioTracks: AudioChannelMap[];
   /** 13.2: arm the instant-replay buffer during takes (default false). */
   replayEnabled: boolean;
+  /** 13.3: also produce a 9:16 vertical output (default false). */
+  dualOutput: boolean;
 }
 
 /** 11.1: one source→track assignment (Rust `AudioChannelMap`). */

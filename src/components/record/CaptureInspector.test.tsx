@@ -142,6 +142,7 @@ describe("CaptureInspector (Stage v3.4 Left Floating Inspector Deck)", () => {
       cameraSelfInsert: true,
     audioTracks: [],
     replayEnabled: false,
+    dualOutput: false,
     };
     vi.mocked(settingsGet).mockResolvedValue(
       mockCaptureSettings as unknown as Awaited<ReturnType<typeof settingsGet>>,

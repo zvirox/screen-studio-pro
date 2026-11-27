@@ -173,9 +173,39 @@ type LoudnessShare = Arc<std::sync::Mutex<(Option<f32>, f32)>>;
 ///   `pipewire.audio_device_gone` event per channel; the take continues
 ///   with that channel silent (windows still pad it to the mix length).
 /// - Anchor law: the first content window is stamped against the video
-///   worker's first-frame wall stamp, so audio can never lead video
-///   (§5b). AAC chunks are stamped by their SAMPLE index over the
-///   anchor — the exact rounded µs clock (`pts_us_to_samples` inverts).
+fn run_vertical_worker(
+    mut encoder: Box<dyn Encoder>,
+    mut mux: SubprocessMuxer,
+    bus: Arc<FrameBus>,
+    stop: Arc<AtomicBool>,
+) {
+    loop {
+        match bus.try_pop() {
+            Some(frame) => {
+                let vertical = crate::pipeline::dual::crop_vertical(&frame);
+                match encoder.encode(&vertical) {
+                    Ok(packets) => {
+                        if mux.write(&packets).is_err() {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        tracing::error!(error = %err, "vertical encode failed");
+                        break;
+                    }
+                }
+            }
+            None => {
+                if stop.load(Ordering::Acquire) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+    }
+    let _ = mux.finalize();
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_audio_worker(
     opened: Vec<ff::encoder::Audio>,
@@ -1202,6 +1232,73 @@ impl RecordingHandle {
         let worker_loudness = loudness.clone();
         let worker_capture_drops = capture_drops.clone();
         let worker_replay = self.replay.clone();
+        // 13.3 dual output (opt-in): a second encoder + muxer produce a 9:16
+        // vertical clip from the same canvas. The producer fan-out (portal)
+        // only pushes to the vertical bus while this arms the gate. Any
+        // failure is non-fatal — the main take continues (the `?` below only
+        // aborts the optional vertical leg).
+        if settings.as_ref().is_some_and(|s| s.capture.dual_output)
+            && let Some(app) = app
+        {
+            let cap = app.state::<crate::capture::CaptureHandle>();
+            if let (Some(vbus), Some(vgate)) = (cap.vertical_bus(), cap.vertical_enabled()) {
+                vgate.store(true, Ordering::Release);
+                let vdims = crate::pipeline::dual::vertical((spec.width, spec.height));
+                let vspec = VideoSpec {
+                    codec: spec.codec,
+                    width: vdims.width,
+                    height: vdims.height,
+                    pix_fmt: spec.pix_fmt,
+                    frame_rate: spec.frame_rate,
+                    options: spec.options.clone(),
+                };
+                let vselection = crate::encode::select_encoder(
+                    &encoder_name,
+                    (vspec.width, vspec.height),
+                    crate::pipeline::presets::x264_options(&preset),
+                )?;
+                let (vopened, vctx) =
+                    open_selected_video_encoder(&vspec, &vselection, global_header)?;
+                let vpath = path.with_file_name(format!(
+                    "{}-vertical.{}",
+                    path.file_stem().and_then(|s| s.to_str()).unwrap_or("take"),
+                    path.extension().and_then(|s| s.to_str()).unwrap_or("mkv")
+                ));
+                let vmux = SubprocessMuxer::spawn_with_stream_pix_fmt(
+                    &vpath,
+                    &vopened,
+                    &[],
+                    helper.as_deref(),
+                    Some(vselection.stream_pix_fmt),
+                )?;
+                let vencoder: Box<dyn Encoder> = match (vselection.hw, vctx) {
+                    (Some(HwKind::Vaapi), Some(ctx)) => Box::new(VaapiEncoder::from_open(
+                        vopened,
+                        ctx,
+                        (vspec.width, vspec.height),
+                    )?),
+                    (Some(HwKind::Cuda), Some(ctx)) => Box::new(NvencEncoder::from_open(
+                        vopened,
+                        ctx,
+                        (vspec.width, vspec.height),
+                    )?),
+                    (None, None) => Box::new(SwX264::from_open(vopened)),
+                    _ => {
+                        return Err(CoreError::encoder(
+                            "encoder.init_failed",
+                            false,
+                            "The vertical encoder could not initialize its hardware context.",
+                        ));
+                    }
+                };
+                let vstop = stop.clone();
+                let vbus = vbus.clone();
+                let _ = std::thread::Builder::new()
+                    .name("recording-vertical".into())
+                    .spawn(move || run_vertical_worker(vencoder, vmux, vbus, vstop));
+            }
+        }
+
         let worker = std::thread::Builder::new()
             .name("recording-encoder".into())
             .spawn(move || {

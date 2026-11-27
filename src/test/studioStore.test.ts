@@ -150,6 +150,7 @@ const DUMMY_SETTINGS: Settings = {
     cameraSelfInsert: false,
     audioTracks: [],
     replayEnabled: false,
+    dualOutput: false,
   },
   audio: {
     micDeviceId: null,
@@ -661,6 +662,7 @@ describe("Studio Store Integration: 7 UI v3 Features (Tier 1 & Tier 2)", () => {
         cameraSelfInsert: false,
     audioTracks: [],
     replayEnabled: false,
+    dualOutput: false,
       });
       await useSspStore.getState().loadPresets();
 
