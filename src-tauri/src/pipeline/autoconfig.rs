@@ -76,6 +76,7 @@ mod tests {
         assert_eq!(r.preset_id, "discord");
     }
 
+    #[cfg(feature = "encode")]
     #[test]
     fn recommended_preset_ids_exist() {
         for (v, n) in [(true, false), (false, true), (false, false)] {

@@ -175,6 +175,44 @@ pub fn system_capabilities() -> Capabilities {
     probe_capabilities()
 }
 
+/* ---------- autoconfig_recommend (API §2.6, 12.3) ---------- */
+
+/// The wire shape of a 12.3 auto-configuration recommendation.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoConfigRecommendation {
+    pub encoder: String,
+    pub preset_id: String,
+    pub reason: String,
+}
+
+/// `cmd://autoconfig_recommend` — the first-run wizard's default pick:
+/// this machine's best encoder + a quality preset (PLAN 12.3).
+#[tauri::command]
+pub fn autoconfig_recommend() -> AutoConfigRecommendation {
+    // Encoder probes are encode-only; a count-only build has no hardware
+    // encoders, so it recommends the CPU default.
+    let (vaapi, nvenc) = {
+        #[cfg(feature = "encode")]
+        {
+            (
+                crate::encode::vaapi_available().is_some(),
+                crate::encode::nvenc_available(),
+            )
+        }
+        #[cfg(not(feature = "encode"))]
+        {
+            (false, false)
+        }
+    };
+    let r = crate::pipeline::autoconfig::recommend(vaapi, nvenc);
+    AutoConfigRecommendation {
+        encoder: r.encoder,
+        preset_id: r.preset_id,
+        reason: r.reason,
+    }
+}
+
 /* ---------- presets_list (API §2.5, M11) ---------- */
 
 // Presets resolve into the encode path (pipeline::presets is encode-gated),

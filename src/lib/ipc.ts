@@ -3,6 +3,7 @@ import {
   IPC_CONTRACT_VERSION,
   type AudioListDevicesReply,
   type AudioSetChannelInput,
+  type AutoConfigRecommendation,
   type CameraListDevicesReply,
   type CameraOpenReply,
   type CameraPreviewReply,
@@ -78,6 +79,11 @@ export function windowHide(recordingId?: string): Promise<{ ok: boolean }> {
 /** `cmd://system_capabilities` — cold-start probe (API §2.5). */
 export function systemCapabilities(): Promise<Capabilities> {
   return call<Capabilities>("system_capabilities");
+}
+
+/** `cmd://autoconfig_recommend` — first-run encoder/preset pick (12.3). */
+export function autoconfigRecommend(): Promise<AutoConfigRecommendation> {
+  return call<AutoConfigRecommendation>("autoconfig_recommend");
 }
 
 /** `cmd://presets_list` — the four static quality presets (API §2.5). */

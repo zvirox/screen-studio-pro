@@ -6,6 +6,7 @@ import ToastHost from "./components/chrome/ToastHost";
 import RecordView from "./components/record/RecordView";
 import LibraryGrid from "./components/library/LibraryGrid";
 import SettingsView from "./components/settings/SettingsView";
+import FirstRunWizard from "./components/settings/FirstRunWizard";
 import { TitleBar } from "./components/linear/TitleBar";
 import { useHudWindow } from "./hooks/useHudWindow";
 import { useRecordingState } from "./hooks/useRecordingState";
@@ -51,12 +52,15 @@ function RecordingTitleIndicator() {
 export default function App() {
   const view = useSspStore((s) => s.view);
   const loadCapabilities = useSspStore((s) => s.loadCapabilities);
+  const firstRunCompleted = useSspStore((s) => s.prefs.firstRunCompleted);
+  const loadFirstRunCompleted = useSspStore((s) => s.loadFirstRunCompleted);
   useRecordingState();
   useHudWindow();
 
   useEffect(() => {
     void loadCapabilities();
-  }, [loadCapabilities]);
+    void loadFirstRunCompleted();
+  }, [loadCapabilities, loadFirstRunCompleted]);
 
   const selfScrolling = SELF_SCROLLING_VIEWS.includes(view);
 
@@ -89,6 +93,7 @@ export default function App() {
           </motion.div>
         </main>
         <ToastHost />
+        {firstRunCompleted === false && <FirstRunWizard />}
       </div>
     </MotionConfig>
   );

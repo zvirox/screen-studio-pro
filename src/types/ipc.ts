@@ -58,6 +58,13 @@ export interface Capabilities {
   version: VersionInfo;
 }
 
+/** 12.3: first-run auto-configuration recommendation (Rust `AutoConfigRecommendation`). */
+export interface AutoConfigRecommendation {
+  encoder: string;
+  presetId: PresetId;
+  reason: string;
+}
+
 /* ---------- §2.5 Quality presets (task 3.4, M11) ---------- */
 
 export type PresetId = "youtube" | "discord" | "lossless" | "smallest";
