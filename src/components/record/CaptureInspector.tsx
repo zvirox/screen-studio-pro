@@ -150,6 +150,7 @@ export default function CaptureInspector() {
   const settings = useSspStore((s) => s.settings);
   const loadCaptureSettings = useSspStore((s) => s.loadCaptureSettings);
   const setCameraSelfInsert = useSspStore((s) => s.setCameraSelfInsert);
+  const setCaptureSettings = useSspStore((s) => s.setCaptureSettings);
 
   const prefs = useSspStore((s) => s.prefs);
   const loadPipPrefs = useSspStore((s) => s.loadPipPrefs);
@@ -331,6 +332,20 @@ export default function CaptureInspector() {
             )}
             <span className="whitespace-nowrap">Region</span>
           </button>
+        </div>
+
+        {/* 13.3 Dual output (16:9 + 9:16) */}
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0">
+          <div className="flex min-w-0 flex-col">
+            <span className="text-body-sm font-medium text-ink">Dual output</span>
+            <span className="text-label text-ink-secondary">Also save a 9:16 vertical clip</span>
+          </div>
+          <Switch
+            aria-label="Dual 16:9 and 9:16 output"
+            checked={settings.capture?.dualOutput ?? false}
+            disabled={recording}
+            onCheckedChange={(checked) => void setCaptureSettings({ dualOutput: checked })}
+          />
         </div>
 
         {/* Source Status & Resolution Display */}
