@@ -5,6 +5,9 @@ they default on since task 1.3. `--no-default-features` still builds the
 capture/settings/library paths without them. */
 pub mod audio;
 #[cfg(feature = "encode")]
+#[cfg(feature = "encode")]
+pub mod autoconfig;
+#[cfg(feature = "encode")]
 pub mod cet;
 #[cfg(feature = "encode")]
 pub mod composite;

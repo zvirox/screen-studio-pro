@@ -547,6 +547,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - 2-second benchmark on first run testing encoder throughput and portal resolution.
   - Auto-selects optimal defaults (resolution, FPS, encoder backend, preset) tailored to detected GPU power.
   - *Verify:* Low-end iGPU vs discrete dGPU configurations choose appropriate presets automatically.
+  - ◐ **Capability core landed (2026-11-26, pure Rust, no dep):** `pipeline/autoconfig.rs` — `recommend(vaapi, nvenc)` → `Recommendation { encoder, preset_id, reason }` (VAAPI→YouTube 1080p60, then NVENC→YouTube, else CPU x264→Discord 720p30 lighter target). +4 tests (incl. preset-id existence). Also gated `pipeline/composite` behind `encode` (it is encode-only), fixing a latent `--no-default-features` break. **Verify:** `cargo test` (196) + clippy -D warnings + --no-default green. **Remaining:** the 2 s empirical throughput benchmark, the first-run wizard UI, and the iGPU-vs-dGPU verify.
 
 ---
 
