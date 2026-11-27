@@ -115,6 +115,13 @@ pub trait LiveSource: Send {
     fn drops(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU64>> {
         None
     }
+    /// 13.3: the second (vertical) encode bus + its enable gate (dual output).
+    fn vertical_bus(&self) -> Option<std::sync::Arc<crate::pipeline::FrameBus>> {
+        None
+    }
+    fn vertical_enabled(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
 }
 
 /* ---------- the single-session slot (§2.1 portal.busy rule) ---------- */
@@ -171,6 +178,22 @@ impl CaptureHandle {
     pub fn drops(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU64>> {
         match &*self.locked() {
             Slot::Active(source) => source.drops(),
+            _ => None,
+        }
+    }
+
+    /// 13.3: the active source's vertical bus + enable gate (dual output).
+    #[allow(dead_code)]
+    pub fn vertical_bus(&self) -> Option<std::sync::Arc<crate::pipeline::FrameBus>> {
+        match &*self.locked() {
+            Slot::Active(source) => source.vertical_bus(),
+            _ => None,
+        }
+    }
+    #[allow(dead_code)]
+    pub fn vertical_enabled(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        match &*self.locked() {
+            Slot::Active(source) => source.vertical_enabled(),
             _ => None,
         }
     }

@@ -40,6 +40,10 @@ pub struct MonitorSession {
     #[cfg(feature = "encode")]
     frame_bus: Arc<FrameBus>,
     #[cfg(feature = "encode")]
+    vertical_bus: Arc<FrameBus>,
+    #[cfg(feature = "encode")]
+    vertical_enabled: Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(feature = "encode")]
     width: u32,
     #[cfg(feature = "encode")]
     height: u32,
@@ -66,6 +70,16 @@ impl LiveSource for MonitorSession {
 
     fn drops(&self) -> Option<std::sync::Arc<std::sync::atomic::AtomicU64>> {
         Some(self.stream.drops())
+    }
+
+    #[cfg(feature = "encode")]
+    fn vertical_bus(&self) -> Option<Arc<FrameBus>> {
+        Some(self.vertical_bus.clone())
+    }
+
+    #[cfg(feature = "encode")]
+    fn vertical_enabled(&self) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        Some(self.vertical_enabled.clone())
     }
 
     fn stop_frames(&mut self) {
@@ -194,11 +208,17 @@ pub async fn select_monitor(
     #[cfg(feature = "encode")]
     let frame_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
     #[cfg(feature = "encode")]
+    let vertical_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
+    #[cfg(feature = "encode")]
+    let vertical_enabled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    #[cfg(feature = "encode")]
     let stream_guard = pipewire::start(
         node_id,
         (width, height),
         remote_fd,
         Some(frame_bus.clone()),
+        Some(vertical_bus.clone()),
+        vertical_enabled.clone(),
         Some(preview.clone()),
         Box::new(on_lost),
     )?;
@@ -208,6 +228,8 @@ pub async fn select_monitor(
         (width, height),
         remote_fd,
         None,
+        None,
+        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         Some(preview.clone()),
         Box::new(on_lost),
     )?;
@@ -251,6 +273,10 @@ pub async fn select_monitor(
             preview,
             #[cfg(feature = "encode")]
             frame_bus,
+            #[cfg(feature = "encode")]
+            vertical_bus,
+            #[cfg(feature = "encode")]
+            vertical_enabled,
             #[cfg(feature = "encode")]
             width,
             #[cfg(feature = "encode")]
@@ -348,11 +374,17 @@ pub async fn select_window(
     #[cfg(feature = "encode")]
     let frame_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
     #[cfg(feature = "encode")]
+    let vertical_bus = Arc::new(FrameBus::new(DEFAULT_CAPACITY));
+    #[cfg(feature = "encode")]
+    let vertical_enabled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    #[cfg(feature = "encode")]
     let stream_guard = pipewire::start(
         node_id,
         (width, height),
         remote_fd,
         Some(frame_bus.clone()),
+        Some(vertical_bus.clone()),
+        vertical_enabled.clone(),
         Some(preview.clone()),
         Box::new(on_lost),
     )?;
@@ -362,6 +394,8 @@ pub async fn select_window(
         (width, height),
         remote_fd,
         None,
+        None,
+        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         Some(preview.clone()),
         Box::new(on_lost),
     )?;
@@ -399,6 +433,10 @@ pub async fn select_window(
             preview,
             #[cfg(feature = "encode")]
             frame_bus,
+            #[cfg(feature = "encode")]
+            vertical_bus,
+            #[cfg(feature = "encode")]
+            vertical_enabled,
             #[cfg(feature = "encode")]
             width,
             #[cfg(feature = "encode")]

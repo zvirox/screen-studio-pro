@@ -86,6 +86,9 @@ struct FrameCounting {
     on_lost: LostSlot,
     /// Encode-tier bus (task 1.3): Some = frames are produced into it.
     frame_bus: Option<Arc<FrameBus>>,
+    /// 13.3: second (vertical) encode bus + enable gate (opt-in dual).
+    vertical_bus: Option<Arc<FrameBus>>,
+    vertical_enabled: Arc<AtomicBool>,
     /// Preview-stills tier (task 3.5): latest-wins mailbox fed at ≤8fps,
     /// gated BEFORE the pixel copy (§6: preview drops before encode).
     preview: Option<Arc<PreviewMailbox>>,
@@ -227,12 +230,27 @@ fn deliver(counting: &mut FrameCounting, frame: Frame) {
     let mailbox = counting.preview.clone();
     let now_ms = preview::wall_ms();
     let preview_due = mailbox.as_ref().is_some_and(|mb| mb.is_due(now_ms));
-    if bus.is_none() && !preview_due {
+    let vertical = counting.vertical_bus.clone().filter(|_| {
+        counting
+            .vertical_enabled
+            .load(std::sync::atomic::Ordering::Relaxed)
+    });
+    if bus.is_none() && !preview_due && vertical.is_none() {
         return;
     }
     if preview_due && let Some(mb) = mailbox {
         // Latest-wins: the old still drops here, never queued.
         mb.offer(frame.clone(), now_ms);
+    }
+    // 13.3: fan out to the vertical bus ONLY while a dual take armed it.
+    if let Some(vbus) = vertical {
+        match vbus.try_push(frame.clone()) {
+            Push::Pushed => {}
+            Push::Full(_) => {
+                counting.note_drop("vertical bus full (worker not draining)");
+                vbus.mark_dropped();
+            }
+        }
     }
     let Some(bus) = bus else {
         return;
@@ -313,11 +331,14 @@ impl Drop for StreamGuard {
 /// `frame_bus`: the encode-tier bus to feed (task 1.3); `None` keeps the
 /// count-only behaviour (manual gate path). `preview`: the stills mailbox
 /// (task 3.5) — fed at ≤8fps regardless of the encode bus.
+#[allow(clippy::too_many_arguments)]
 pub fn start(
     node_id: u32,
     size: (u32, u32),
     remote_fd: OwnedFd,
     frame_bus: Option<Arc<FrameBus>>,
+    vertical_bus: Option<Arc<FrameBus>>,
+    vertical_enabled: Arc<AtomicBool>,
     preview: Option<Arc<PreviewMailbox>>,
     on_lost: OnLost,
 ) -> Result<StreamGuard, CoreError> {
@@ -334,7 +355,17 @@ pub fn start(
             let lost_slot = lost_slot.clone();
             move || {
                 run_loop(
-                    node_id, size, remote_fd, frame_bus, preview, stop, frames, drops, lost_slot,
+                    node_id,
+                    size,
+                    remote_fd,
+                    frame_bus,
+                    vertical_bus,
+                    vertical_enabled,
+                    preview,
+                    stop,
+                    frames,
+                    drops,
+                    lost_slot,
                 )
             }
         })
@@ -364,6 +395,8 @@ fn run_loop(
     size: (u32, u32),
     remote_fd: OwnedFd,
     frame_bus: Option<Arc<FrameBus>>,
+    vertical_bus: Option<Arc<FrameBus>>,
+    vertical_enabled: Arc<AtomicBool>,
     preview: Option<Arc<PreviewMailbox>>,
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
@@ -380,6 +413,8 @@ fn run_loop(
         exited: false,
         on_lost: lost_slot.clone(),
         frame_bus,
+        vertical_bus,
+        vertical_enabled,
         preview,
         negotiated: None,
         first_drop_reason: None,

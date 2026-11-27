@@ -51,6 +51,9 @@ pub struct Capture {
     /// 13.2: arm the instant-replay buffer during takes (default off, so the
     /// capture hot path is unchanged until the user enables it).
     pub replay_enabled: bool,
+    /// 13.3: also produce a 9:16 vertical output from the same canvas
+    /// (default off; a second encoder + muxer + worker are spawned).
+    pub dual_output: bool,
 }
 
 /// 11.1: one source→track assignment (API §2.2 `audio_tracks`).

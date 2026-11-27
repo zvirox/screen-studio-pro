@@ -15,6 +15,7 @@ pub fn default_settings() -> Settings {
             camera_self_insert: false,
             audio_tracks: Vec::new(),
             replay_enabled: false,
+            dual_output: false,
         },
         audio: Audio {
             mic_device_id: None, // system default; M4 lists real devices
