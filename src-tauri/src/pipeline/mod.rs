@@ -17,6 +17,7 @@ pub mod loudness;
 pub mod muxer;
 #[cfg(feature = "encode")]
 pub mod presets;
+pub mod scaler;
 #[cfg(feature = "encode")]
 pub mod session;
 #[cfg(feature = "encode")]

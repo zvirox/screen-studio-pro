@@ -562,6 +562,7 @@ Source: `REAOS.md` (reverse-engineering study of an installed production recorde
   - Separate internal composition resolution (e.g. 4K / 1440p) from final encoded resolution (e.g. 1080p).
   - GPU-accelerated scaling passes (Bicubic, Lanczos, Area) on the render thread.
   - *Verify:* 4K canvas downscaled to 1080p outputs high-detail video with zero CPU scaling penalty.
+  - ◐ **Scaler algorithm landed (2026-11-26, pure Rust, no dep):** `pipeline/scaler.rs` — `choose(src, dst)` picks **Lanczos** for downscale (the quality-critical 1440p→1080p case) and **Bicubic** otherwise; the hw encoder's swscale context now uses it (was hardcoded BILINEAR). +2 tests. **Verify:** `cargo test` (205) + clippy -D warnings + --no-default green. **Remaining:** the GPU-side scaling pass (the current scale is the swscale CPU/GPU upload path) and the 4K→1080p zero-CPU-penalty live verify.
 - [ ] **13.2 Instant Replay Buffer**
   - Circular RAM ring buffer caching the rolling last $N$ seconds of video/audio (e.g. 30 seconds / 512 MB).
   - Single hotkey or HUD button dumps the buffer asynchronously to disk as an independent highlight clip.

@@ -667,6 +667,21 @@ pub(crate) mod hw {
                         "The capture stream does not match the recording that was started.",
                     ));
                 }
+                let algo = crate::pipeline::scaler::choose(
+                    (frame.width, frame.height),
+                    (self.out_w, self.out_h),
+                );
+                let flags = match algo {
+                    crate::pipeline::scaler::ScalerAlgo::Lanczos => {
+                        ff::software::scaling::Flags::LANCZOS
+                    }
+                    crate::pipeline::scaler::ScalerAlgo::Bicubic => {
+                        ff::software::scaling::Flags::BICUBIC
+                    }
+                    crate::pipeline::scaler::ScalerAlgo::Bilinear => {
+                        ff::software::scaling::Flags::BILINEAR
+                    }
+                };
                 let scaler = ff::software::scaling::Context::get(
                     src_pix,
                     frame.width,
@@ -674,7 +689,7 @@ pub(crate) mod hw {
                     self.hw.sw_format,
                     self.out_w,
                     self.out_h,
-                    ff::software::scaling::Flags::BILINEAR,
+                    flags,
                 )
                 .map_err(|err| {
                     tracing::error!(error = %err, "hw swscale init failed");
