@@ -20,7 +20,7 @@ export default function FilesPane() {
         <label htmlFor="files-dir" className="block text-label text-ink mb-1.5">
           Output directory
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 min-[480px]:flex-row">
           <input
             id="files-dir"
             type="text"
@@ -34,7 +34,7 @@ export default function FilesPane() {
           <button
             type="button"
             onClick={() => {}}
-            className="h-10 px-4 rounded-sm border border-subtle bg-solid px-4 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            className="h-10 rounded-sm border border-subtle bg-solid px-4 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           >
             Browse…
           </button>

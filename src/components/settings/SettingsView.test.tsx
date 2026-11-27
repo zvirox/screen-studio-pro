@@ -103,4 +103,12 @@ describe("SettingsView shell (§6.4 / §6.0)", () => {
       "min-[720px]:flex-col",
     );
   });
+
+  it("top-aligns the active pane instead of vertically centering sparse settings", () => {
+    render(<SettingsView />);
+
+    const panel = screen.getByRole("tabpanel", { name: "Camera" });
+    expect(panel).toHaveClass("justify-start", "gap-6");
+    expect(panel).not.toHaveClass("justify-center");
+  });
 });

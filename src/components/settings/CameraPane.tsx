@@ -23,7 +23,7 @@ export default function CameraPane() {
         recording.
       </p>
 
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 grid items-start gap-4 min-[480px]:grid-cols-[minmax(0,1fr)_auto] min-[480px]:items-center">
         <div className="flex items-center gap-3">
           <VideoOff size={18} strokeWidth={1.5} aria-hidden="true" />
           <div>
@@ -34,15 +34,17 @@ export default function CameraPane() {
             </p>
           </div>
         </div>
-        <Switch
-          aria-label="Self-insert camera in recording"
-          checked={selfInsert}
-          disabled={toggling || camera.status === "idle"}
-          onCheckedChange={() => {
-            setToggling(true);
-            void setCameraSelfInsert(!selfInsert).finally(() => setToggling(false));
-          }}
-        />
+        <div className="min-[480px]:justify-self-end">
+          <Switch
+            aria-label="Self-insert camera in recording"
+            checked={selfInsert}
+            disabled={toggling || camera.status === "idle"}
+            onCheckedChange={() => {
+              setToggling(true);
+              void setCameraSelfInsert(!selfInsert).finally(() => setToggling(false));
+            }}
+          />
+        </div>
       </div>
 
       {camera.status === "idle" && (

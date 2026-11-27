@@ -34,7 +34,7 @@ export default function ShortcutsPane() {
         {bindings.map((b) => (
           <div
             key={b.action}
-            className="flex items-center justify-between gap-3 p-3 rounded-sm border border-subtle bg-solid"
+            className="flex flex-col items-stretch gap-3 rounded-sm border border-subtle bg-solid p-3 min-[520px]:flex-row min-[520px]:items-center"
           >
             <div className="flex items-center gap-3">
               <Keyboard size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -43,26 +43,28 @@ export default function ShortcutsPane() {
                 <p className="text-xs text-ink-secondary">{b.action}</p>
               </div>
             </div>
-            <input
-              type="text"
-              value={b.value}
-              onChange={() => {
-                // optimistic local edit; applied on Apply
-              }}
-              readOnly
-              className="h-9 w-40 rounded-sm border border-subtle bg-solid p-1 font-mono text-mono-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-              disabled
-            />
-            <button
-              type="button"
-              onClick={() => {
-                // click to edit — placeholder for future combo capture UI
-              }}
-              disabled={toggling}
-              className="h-9 px-3 rounded-sm border border-subtle bg-solid text-body-sm text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              Edit
-            </button>
+            <div className="flex min-w-0 gap-2 min-[520px]:ml-auto">
+              <input
+                type="text"
+                value={b.value}
+                onChange={() => {
+                  // optimistic local edit; applied on Apply
+                }}
+                readOnly
+                className="h-9 min-w-0 flex-1 rounded-sm border border-subtle bg-solid p-1 font-mono text-mono-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent min-[520px]:w-40 min-[520px]:flex-none"
+                disabled
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  // click to edit — placeholder for future combo capture UI
+                }}
+                disabled={toggling}
+                className="h-9 rounded-sm border border-subtle bg-solid px-3 text-body-sm text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                Edit
+              </button>
+            </div>
           </div>
         ))}
       </div>

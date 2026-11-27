@@ -173,7 +173,7 @@ export default function SettingsView() {
               aria-labelledby={tabId(item.id)}
               hidden={!active}
               tabIndex={0}
-              className="mx-auto flex min-h-full w-full min-w-0 max-w-[560px] flex-col justify-center p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent min-[480px]:p-5 min-[720px]:p-6"
+              className="mx-auto flex min-h-full w-full min-w-0 max-w-[560px] flex-col justify-start gap-6 p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent min-[480px]:p-5 min-[720px]:p-6"
             >
               {active ? (
                 <>

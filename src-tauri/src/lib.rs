@@ -136,6 +136,8 @@ pub fn run() {
         ipc::commands::recording_add_chapter,
         ipc::commands::recording_stop,
     ]);
+    #[cfg(feature = "encode")]
+    let builder = with_library_commands(builder);
     #[cfg(not(feature = "encode"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         ipc::commands::ipc_hello,
@@ -176,6 +178,18 @@ pub fn run() {
                 app_state::dispatch(app, app_state::Action::Quit);
             }
         });
+}
+
+/// Registers the library IPC contract for the desktop app and mock-runtime
+/// contract test alike. These commands depend only on managed state, unlike
+/// several production-only commands that require the Wry runtime directly.
+#[cfg(feature = "encode")]
+fn with_library_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder.invoke_handler(tauri::generate_handler![
+        ipc::commands::library_list,
+        ipc::commands::library_get,
+        ipc::commands::library_delete,
+    ])
 }
 
 /// The `.setup` body — app-managed singletons (ARCHITECTURE §4.1).
@@ -227,6 +241,48 @@ mod capability_guard_tests {
     the manifest must name them explicitly; missing entries surface only
     as runtime `not allowed` rejections (found in the 1.5 visual pass). */
     use serde_json::Value;
+
+    #[cfg(feature = "encode")]
+    #[test]
+    fn library_list_is_reachable_over_ipc() {
+        use tauri::webview::InvokeRequest;
+
+        let data_dir = tempfile::tempdir().expect("temporary library directory");
+        let app = crate::with_library_commands(
+            tauri::test::mock_builder()
+                .manage(crate::library::LibraryHandle::open(data_dir.path())),
+        )
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("test app builds");
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("test webview builds");
+
+        let response = tauri::test::get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "library_list".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "tauri://localhost".parse().expect("test URL"),
+                body: tauri::ipc::InvokeBody::Json(serde_json::json!({
+                    "limit": 50,
+                    "offset": 0,
+                    "filter": {},
+                    "sort": { "field": "created_at", "direction": "desc" },
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        )
+        .expect("library_list must be registered and return a response");
+        let payload = response
+            .deserialize::<Value>()
+            .expect("library_list returns JSON");
+
+        assert_eq!(payload["total"], 0);
+        assert_eq!(payload["items"], serde_json::json!([]));
+    }
 
     fn default_capability() -> Value {
         let path =

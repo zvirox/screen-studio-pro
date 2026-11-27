@@ -72,7 +72,7 @@ export default function AudioPane() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Device</label>
               <select
@@ -183,7 +183,7 @@ export default function AudioPane() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid gap-4 min-[520px]:grid-cols-2">
             <div>
               <label className="text-xs text-label text-ink-secondary mb-1.5 block">Device</label>
               <select
